@@ -141,6 +141,8 @@
   for (i = 1; i < WEATHERS.length; i++) WEATHERS[i].tintRgb = hexToRgb(WEATHERS[i].tint);
   var TRIM_RGB = hexToRgb(TEAL_TRIM);
   var CREAM_RGB = hexToRgb('#E8DCC0');
+  var CREAMHI_RGB = hexToRgb(CREAM_HI);
+  var DEEP_RGB = hexToRgb('#0D211E');
 
   // back-row silhouettes: the console teals lifted toward cream — flat
   // constants that read as atmospheric distance on every sky
@@ -273,6 +275,8 @@
         cap: rng() < 0.5,                         // darker parapet slab
         door: rng() < 0.3,                        // burnt-orange door accent
         jitter: 0.6 + rng() * 0.8,                // spawn-interval variation
+        litBias: (rng() - 0.5) * 0.12,            // lights up early or late at dusk
+        chimney: rng() < 0.35 ? 0.2 + rng() * 0.6 : 0,   // stack position (0 = none)
         progress: 0,                              // 0 pending → 1 topped out
         rising: false,
         demolishing: false,
@@ -506,6 +510,28 @@
     });
   }
 
+  // poster clouds: flat blob clusters that drift across every sky and
+  // darken toward the console trim when weather rolls in
+  var clouds = [];
+  for (i = 0; i < 6; i++) {
+    var puffs = [];
+    var puffN = 3 + Math.floor(rng2() * 3);
+    for (var pj = 0; pj < puffN; pj++) {
+      puffs.push({
+        dx: (pj - (puffN - 1) / 2) * 20 + (rng2() * 10 - 5),
+        dy: -(rng2() * 9),
+        r: 13 + rng2() * 12
+      });
+    }
+    clouds.push({
+      x: rng2() * VIEW_W,
+      y: 55 + rng2() * 165,
+      v: 6 + rng2() * 10,
+      s: 0.8 + rng2() * 0.8,
+      puffs: puffs
+    });
+  }
+
   var AURORA_RIBBONS = [
     { base: 128, amp: 30, th: 46, f: 0.0052, sp: 1.0,  color: '47,97,87',    a: 0.55 },
     { base: 178, amp: 36, th: 40, f: 0.0043, sp: 0.7,  color: '201,162,39',  a: 0.30 },
@@ -614,6 +640,40 @@
       life: 0
     });
   }
+
+  /* ---------------- atmosphere: smoke, lightning, parallax ------------- */
+
+  // chimney smoke: flat rising puffs, leaning with the prevailing wind
+  var smoke = [];
+  var SMOKE_MAX = 70;
+  var smokeTimer = 0.6;
+
+  // a storm cell throws a bolt now and then while RAIN is fully dialed in
+  var lightning = { t: 0, cool: 9 + rng6() * 14, pts: null };
+
+  function makeBolt() {
+    var pts = [];
+    var x = 220 + rng6() * 1160;
+    var y = 30;
+    pts.push([x, y]);
+    while (y < GROUND_Y - 160) {
+      y += 36 + rng6() * 26;
+      x += (rng6() * 2 - 1) * 34;
+      pts.push([x, y]);
+    }
+    return pts;
+  }
+
+  // pointer parallax + idle drift: the camera's sideways interest.
+  // Layers translate by parX × their depth factor in drawScene.
+  var parX = 0;
+  var parTarget = 0;
+  var lastPointer = -100;
+  window.addEventListener('pointermove', function (e) {
+    var w = window.innerWidth || 1;
+    parTarget = ((e.clientX / w) - 0.5) * 24;
+    lastPointer = effT;
+  });
 
   /* ---------------- civic calendar ---------------- */
   /* Sixteen real seconds to a civic month; the seasons turn even while
@@ -1021,6 +1081,53 @@
 
       updateFireworks(dt);
 
+      // clouds drift; smoke rises from whichever stacks are drawing
+      for (i = 0; i < clouds.length; i++) {
+        clouds[i].x += clouds[i].v * dt;
+        if (clouds[i].x > VIEW_W + 130) clouds[i].x = -130;
+      }
+      smokeTimer -= dt;
+      if (smokeTimer <= 0) {
+        smokeTimer = 0.35 + rng6() * 0.5;
+        var sb = city[Math.floor(rng6() * city.length)];
+        if (sb.chimney && sb.progress === 1 && smoke.length < SMOKE_MAX) {
+          smoke.push({
+            x: sb.x + sb.chimney * sb.w,
+            y: GROUND_Y - sb.h - 14,
+            r: 3 + rng6() * 2.5,
+            vy: -(9 + rng6() * 7),
+            vx: -4 - 5 * weatherLevel[1],
+            life: 0,
+            max: 3 + rng6() * 2
+          });
+        }
+      }
+      for (i = smoke.length - 1; i >= 0; i--) {
+        p = smoke[i];
+        p.life += dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.r += 1.8 * dt;
+        if (p.life > p.max) smoke.splice(i, 1);
+      }
+
+      // lightning while the storm is fully dialed in
+      if (lightning.t > 0) lightning.t -= dt;
+      if (weatherLevel[1] > 0.7) {
+        lightning.cool -= dt;
+        if (lightning.cool <= 0) {
+          lightning.cool = 9 + rng6() * 14;
+          lightning.t = 0.32;
+          lightning.pts = makeBolt();
+          document.dispatchEvent(new CustomEvent('municitron:lightning'));
+        }
+      }
+
+      // parallax follows the pointer; after six idle seconds the camera
+      // wanders on its own so the scene breathes untouched
+      if (effT - lastPointer > 6) parTarget = Math.sin(effT * 0.06) * 7;
+      parX += (parTarget - parX) * Math.min(1, dt * 2.5);
+
       // birds commute at dawn and dusk
       birdTimer -= dt;
       if (birdTimer <= 0) {
@@ -1420,6 +1527,12 @@
     ctx.fillRect(0, RAIL_Y, VIEW_W, 7);           // beam
     ctx.fillStyle = BRASS;
     ctx.fillRect(0, RAIL_Y - 2, VIEW_W, 2);       // brass running rail
+    if (weatherLevel[2] > 0.05) {                 // snow settles on the beam
+      ctx.globalAlpha = weatherLevel[2] * 0.9;
+      ctx.fillStyle = CREAM_HI;
+      ctx.fillRect(0, RAIL_Y - 4, VIEW_W, 2.5);
+      ctx.globalAlpha = 1;
+    }
 
     if (!monorail.active || reducedMotion.matches) return;
     var x = monorail.x;
@@ -1539,6 +1652,47 @@
     ctx.stroke();
     ctx.fillStyle = BRASS;
     ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  function drawClouds(color) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    for (var i = 0; i < clouds.length; i++) {
+      var cl = clouds[i];
+      for (var j = 0; j < cl.puffs.length; j++) {
+        var pf = cl.puffs[j];
+        dotPath(cl.x + pf.dx * cl.s, cl.y + pf.dy * cl.s, pf.r * cl.s);
+      }
+      var ext = (cl.puffs.length * 11 + 14) * cl.s;
+      ctx.rect(cl.x - ext, cl.y, ext * 2, 6 * cl.s);   // the flat poster base
+    }
+    ctx.fill();
+  }
+
+  function drawSmoke(color) {
+    if (reducedMotion.matches || !smoke.length) return;
+    ctx.fillStyle = color;
+    for (var i = 0; i < smoke.length; i++) {
+      var p = smoke[i];
+      ctx.globalAlpha = Math.max(0, 0.42 * (1 - p.life / p.max));
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawBolt() {
+    if (lightning.t <= 0 || !lightning.pts || reducedMotion.matches) return;
+    var a = lightning.t / 0.32;
+    ctx.strokeStyle = CREAM_HI;
+    ctx.lineWidth = 2.5;
+    ctx.globalAlpha = Math.max(0, a * (0.55 + 0.45 * Math.sin(lightning.t * 80)));
+    ctx.beginPath();
+    for (var i = 0; i < lightning.pts.length; i++) {
+      var pt = lightning.pts[i];
+      if (i === 0) ctx.moveTo(pt[0], pt[1]); else ctx.lineTo(pt[0], pt[1]);
+    }
+    ctx.stroke();
     ctx.globalAlpha = 1;
   }
 
@@ -1827,19 +1981,40 @@
     var top = GROUND_Y - h;
     var i, wd;
 
+    litLevel = Math.max(0, Math.min(1, litLevel + (b.litBias || 0)));
+
     ctx.fillStyle = b.color;
     ctx.fillRect(b.x, top, b.w, h);
 
-    // a burnt-orange safety cordon crowns any works in progress
+    // a burnt-orange safety cordon crowns any works in progress, and the
+    // risen portion shows its floors going in
     if (b.progress < 1 && (b.rising || b.demolishing) && h > 8) {
       ctx.fillStyle = ORANGE;
       ctx.fillRect(b.x, top, b.w, 3);
+      if (b.rising) {
+        ctx.globalAlpha = 0.35;
+        ctx.fillStyle = TEAL_TRIM;
+        for (var fy = GROUND_Y - 26; fy > top + 8; fy -= 26) {
+          ctx.fillRect(b.x + 3, fy, b.w - 6, 2);
+        }
+        ctx.globalAlpha = 1;
+      }
     }
 
     if (b.progress === 1) {
       if (b.cap) {
         ctx.fillStyle = TEAL_TRIM;
         ctx.fillRect(b.x - 4, top, b.w + 8, 7);
+      }
+      if (b.chimney) {                            // rooftop stack
+        ctx.fillStyle = TEAL_TRIM;
+        ctx.fillRect(b.x + b.chimney * b.w - 4.5, top - 12, 9, 12);
+      }
+      if (weatherLevel[2] > 0.05) {               // settled rooftop snow
+        ctx.globalAlpha = weatherLevel[2] * 0.9;
+        ctx.fillStyle = CREAM_HI;
+        ctx.fillRect(b.x - 1, top - 3, b.w + 2, 4);
+        ctx.globalAlpha = 1;
       }
       if (b.mast) {
         var mx = b.x + b.w / 2;
@@ -1963,8 +2138,30 @@
     var sky = rgbStr(skyRgb);
     var skyLum = (0.299 * skyRgb[0] + 0.587 * skyRgb[1] + 0.114 * skyRgb[2]) / 255;
 
+    // clouds sit slightly off the sky in-family: toward trim on pale
+    // skies, toward cream on dark ones, and toward storm when weather
+    // rolls in; smoke splits the difference
+    var cloudRgb = skyLum > 0.55
+      ? mixRgb(skyRgb, TRIM_RGB, 0.14)
+      : mixRgb(skyRgb, CREAMHI_RGB, 0.16);
+    cloudRgb = mixRgb(cloudRgb, TRIM_RGB, 0.28 * Math.max(weatherLevel[1], weatherLevel[2]));
+    var cloudColor = rgbStr(cloudRgb);
+    var smokeColor = rgbStr(mixRgb(skyRgb, CREAMHI_RGB, 0.5));
+
     ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    ctx.fillRect(-80, 0, VIEW_W + 160, VIEW_H);
+
+    // the living camera: a slow breathing zoom anchored at the ground
+    // line, plus pointer parallax — the sky drifts least, the street
+    // most, so the flat poster reads as a stage with depth
+    ctx.save();
+    var zoom = reducedMotion.matches ? 1 : 1 + 0.02 * (0.5 + 0.5 * Math.sin(effT * 0.07));
+    ctx.translate(VIEW_W / 2, GROUND_Y);
+    ctx.scale(zoom, zoom);
+    ctx.translate(-VIEW_W / 2, -GROUND_Y);
+
+    ctx.save();                                   // ---- far sky ----
+    ctx.translate(parX * 0.25, 0);
 
     if (starLevel > 0.01) {
       ctx.fillStyle = CREAM_HI;
@@ -1997,16 +2194,29 @@
 
     drawRainbow();
     drawSputnik(starLevel);
+    drawClouds(cloudColor);
+    ctx.restore();
+
+    ctx.save();                                   // ---- high traffic ----
+    ctx.translate(parX * 0.4, 0);
     drawAirship(litLevel);
     drawRegatta(litLevel);
     drawUfo();
     drawBirds(skyLum);
-    drawSearchlights(starLevel);
+    ctx.restore();
 
+    ctx.save();                                   // ---- back row ----
+    ctx.translate(parX * 0.55, 0);
     for (i = 0; i < bgCity.length; i++) drawBuilding(bgCity[i], litLevel);
+    ctx.restore();
+
+    ctx.save();                                   // ---- the street ----
+    ctx.translate(parX, 0);
+    drawSearchlights(starLevel);
     for (i = 0; i < landmarks.length; i++) drawLandmark(landmarks[i], litLevel);
     drawPark(litLevel);
     for (i = 0; i < city.length; i++) drawBuilding(city[i], litLevel);
+    drawSmoke(smokeColor);
     drawStreetlamps(litLevel);
     for (i = 0; i < city.length; i++) drawCrane(city[i]);
     drawStringLights(litLevel);
@@ -2018,13 +2228,35 @@
 
     drawRain(weatherLevel[1], skyLum);
     drawSnow(weatherLevel[2]);
+    drawBolt();
 
     // brass horizon line over a dark ground band, echoing the console
-    // trim; settled snow pales the band while SNOW is dialed in
-    ctx.fillStyle = rgbStr(mixRgb(TRIM_RGB, CREAM_RGB, weatherLevel[2] * 0.55));
-    ctx.fillRect(0, GROUND_Y, VIEW_W, VIEW_H - GROUND_Y);
+    // trim; settled snow pales the band, rain slicks it darker
+    var bandRgb = mixRgb(TRIM_RGB, CREAM_RGB, weatherLevel[2] * 0.55);
+    bandRgb = mixRgb(bandRgb, DEEP_RGB, weatherLevel[1] * 0.4);
+    ctx.fillStyle = rgbStr(bandRgb);
+    ctx.fillRect(-80, GROUND_Y, VIEW_W + 160, VIEW_H - GROUND_Y);
     ctx.fillStyle = BRASS;
-    ctx.fillRect(0, GROUND_Y, VIEW_W, 3);
+    ctx.fillRect(-80, GROUND_Y, VIEW_W + 160, 3);
+
+    // wet-street reflections: lamps and doorways smear into the asphalt
+    var wet = weatherLevel[1];
+    if (wet > 0.02) {
+      ctx.globalAlpha = wet * 0.3;
+      if (streetlamps) {
+        ctx.fillStyle = BRASS;
+        for (var lx = 85; lx < VIEW_W; lx += 170) {
+          ctx.fillRect(lx - 1, GROUND_Y + 5, 2, 24);
+        }
+      }
+      ctx.fillStyle = ORANGE;
+      for (i = 0; i < city.length; i++) {
+        if (city[i].door && city[i].progress === 1) {
+          ctx.fillRect(city[i].x + city[i].w / 2 - 1.5, GROUND_Y + 5, 3, 16);
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
 
     // engraved city-name plate on the ground band (darkens when snow
     // pales the band so it always reads)
@@ -2050,6 +2282,16 @@
       ctx.globalAlpha = 1;
     }
     if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+
+    ctx.restore();                                // street layer
+    ctx.restore();                                // camera
+
+    // the bolt's sky-wide flash is a screen effect, outside the camera
+    if (lightning.t > 0 && !reducedMotion.matches) {
+      ctx.fillStyle = 'rgba(242, 233, 210, ' +
+        (0.14 * (lightning.t / 0.32)).toFixed(3) + ')';
+      ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    }
 
     drawTestPattern();                            // calibration card covers all
   }

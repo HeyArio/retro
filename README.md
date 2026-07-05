@@ -40,6 +40,16 @@ the address bar always holds a shareable link to the current scene.
   streetlamps, every coin after gets a fireworks salute
 - **POWER lamp** — click to toggle the valve audio unit
 
+## Atmosphere
+
+The scene is staged in parallax layers under a living camera: a slow
+breathing zoom anchored at the ground line, pointer parallax (the sky
+drifts least, the street the most) and an idle wander when the mouse is
+away. Poster clouds cross every sky and darken into storm cells, chimney
+smoke leans with the wind, lightning cracks over full rain (with thunder
+on the valve audio), wet streets reflect the lamps and doorways, and
+snow settles on every rooftop and the monorail beam.
+
 ## Civic life
 
 A sixteen-second civic month drives the seasons: December strings lights
