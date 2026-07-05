@@ -94,14 +94,23 @@
     strips.push(strip);
   }
 
+  var booting = false;                    // the power-on self test owns the dials
+  var needleBase = -78;
+  var needleQuiver = 0;
+
+  function setNeedle() {
+    gaugeNeedle.style.transform = 'rotate(' + (needleBase + needleQuiver) + 'deg)';
+  }
+
   function renderPopulation() {
+    if (booting) return;
     var padded = String(Math.floor(state.population)).padStart(6, '0');
     for (var i = 0; i < 6; i++) {
       strips[i].style.transform = 'translateY(' + (-Number(padded[i]) * DIGIT_H) + 'px)';
     }
     // town-scale sweep: one full needle revolution per 10,000 citizens
-    var angle = -78 + ((state.population % 10000) / 10000) * 156;
-    gaugeNeedle.style.transform = 'rotate(' + angle + 'deg)';
+    needleBase = -78 + ((state.population % 10000) / 10000) * 156;
+    setNeedle();
   }
 
   /* ---------------- console → city event bridge ---------------- */
@@ -214,7 +223,69 @@
 
   coinMech.addEventListener('click', function () {
     flashLamp(coinLamp, 'coin', 1200);
+    // the machine says thank you in its own fiction (streetlamps, a
+    // small salute in the sky) — see js/city.js
+    document.dispatchEvent(new CustomEvent('municitron:coin'));
     window.open(KOFI_URL, '_blank', 'noopener');
+  });
+
+  /* ---------------- machine personality ---------------- */
+  /* The M-58 is a 1958 unit and acts like one: a power-on self test
+     sweeps the dials, the census needle quivers in a storm, and once
+     in a while a lamp flickers — routine maintenance is scheduled. */
+
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+  var powerLamp = $('power-lamp');
+
+  // power-on self test: drums roll to 9s, needle sweeps, lamps settle
+  if (!reduced.matches) {
+    booting = true;
+    setTimeout(function () {
+      for (var i = 0; i < 6; i++) {
+        strips[i].style.transform = 'translateY(' + (-9 * DIGIT_H) + 'px)';
+      }
+      needleBase = 78;
+      setNeedle();
+      powerLamp.classList.remove('on');
+    }, 150);
+    setTimeout(function () { powerLamp.classList.add('on'); }, 450);
+    setTimeout(function () { powerLamp.classList.remove('on'); }, 650);
+    setTimeout(function () {
+      powerLamp.classList.add('on');
+      booting = false;
+      renderPopulation();
+    }, 900);
+  }
+
+  // the needle can't quite hold steady under rain on the cabinet roof
+  setInterval(function () {
+    var want = (!reduced.matches && !booting && state.weather === 1)
+      ? (Math.random() * 2 - 1) * 2.5 : 0;
+    if (want !== needleQuiver) {
+      needleQuiver = want;
+      setNeedle();
+    }
+  }, 130);
+
+  // valve wear: a rare, brief flicker of the POWER lamp
+  setInterval(function () {
+    if (reduced.matches || booting || Math.random() > 0.07) return;
+    if (!powerLamp.classList.contains('on')) return;
+    powerLamp.classList.remove('on');
+    setTimeout(function () { powerLamp.classList.add('on'); }, 90 + Math.random() * 140);
+  }, 8000);
+
+  // typed maintenance code: NAZARBAN summons the factory test pattern
+  var codeBuffer = '';
+  document.addEventListener('keydown', function (e) {
+    if (e.target && e.target.isContentEditable) return;
+    if (!e.key || e.key.length !== 1) return;
+    codeBuffer = (codeBuffer + e.key.toUpperCase()).slice(-12);
+    if (codeBuffer.slice(-8) === 'NAZARBAN') {
+      codeBuffer = '';
+      flashLamp(xmitLamp, 'xmit', 1800);
+      document.dispatchEvent(new CustomEvent('municitron:testpattern'));
+    }
   });
 
   /* ---------------- attract mode ---------------- */

@@ -60,6 +60,10 @@
   }
 
   function clunk()  { blip(140, 0.06, 0.5, 'square'); blip(90, 0.09, 0.35, 'triangle'); }
+  function bell()   { blip(1320, 0.5, 0.3, 'sine'); blip(1980, 0.35, 0.15, 'sine', 0.02); }
+  function thump()  { blip(70, 0.3, 0.6, 'triangle'); blip(55, 0.4, 0.4, 'triangle', 0.12); }
+  function wobble() { blip(980, 0.18, 0.2, 'sine'); blip(760, 0.18, 0.2, 'sine', 0.14); blip(540, 0.26, 0.2, 'sine', 0.28); }
+  function tone()   { blip(1000, 0.6, 0.18, 'sine'); }
   function tick()   {
     var now = Date.now();
     if (now - lastTick < 70) return;
@@ -77,6 +81,10 @@
   document.addEventListener('municitron:population', function () { tick(); });
   document.addEventListener('municitron:landmark', function () { chime(); });
   document.addEventListener('municitron:transmit', function () { chime(); });
+  document.addEventListener('municitron:coin', function () { bell(); });
+  document.addEventListener('municitron:fireworks', function () { thump(); });
+  document.addEventListener('municitron:ufo', function () { wobble(); });
+  document.addEventListener('municitron:testpattern', function () { tone(); });
 
   // Sputnik telemetry: watch the ambient state for a pass starting
   var wasUp = false;

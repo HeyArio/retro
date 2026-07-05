@@ -773,6 +773,37 @@
     postBulletin('POSTCARD TRANSMITTED — FORM PC-1 FILED');
   });
 
+  // technicians' knob ritual: RAIN, SNOW, RAIN, AURORA summons the object
+  var weatherHist = [];
+  document.addEventListener('municitron:weather', function (e) {
+    weatherHist.push(e.detail.index);
+    if (weatherHist.length > 4) weatherHist.shift();
+    if (weatherHist.join(',') === '1,2,1,3') {
+      weatherHist.length = 0;
+      document.dispatchEvent(new CustomEvent('municitron:ufo'));
+    }
+  });
+
+  // the factory test pattern (typed maintenance code on the console)
+  var testPattern = 0;
+  document.addEventListener('municitron:testpattern', function () {
+    testPattern = 4;
+    postBulletin('NAZARBAN TEST PATTERN PT-1 — CALIBRATION IN PROGRESS');
+  });
+
+  // a coin in the slot buys the town something real: the first funds the
+  // streetlamps, every coin after that gets a small salute in the sky
+  var streetlamps = false;
+  document.addEventListener('municitron:coin', function () {
+    if (!streetlamps) {
+      streetlamps = true;
+      postBulletin('ANONYMOUS BENEFACTOR FUNDS NEW STREETLAMPS — THANK YOU');
+    } else {
+      postBulletin('ANOTHER KIND CITIZEN — THE TOWN SALUTES YOU');
+    }
+    startShow(3);
+  });
+
   function builtMass() {
     var area = 0;
     var i;
@@ -1045,6 +1076,8 @@
         startShow(4);
       }
     }
+
+    if (testPattern > 0) testPattern -= dt;
 
     // the civic calendar turns on its own clock, DORMANT or not
     calendar.t += dt;
@@ -1605,6 +1638,52 @@
     brassDots(dots, 2, Math.max(litLevel, 0.6));  // festive bulbs always glow a touch
   }
 
+  // the benefactor's streetlamps: brass heads down the whole street
+  function drawStreetlamps(litLevel) {
+    if (!streetlamps) return;
+    var glowing = litLevel > 0.55;
+    for (var x = 85; x < VIEW_W; x += 170) {
+      if (glowing) {
+        ctx.fillStyle = GLOW_BRASS;
+        ctx.beginPath(); ctx.arc(x, GROUND_Y - 26, 9, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = TEAL_TRIM;
+      ctx.fillRect(x - 1.5, GROUND_Y - 24, 3, 24);
+      ctx.fillStyle = BRASS;
+      ctx.beginPath(); ctx.arc(x, GROUND_Y - 26, 3, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // factory calibration card, straight from the Nazarban service manual
+  function drawTestPattern() {
+    if (testPattern <= 0) return;
+    var fade = Math.min(1, testPattern / 0.3, (4 - testPattern) / 0.3);
+    ctx.globalAlpha = Math.max(0, fade);
+    var bars = [TEALS[0], TEALS[1], TEALS[2], TEAL_TRIM, BRASS, ORANGE, CREAM_HI, '#E8DCC0'];
+    var bw = VIEW_W / bars.length;
+    for (var i = 0; i < bars.length; i++) {
+      ctx.fillStyle = bars[i];
+      ctx.fillRect(i * bw, 0, bw + 1, VIEW_H);
+    }
+    ctx.strokeStyle = CREAM_HI;                   // crosshair + circle
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(VIEW_W / 2, VIEW_H / 2, 130, 0, Math.PI * 2);
+    ctx.moveTo(VIEW_W / 2 - 170, VIEW_H / 2); ctx.lineTo(VIEW_W / 2 + 170, VIEW_H / 2);
+    ctx.moveTo(VIEW_W / 2, VIEW_H / 2 - 170); ctx.lineTo(VIEW_W / 2, VIEW_H / 2 + 170);
+    ctx.stroke();
+    ctx.fillStyle = TEAL_TRIM;
+    ctx.font = '600 22px Jost, Futura, sans-serif';
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '6px';
+    ctx.textAlign = 'center';
+    ctx.fillText('NAZARBAN INSTRUMENT WORKS', VIEW_W / 2, VIEW_H / 2 - 190);
+    ctx.font = '600 15px Jost, Futura, sans-serif';
+    ctx.fillText('TEST PATTERN PT-1 · MODEL M-58', VIEW_W / 2, VIEW_H / 2 + 208);
+    ctx.textAlign = 'left';
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+    ctx.globalAlpha = 1;
+  }
+
   function drawFireworks() {
     if (reducedMotion.matches) return;
     var i, p;
@@ -1864,6 +1943,7 @@
     for (i = 0; i < landmarks.length; i++) drawLandmark(landmarks[i], litLevel);
     drawPark(litLevel);
     for (i = 0; i < city.length; i++) drawBuilding(city[i], litLevel);
+    drawStreetlamps(litLevel);
     for (i = 0; i < city.length; i++) drawCrane(city[i]);
     drawStringLights(litLevel);
     drawDust();
@@ -1906,6 +1986,8 @@
       ctx.globalAlpha = 1;
     }
     if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+
+    drawTestPattern();                            // calibration card covers all
   }
 
   /* ---------------- loop ---------------- */
