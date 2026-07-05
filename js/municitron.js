@@ -13,9 +13,7 @@
   var TIME_NAMES = ['MIDNIGHT', 'DAWN', 'MORNING', 'NOON', 'AFTERNOON', 'DUSK', 'EVENING', 'NIGHT'];
   var TIME_GLYPHS = ['☾', '✶', '✶', '✶', '✶', '☾', '☾', '☾'];
   var GROWTH_NAMES = ['DORMANT', 'STEADY', 'BOOM'];
-  var GROWTH_RATES = [0, 6, 47];          // people per tick
   var LEVER_TOPS = [117, 63, 9];          // px, DORMANT → BOOM
-  var TICK_MS = 400;
   var POP_MAX = 999999;
 
   var state = {
@@ -87,6 +85,16 @@
     gaugeNeedle.style.transform = 'rotate(' + angle + 'deg)';
   }
 
+  /* ---------------- console → city event bridge ---------------- */
+
+  // The city simulation (js/city.js) listens for these; keep console and
+  // canvas decoupled so neither reaches into the other's internals.
+  function announce(channel, index, name) {
+    document.dispatchEvent(new CustomEvent('municitron:' + channel, {
+      detail: { index: index, name: name }
+    }));
+  }
+
   /* ---------------- controls ---------------- */
 
   function renderWeather() {
@@ -107,26 +115,29 @@
   weatherKnob.addEventListener('click', function () {
     state.weather = (state.weather + 1) % 4;
     renderWeather();
+    announce('weather', state.weather, WEATHER[state.weather]);
   });
 
   timeDial.addEventListener('click', function () {
     state.time = (state.time + 1) % 8;
     renderTime();
+    announce('time', state.time, TIME_NAMES[state.time]);
   });
 
   document.querySelectorAll('.lever-label').forEach(function (label) {
     label.addEventListener('click', function () {
       state.growth = Number(label.dataset.growth);
       renderGrowth();
+      announce('growth', state.growth, GROWTH_NAMES[state.growth]);
     });
   });
 
-  /* ---------------- population ticker ---------------- */
+  /* ---------------- census register (population from the city) --------- */
 
-  setInterval(function () {
-    state.population = Math.min(POP_MAX, state.population + GROWTH_RATES[state.growth]);
+  document.addEventListener('municitron:population', function (e) {
+    state.population = Math.min(POP_MAX, e.detail);
     renderPopulation();
-  }, TICK_MS);
+  });
 
   /* ---------------- lamps ---------------- */
 
@@ -196,4 +207,7 @@
   renderTime();
   renderGrowth();
   renderPopulation();
+  announce('weather', state.weather, WEATHER[state.weather]);
+  announce('time', state.time, TIME_NAMES[state.time]);
+  announce('growth', state.growth, GROWTH_NAMES[state.growth]);
 })();
