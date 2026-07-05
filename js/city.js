@@ -13,9 +13,16 @@
    sun/moon disc, fades stars in, and switches window lights on and off
    per a baked per-window schedule; changes crossfade over ~1.6s.
 
+   Phase 4: weather — RAIN (slanted streaks, overcast tint), SNOW (drifting
+   flakes, pale tint, snow settles on the ground band), AURORA (waving
+   ribbons; darkens the sky toward night at any hour so it always reads).
+   Particles use a second seeded rng stream so the city stream — and
+   therefore the city itself — is untouched by weather.
+
    Console ↔ city contract (DOM CustomEvents on document):
    - listens  'municitron:growth'     detail {index, name}  0=DORMANT 1=STEADY 2=BOOM
    - listens  'municitron:time'       detail {index, name}  0=MIDNIGHT … 7=NIGHT
+   - listens  'municitron:weather'    detail {index, name}  0=CLEAR 1=RAIN 2=SNOW 3=AURORA
    - emits    'municitron:population' detail <int>
    ========================================================================== */
 
@@ -46,6 +53,7 @@
   var AMBIENT_RATE    = [0, 8, 60];         // people/s once lots are occupied
   var POP_MAX         = 999999;             // census register is 6 drums
   var TIME_FADE       = 1.6;                // s to crossfade a time-of-day change
+  var WEATHER_FADE    = 1.2;                // s to crossfade a weather change
 
   /* ---------------- time-of-day palettes ------------------------------- */
   /* Indices follow the console dial: MIDNIGHT, DAWN, MORNING, NOON,
@@ -65,6 +73,56 @@
     { sky: '#122B27', lit: 0.85, star: 0.9,  cel: { kind: 'moon', x: 800,  y: 140, r: 38, color: CREAM_HI } }
   ];
 
+  /* ---------------- weather ------------------------------------------- */
+  /* Indices follow the console knob: CLEAR, RAIN, SNOW, AURORA.
+     `tint`/`amt` pull the current sky toward an in-family overcast,
+     pale-snow, or deep-night color by that fraction at full intensity. */
+
+  var WEATHERS = [
+    { tint: null },
+    { tint: '#31504A', amt: 0.35 },
+    { tint: '#D5C6A2', amt: 0.45 },
+    { tint: '#0D211E', amt: 0.60 }
+  ];
+
+  /* ---------------- helpers ---------------- */
+
+  function hexToRgb(hex) {
+    var n = parseInt(hex.slice(1), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+
+  function mixRgb(a, b, t) {
+    return [
+      a[0] + (b[0] - a[0]) * t,
+      a[1] + (b[1] - a[1]) * t,
+      a[2] + (b[2] - a[2]) * t
+    ];
+  }
+
+  function rgbStr(c) {
+    return 'rgb(' + Math.round(c[0]) + ',' + Math.round(c[1]) + ',' + Math.round(c[2]) + ')';
+  }
+
+  function mixColor(hexA, hexB, t) {
+    return rgbStr(mixRgb(hexToRgb(hexA), hexToRgb(hexB), t));
+  }
+
+  function easeOutCubic(p) {
+    var q = 1 - p;
+    return 1 - q * q * q;
+  }
+
+  function easeInOut(p) {
+    return p < 0.5 ? 2 * p * p : 1 - 2 * (1 - p) * (1 - p);
+  }
+
+  var i;
+  for (i = 0; i < TIMES.length; i++) TIMES[i].skyRgb = hexToRgb(TIMES[i].sky);
+  for (i = 1; i < WEATHERS.length; i++) WEATHERS[i].tintRgb = hexToRgb(WEATHERS[i].tint);
+  var TRIM_RGB = hexToRgb(TEAL_TRIM);
+  var CREAM_RGB = hexToRgb('#E8DCC0');
+
   /* ---------------- seeded rng ---------------- */
 
   function mulberry32(a) {
@@ -80,30 +138,6 @@
   var seedParam = parseInt(params.get('seed'), 10);
   var seed = isNaN(seedParam) ? (Math.random() * 0x100000000) >>> 0 : seedParam >>> 0;
   var rng = mulberry32(seed);
-
-  /* ---------------- color helpers ---------------- */
-
-  function hexToRgb(hex) {
-    var n = parseInt(hex.slice(1), 16);
-    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-  }
-
-  function mixColor(hexA, hexB, t) {
-    var a = hexToRgb(hexA), b = hexToRgb(hexB);
-    return 'rgb(' +
-      Math.round(a[0] + (b[0] - a[0]) * t) + ',' +
-      Math.round(a[1] + (b[1] - a[1]) * t) + ',' +
-      Math.round(a[2] + (b[2] - a[2]) * t) + ')';
-  }
-
-  function easeOutCubic(p) {
-    var q = 1 - p;
-    return 1 - q * q * q;
-  }
-
-  function easeInOut(p) {
-    return p < 0.5 ? 2 * p * p : 1 - 2 * (1 - p) * (1 - p);
-  }
 
   /* ---------------- city plan (pure, from rng only) -------------------- */
   /* The full build-out is planned up front; the lever only controls how
@@ -214,6 +248,39 @@
   settleLowCelestial(TIMES[1].cel);
   settleLowCelestial(TIMES[5].cel);
 
+  /* ---------------- weather particles (separate rng stream) ------------ */
+
+  var rng2 = mulberry32(seed ^ 0x9E3779B9);
+
+  var rain = [];
+  for (i = 0; i < 130; i++) {
+    rain.push({
+      x: rng2() * VIEW_W,
+      y: rng2() * GROUND_Y,
+      l: 14 + rng2() * 12,
+      v: 620 + rng2() * 320
+    });
+  }
+
+  var snow = [];
+  for (i = 0; i < 90; i++) {
+    snow.push({
+      x: rng2() * VIEW_W,
+      y: rng2() * GROUND_Y,
+      r: 1.8 + rng2() * 1.8,
+      v: 42 + rng2() * 46,
+      ph: rng2() * 6.283,
+      amp: 10 + rng2() * 18,
+      f: 0.5 + rng2() * 0.9
+    });
+  }
+
+  var AURORA_RIBBONS = [
+    { base: 128, amp: 30, th: 46, f: 0.0052, sp: 1.0,  color: '47,97,87',    a: 0.55 },
+    { base: 178, amp: 36, th: 40, f: 0.0043, sp: 0.7,  color: '201,162,39',  a: 0.30 },
+    { base: 100, amp: 24, th: 30, f: 0.0065, sp: 1.4,  color: '232,220,192', a: 0.22 }
+  ];
+
   /* ---------------- simulation state ---------------- */
 
   var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -228,6 +295,10 @@
   var timeTo = 2;
   var timeT = 1;                                  // crossfade progress 0→1
 
+  var weatherTo = 0;                              // CLEAR, matching the console
+  var weatherLevel = [1, 0, 0, 0];                // eased intensity per weather
+  var effT = 0;                                   // clock for aurora waves + snow sway
+
   document.addEventListener('municitron:growth', function (e) {
     growthIndex = e.detail.index;
   });
@@ -239,6 +310,10 @@
     timeT = reducedMotion.matches ? 1 : 0;
   });
 
+  document.addEventListener('municitron:weather', function (e) {
+    weatherTo = e.detail.index;
+  });
+
   function builtMass() {
     var area = 0;
     for (var i = 0; i < city.length; i++) {
@@ -248,6 +323,8 @@
   }
 
   function update(dt) {
+    var i, p;
+
     if (growthIndex > 0) {                        // DORMANT freezes construction
       spawnTimer -= dt;
       if (spawnTimer <= 0 && buildQueue.length) {
@@ -256,7 +333,7 @@
         if (reducedMotion.matches) { next.progress = 1; next.rising = false; }
         spawnTimer = SPAWN_INTERVAL[growthIndex] * next.jitter;
       }
-      for (var i = 0; i < city.length; i++) {
+      for (i = 0; i < city.length; i++) {
         var b = city[i];
         if (b.rising) {
           b.progress = Math.min(1, b.progress + dt / RISE_DURATION);
@@ -267,6 +344,34 @@
     }
 
     timeT = Math.min(1, timeT + dt / TIME_FADE);
+
+    // each weather fades toward 1 (selected) or 0 — robust under fast knob cycling
+    for (i = 0; i < 4; i++) {
+      var goal = (i === weatherTo) ? 1 : 0;
+      var step = (reducedMotion.matches ? 1 : dt / WEATHER_FADE);
+      weatherLevel[i] += Math.max(-step, Math.min(step, goal - weatherLevel[i]));
+    }
+
+    if (!reducedMotion.matches) {
+      effT += dt;
+
+      if (weatherLevel[1] > 0.01) {
+        for (i = 0; i < rain.length; i++) {
+          p = rain[i];
+          p.y += p.v * dt;
+          p.x -= p.v * 0.22 * dt;
+          if (p.y > GROUND_Y) { p.y -= GROUND_Y + 24; }
+          if (p.x < -30) p.x += VIEW_W + 60;
+        }
+      }
+      if (weatherLevel[2] > 0.01) {
+        for (i = 0; i < snow.length; i++) {
+          p = snow[i];
+          p.y += p.v * dt;
+          if (p.y > GROUND_Y - 2) { p.y -= GROUND_Y + 10; }
+        }
+      }
+    }
 
     var target = Math.min(POP_MAX, builtMass() * DENSITY + ambientPop);
     if (displayedPop < 0 || reducedMotion.matches) displayedPop = target;
@@ -316,6 +421,60 @@
       ctx.arc(cel.x + cel.r * 0.38, cel.y - cel.r * 0.22, cel.r * 0.86, 0, Math.PI * 2);
       ctx.fill();
     }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawAurora(alpha) {
+    if (alpha <= 0.01) return;
+    for (var r = 0; r < AURORA_RIBBONS.length; r++) {
+      var rb = AURORA_RIBBONS[r];
+      ctx.fillStyle = 'rgba(' + rb.color + ',' + (rb.a * alpha).toFixed(3) + ')';
+      ctx.beginPath();
+      var x;
+      for (x = 0; x <= VIEW_W; x += 50) {
+        var y = rb.base + Math.sin(x * rb.f + effT * rb.sp) * rb.amp
+                        + Math.sin(x * rb.f * 2.3 + effT * rb.sp * 1.6) * rb.amp * 0.35;
+        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      for (x = VIEW_W; x >= 0; x -= 50) {
+        var y2 = rb.base + rb.th
+               + Math.sin(x * rb.f * 1.3 + effT * rb.sp * 0.8) * 9
+               + Math.sin(x * rb.f + effT * rb.sp) * rb.amp
+               + Math.sin(x * rb.f * 2.3 + effT * rb.sp * 1.6) * rb.amp * 0.35;
+        ctx.lineTo(x, y2);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  function drawRain(alpha, skyLum) {
+    if (alpha <= 0.01 || reducedMotion.matches) return;
+    ctx.strokeStyle = skyLum > 0.45 ? 'rgba(22,51,47,0.55)' : 'rgba(232,220,192,0.45)';
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    for (var i = 0; i < rain.length; i++) {
+      var p = rain[i];
+      if (p.y < -30) continue;
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x - 0.22 * p.l, p.y + p.l);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  function drawSnow(alpha) {
+    if (alpha <= 0.01 || reducedMotion.matches) return;
+    ctx.fillStyle = CREAM_HI;
+    ctx.globalAlpha = alpha * 0.95;
+    ctx.beginPath();
+    for (var i = 0; i < snow.length; i++) {
+      var p = snow[i];
+      var sway = Math.sin(effT * p.f + p.ph) * p.amp;
+      dotPath(((p.x + sway) % VIEW_W + VIEW_W) % VIEW_W, p.y, p.r);
+    }
+    ctx.fill();
     ctx.globalAlpha = 1;
   }
 
@@ -385,9 +544,19 @@
     var to = TIMES[timeTo];
     var t = easeInOut(timeT);
 
-    var sky = mixColor(from.sky, to.sky, t);
+    var skyRgb = mixRgb(from.skyRgb, to.skyRgb, t);
     var litLevel = from.lit + (to.lit - from.lit) * t;
     var starLevel = from.star + (to.star - from.star) * t;
+
+    // weather pulls the sky toward its tint; aurora also brings out stars
+    for (var wi = 1; wi < 4; wi++) {
+      if (weatherLevel[wi] > 0.001) {
+        skyRgb = mixRgb(skyRgb, WEATHERS[wi].tintRgb, WEATHERS[wi].amt * weatherLevel[wi]);
+      }
+    }
+    starLevel = Math.max(starLevel, weatherLevel[3] * 0.75);
+    var sky = rgbStr(skyRgb);
+    var skyLum = (0.299 * skyRgb[0] + 0.587 * skyRgb[1] + 0.114 * skyRgb[2]) / 255;
 
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
@@ -401,6 +570,11 @@
       ctx.globalAlpha = 1;
     }
 
+    drawAurora(weatherLevel[3]);
+
+    // overcast weather veils the sun/moon
+    var celDim = 1 - 0.65 * Math.max(weatherLevel[1], weatherLevel[2]);
+
     // sun/moon: glide when the kind matches, crossfade when it changes
     if (timeFrom !== timeTo && timeT < 1 && from.cel.kind === to.cel.kind) {
       drawCelestial({
@@ -409,16 +583,20 @@
         y: from.cel.y + (to.cel.y - from.cel.y) * t,
         r: from.cel.r + (to.cel.r - from.cel.r) * t,
         color: mixColor(from.cel.color, to.cel.color, t)
-      }, 1, sky);
+      }, celDim, sky);
     } else {
-      if (timeT < 1) drawCelestial(from.cel, 1 - t, sky);
-      drawCelestial(to.cel, timeT < 1 ? t : 1, sky);
+      if (timeT < 1) drawCelestial(from.cel, (1 - t) * celDim, sky);
+      drawCelestial(to.cel, (timeT < 1 ? t : 1) * celDim, sky);
     }
 
     for (var i = 0; i < city.length; i++) drawBuilding(city[i], litLevel);
 
-    // brass horizon line over a dark ground band, echoing the console trim
-    ctx.fillStyle = TEAL_TRIM;
+    drawRain(weatherLevel[1], skyLum);
+    drawSnow(weatherLevel[2]);
+
+    // brass horizon line over a dark ground band, echoing the console
+    // trim; settled snow pales the band while SNOW is dialed in
+    ctx.fillStyle = rgbStr(mixRgb(TRIM_RGB, CREAM_RGB, weatherLevel[2] * 0.55));
     ctx.fillRect(0, GROUND_Y, VIEW_W, VIEW_H - GROUND_Y);
     ctx.fillStyle = BRASS;
     ctx.fillRect(0, GROUND_Y, VIEW_W, 3);
