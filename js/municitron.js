@@ -20,7 +20,7 @@
     weather: 0,
     time: 2,
     growth: 1,
-    population: 14208
+    population: 0            // the city simulation broadcasts the real figure
   };
 
   /* ---------------- dom ---------------- */
@@ -81,7 +81,8 @@
     for (var i = 0; i < 6; i++) {
       strips[i].style.transform = 'translateY(' + (-Number(padded[i]) * DIGIT_H) + 'px)';
     }
-    var angle = -78 + ((state.population % 100000) / 100000) * 156;
+    // town-scale sweep: one full needle revolution per 10,000 citizens
+    var angle = -78 + ((state.population % 10000) / 10000) * 156;
     gaugeNeedle.style.transform = 'rotate(' + angle + 'deg)';
   }
 

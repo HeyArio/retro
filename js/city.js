@@ -10,14 +10,19 @@
    built city and is broadcast for the census register.
 
    Phase 3: time of day — the TIME dial shifts the sky palette, moves a
-   sun/moon disc, fades stars in, and switches window lights on and off
-   per a baked per-window schedule; changes crossfade over ~1.6s.
+   sun/moon disc, fades stars in, and drives the window-light schedules.
 
    Phase 4: weather — RAIN (slanted streaks, overcast tint), SNOW (drifting
    flakes, pale tint, snow settles on the ground band), AURORA (waving
    ribbons; darkens the sky toward night at any hour so it always reads).
    Particles use a second seeded rng stream so the city stream — and
    therefore the city itself — is untouched by weather.
+
+   Review pass: windows are ALWAYS flat brass dots (the approved poster
+   look); "lit" adds a flat halo glow on top per the time schedules.
+   Time-of-day blending rebuilt on eased per-time weights — same
+   architecture as weather — so knob/dial spamming always blends smoothly.
+   Population tuned to town scale and the register never fully settles.
 
    Console ↔ city contract (DOM CustomEvents on document):
    - listens  'municitron:growth'     detail {index, name}  0=DORMANT 1=STEADY 2=BOOM
@@ -36,7 +41,8 @@
   var BRASS      = '#C9A227';
   var ORANGE     = '#D96F32';
   var CREAM_HI   = '#F2E9D2';
-  var UNLIT      = 'rgba(13, 28, 26, 0.35)';
+  var GLOW_BRASS = 'rgba(201, 162, 39, 0.30)';
+  var GLOW_ORANGE = 'rgba(217, 111, 50, 0.32)';
 
   /* logical drawing space — everything renders in these coordinates and
      is mapped to the real backing store with a single setTransform */
@@ -49,8 +55,8 @@
   var INITIAL_BUILT   = 3;                  // buildings standing at power-on
   var SPAWN_INTERVAL  = [Infinity, 5.0, 1.3]; // s between new builds, per lever
   var RISE_DURATION   = 2.6;                // s for a building to top out
-  var DENSITY         = 0.4;                // people per logical px² of built mass
-  var AMBIENT_RATE    = [0, 8, 60];         // people/s once lots are occupied
+  var DENSITY         = 0.06;               // town numbers, not metropolis numbers
+  var AMBIENT_RATE    = [0, 2, 9];          // people/s — register never settles
   var POP_MAX         = 999999;             // census register is 6 drums
   var TIME_FADE       = 1.6;                // s to crossfade a time-of-day change
   var WEATHER_FADE    = 1.2;                // s to crossfade a weather change
@@ -59,7 +65,7 @@
   /* Indices follow the console dial: MIDNIGHT, DAWN, MORNING, NOON,
      AFTERNOON, DUSK, EVENING, NIGHT. Skies are flat in-family tints:
      cream through burnt-orange cream into deep teal. `lit` is the
-     fraction of window schedules that are on; `cel` follows the dial's
+     fraction of window schedules glowing; `cel` follows the dial's
      glyphs (sun for dawn→afternoon, moon otherwise). */
 
   var TIMES = [
@@ -104,21 +110,16 @@
     return 'rgb(' + Math.round(c[0]) + ',' + Math.round(c[1]) + ',' + Math.round(c[2]) + ')';
   }
 
-  function mixColor(hexA, hexB, t) {
-    return rgbStr(mixRgb(hexToRgb(hexA), hexToRgb(hexB), t));
-  }
-
   function easeOutCubic(p) {
     var q = 1 - p;
     return 1 - q * q * q;
   }
 
-  function easeInOut(p) {
-    return p < 0.5 ? 2 * p * p : 1 - 2 * (1 - p) * (1 - p);
-  }
-
   var i;
-  for (i = 0; i < TIMES.length; i++) TIMES[i].skyRgb = hexToRgb(TIMES[i].sky);
+  for (i = 0; i < TIMES.length; i++) {
+    TIMES[i].skyRgb = hexToRgb(TIMES[i].sky);
+    TIMES[i].cel.rgb = hexToRgb(TIMES[i].cel.color);
+  }
   for (i = 1; i < WEATHERS.length; i++) WEATHERS[i].tintRgb = hexToRgb(WEATHERS[i].tint);
   var TRIM_RGB = hexToRgb(TEAL_TRIM);
   var CREAM_RGB = hexToRgb('#E8DCC0');
@@ -134,9 +135,11 @@
     };
   }
 
+  // ?seed=0 is a real seed; anything non-numeric falls back to random
   var params = new URLSearchParams(window.location.search);
-  var seedParam = parseInt(params.get('seed'), 10);
-  var seed = isNaN(seedParam) ? (Math.random() * 0x100000000) >>> 0 : seedParam >>> 0;
+  var seedRaw = params.get('seed');
+  var seedNum = (seedRaw === null || seedRaw === '') ? NaN : Number(seedRaw);
+  var seed = isFinite(seedNum) ? (seedNum >>> 0) : (Math.random() * 0x100000000) >>> 0;
   var rng = mulberry32(seed);
 
   /* ---------------- city plan (pure, from rng only) -------------------- */
@@ -177,9 +180,10 @@
     }
     tallest.mast = true;                          // brass mast on the tallest
 
-    // window dots: fixed grid per building; each window gets a baked
-    // schedule threshold (lit when the time's `lit` level exceeds it)
-    // and a rare warm-orange accent, so lighting is deterministic
+    // window dots: an irregular subset of each building's grid exists
+    // (poster look), drawn as brass dots at ALL times; each pane also
+    // gets a baked schedule threshold — when the time's `lit` level
+    // exceeds it, a flat halo glow switches on behind the dot
     for (i = 0; i < lots.length; i++) {
       b = lots[i];
       var colSpace = 20, rowSpace = 24, inset = 15;
@@ -191,6 +195,7 @@
       var y0 = GROUND_Y - b.h + inset + Math.round((b.h - inset * 2 - gridH) / 2);
       for (var r = 0; r < rows; r++) {
         for (var c = 0; c < cols; c++) {
+          if (rng() < 0.40) continue;             // no pane on this grid cell
           b.windows.push({
             x: x0 + c * colSpace,
             y: y0 + r * rowSpace,
@@ -291,12 +296,12 @@
   var displayedPop = -1;                          // forces first census broadcast
   var lastEmitted = -1;
 
-  var timeFrom = 2;                               // MORNING, matching the console
-  var timeTo = 2;
-  var timeT = 1;                                  // crossfade progress 0→1
-
+  // eased weight per dial position — same architecture for both controls,
+  // so any spam pattern on the console blends smoothly (primary use case)
+  var timeTo = 2;                                 // MORNING, matching the console
+  var timeLevel = [0, 0, 1, 0, 0, 0, 0, 0];
   var weatherTo = 0;                              // CLEAR, matching the console
-  var weatherLevel = [1, 0, 0, 0];                // eased intensity per weather
+  var weatherLevel = [1, 0, 0, 0];
   var effT = 0;                                   // clock for aurora waves + snow sway
 
   document.addEventListener('municitron:growth', function (e) {
@@ -304,10 +309,7 @@
   });
 
   document.addEventListener('municitron:time', function (e) {
-    if (e.detail.index === timeTo) return;
-    timeFrom = timeTo;
     timeTo = e.detail.index;
-    timeT = reducedMotion.matches ? 1 : 0;
   });
 
   document.addEventListener('municitron:weather', function (e) {
@@ -320,6 +322,14 @@
       area += city[i].w * city[i].h * easeOutCubic(city[i].progress);
     }
     return area;
+  }
+
+  function easeLevels(levels, target, dt, fade) {
+    var step = reducedMotion.matches ? 1 : dt / fade;
+    for (var i = 0; i < levels.length; i++) {
+      var goal = (i === target) ? 1 : 0;
+      levels[i] += Math.max(-step, Math.min(step, goal - levels[i]));
+    }
   }
 
   function update(dt) {
@@ -343,14 +353,8 @@
       ambientPop += AMBIENT_RATE[growthIndex] * dt;
     }
 
-    timeT = Math.min(1, timeT + dt / TIME_FADE);
-
-    // each weather fades toward 1 (selected) or 0 — robust under fast knob cycling
-    for (i = 0; i < 4; i++) {
-      var goal = (i === weatherTo) ? 1 : 0;
-      var step = (reducedMotion.matches ? 1 : dt / WEATHER_FADE);
-      weatherLevel[i] += Math.max(-step, Math.min(step, goal - weatherLevel[i]));
-    }
+    easeLevels(timeLevel, timeTo, dt, TIME_FADE);
+    easeLevels(weatherLevel, weatherTo, dt, WEATHER_FADE);
 
     if (!reducedMotion.matches) {
       effT += dt;
@@ -389,9 +393,21 @@
   var canvas = document.getElementById('sim-canvas');
   var ctx = canvas.getContext('2d');
 
+  // the canvas lives inside the CSS transform-scaled machine, so the
+  // on-screen size is rect × dpr; measuring forces a layout read, so we
+  // only re-measure for a few frames after the events that can change it
+  // (the same triggers the console's fit() listens to)
+  var measureFrames = 3;
+  function requestMeasure() { measureFrames = 3; }
+  window.addEventListener('resize', requestMeasure);
+  window.addEventListener('load', requestMeasure);
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(requestMeasure).observe(document.documentElement);
+  }
+
   function fitBackingStore() {
     var rect = canvas.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
+    if (!rect.width || !rect.height) return false;
     var dpr = window.devicePixelRatio || 1;
     var w = Math.round(rect.width * dpr);
     var h = Math.round(rect.height * dpr);
@@ -399,6 +415,7 @@
       canvas.width = w;
       canvas.height = h;
     }
+    return true;
   }
 
   /* ---------------- drawing ---------------- */
@@ -409,8 +426,8 @@
   }
 
   function drawCelestial(cel, alpha, sky) {
-    if (alpha <= 0) return;
-    ctx.globalAlpha = alpha;
+    if (alpha <= 0.01) return;
+    ctx.globalAlpha = Math.min(1, alpha);
     ctx.fillStyle = cel.color;
     ctx.beginPath();
     ctx.arc(cel.x, cel.y, cel.r, 0, Math.PI * 2);
@@ -502,13 +519,32 @@
       }
     }
 
-    // three batched passes so hundreds of dots stay cheap: brass, accent, unlit
-    ctx.fillStyle = BRASS;
+    // four batched passes: flat halo glows for scheduled-lit panes first,
+    // then every pane's dot on top (brass, plus rare orange accents)
+    ctx.fillStyle = GLOW_BRASS;
     ctx.beginPath();
     for (i = 0; i < b.windows.length; i++) {
       wd = b.windows[i];
       if (wd.y < top + 6) continue;               // above the built portion
-      if (wd.threshold < litLevel && !wd.accent) dotPath(wd.x, wd.y, 3);
+      if (wd.threshold < litLevel && !wd.accent) dotPath(wd.x, wd.y, 7);
+    }
+    ctx.fill();
+
+    ctx.fillStyle = GLOW_ORANGE;
+    ctx.beginPath();
+    for (i = 0; i < b.windows.length; i++) {
+      wd = b.windows[i];
+      if (wd.y < top + 6) continue;
+      if (wd.threshold < litLevel && wd.accent) dotPath(wd.x, wd.y, 7);
+    }
+    ctx.fill();
+
+    ctx.fillStyle = BRASS;
+    ctx.beginPath();
+    for (i = 0; i < b.windows.length; i++) {
+      wd = b.windows[i];
+      if (wd.y < top + 6) continue;
+      if (!wd.accent) dotPath(wd.x, wd.y, 3);
     }
     ctx.fill();
 
@@ -517,16 +553,7 @@
     for (i = 0; i < b.windows.length; i++) {
       wd = b.windows[i];
       if (wd.y < top + 6) continue;
-      if (wd.threshold < litLevel && wd.accent) dotPath(wd.x, wd.y, 3);
-    }
-    ctx.fill();
-
-    ctx.fillStyle = UNLIT;
-    ctx.beginPath();
-    for (i = 0; i < b.windows.length; i++) {
-      wd = b.windows[i];
-      if (wd.y < top + 6) continue;
-      if (wd.threshold >= litLevel) dotPath(wd.x, wd.y, 3);
+      if (wd.accent) dotPath(wd.x, wd.y, 3);
     }
     ctx.fill();
 
@@ -540,13 +567,37 @@
     // map the logical 1600×600 space onto the backing store
     ctx.setTransform(canvas.width / VIEW_W, 0, 0, canvas.height / VIEW_H, 0, 0);
 
-    var from = TIMES[timeFrom];
-    var to = TIMES[timeTo];
-    var t = easeInOut(timeT);
+    // blend every active time-of-day by its eased weight; sun and moon
+    // each render at the weighted average of their active positions
+    var wSum = 0, litLevel = 0, starLevel = 0;
+    var skyRgb = [0, 0, 0];
+    var sunW = 0, sun = { kind: 'sun', x: 0, y: 0, r: 0, rgb: [0, 0, 0] };
+    var moonW = 0, moon = { kind: 'moon', x: 0, y: 0, r: 0, rgb: [0, 0, 0] };
+    var i, w, T, cel, acc;
 
-    var skyRgb = mixRgb(from.skyRgb, to.skyRgb, t);
-    var litLevel = from.lit + (to.lit - from.lit) * t;
-    var starLevel = from.star + (to.star - from.star) * t;
+    for (i = 0; i < 8; i++) {
+      w = timeLevel[i];
+      if (w <= 0.001) continue;
+      T = TIMES[i];
+      wSum += w;
+      skyRgb[0] += T.skyRgb[0] * w;
+      skyRgb[1] += T.skyRgb[1] * w;
+      skyRgb[2] += T.skyRgb[2] * w;
+      litLevel += T.lit * w;
+      starLevel += T.star * w;
+      cel = T.cel;
+      acc = cel.kind === 'sun' ? sun : moon;
+      if (cel.kind === 'sun') sunW += w; else moonW += w;
+      acc.x += cel.x * w;
+      acc.y += cel.y * w;
+      acc.r += cel.r * w;
+      acc.rgb[0] += cel.rgb[0] * w;
+      acc.rgb[1] += cel.rgb[1] * w;
+      acc.rgb[2] += cel.rgb[2] * w;
+    }
+    skyRgb = [skyRgb[0] / wSum, skyRgb[1] / wSum, skyRgb[2] / wSum];
+    litLevel /= wSum;
+    starLevel /= wSum;
 
     // weather pulls the sky toward its tint; aurora also brings out stars
     for (var wi = 1; wi < 4; wi++) {
@@ -575,21 +626,22 @@
     // overcast weather veils the sun/moon
     var celDim = 1 - 0.65 * Math.max(weatherLevel[1], weatherLevel[2]);
 
-    // sun/moon: glide when the kind matches, crossfade when it changes
-    if (timeFrom !== timeTo && timeT < 1 && from.cel.kind === to.cel.kind) {
+    if (sunW > 0.01) {
       drawCelestial({
-        kind: to.cel.kind,
-        x: from.cel.x + (to.cel.x - from.cel.x) * t,
-        y: from.cel.y + (to.cel.y - from.cel.y) * t,
-        r: from.cel.r + (to.cel.r - from.cel.r) * t,
-        color: mixColor(from.cel.color, to.cel.color, t)
-      }, celDim, sky);
-    } else {
-      if (timeT < 1) drawCelestial(from.cel, (1 - t) * celDim, sky);
-      drawCelestial(to.cel, (timeT < 1 ? t : 1) * celDim, sky);
+        kind: 'sun',
+        x: sun.x / sunW, y: sun.y / sunW, r: sun.r / sunW,
+        color: rgbStr([sun.rgb[0] / sunW, sun.rgb[1] / sunW, sun.rgb[2] / sunW])
+      }, (sunW / wSum) * celDim, sky);
+    }
+    if (moonW > 0.01) {
+      drawCelestial({
+        kind: 'moon',
+        x: moon.x / moonW, y: moon.y / moonW, r: moon.r / moonW,
+        color: rgbStr([moon.rgb[0] / moonW, moon.rgb[1] / moonW, moon.rgb[2] / moonW])
+      }, (moonW / wSum) * celDim, sky);
     }
 
-    for (var i = 0; i < city.length; i++) drawBuilding(city[i], litLevel);
+    for (i = 0; i < city.length; i++) drawBuilding(city[i], litLevel);
 
     drawRain(weatherLevel[1], skyLum);
     drawSnow(weatherLevel[2]);
@@ -610,7 +662,7 @@
     var dt = lastTime ? Math.min(0.1, (now - lastTime) / 1000) : 0;
     lastTime = now;
     update(dt);
-    fitBackingStore();   // also tracks machine rescale + dpr changes
+    if (measureFrames > 0 && fitBackingStore()) measureFrames--;
     drawScene();
     window.requestAnimationFrame(frame);
   }
