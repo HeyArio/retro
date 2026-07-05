@@ -439,6 +439,13 @@
 
   var rng4 = mulberry32(seed ^ 0xC2B2AE35);
 
+  /* ---------------- civic events (fifth rng stream) --------------------- */
+  /* Construction dust, fireworks, wildlife and other one-off spectacle
+     draw from their own stream so they can never perturb the ambient
+     traffic schedules above. */
+
+  var rng6 = mulberry32(seed ^ 0x27D4EB2F);
+
   var monorail = { x: 0, dir: 1, active: false, timer: 5 + rng4() * 8 };
   var sputnik = { p: 0, active: false, timer: 18 + rng4() * 30 };
   var airship = { x: 0, y: 0, dir: 1, active: false, timer: 45 + rng4() * 80 };
@@ -456,6 +463,22 @@
   }
 
   var flickTimer = 0.8;                           // individual window lights
+
+  // demolition dust: flat cream puffs shaken loose by the wrecking crews
+  var dust = [];
+  var DUST_MAX = 80;
+
+  function puffDust(x, y) {
+    if (dust.length >= DUST_MAX) return;
+    dust.push({
+      x: x,
+      y: y,
+      r: 4 + rng6() * 6,
+      vy: -(14 + rng6() * 20),
+      vr: 9 + rng6() * 7,
+      life: 0
+    });
+  }
 
   /* ---------------- municipal bulletin ---------------- */
   /* A one-line civic wire service on the ground band. Runs on its own
@@ -674,6 +697,21 @@
           var pane = lot.windows[Math.floor(rng4() * lot.windows.length)];
           pane.flickUntil = effT + 1.5 + rng4() * 3.5;
         }
+      }
+
+      // wrecking crews kick up dust at the shrinking roofline
+      for (i = 0; i < city.length; i++) {
+        var dz = city[i];
+        if (dz.demolishing && rng6() < dt * 14) {
+          puffDust(dz.x + rng6() * dz.w, GROUND_Y - dz.h * easeOutCubic(dz.progress));
+        }
+      }
+      for (i = dust.length - 1; i >= 0; i--) {
+        p = dust[i];
+        p.life += dt;
+        p.y += p.vy * dt;
+        p.r += p.vr * dt;
+        if (p.life > 1.1) dust.splice(i, 1);
       }
 
       if (weatherLevel[1] > 0.01) {
@@ -1095,6 +1133,61 @@
     ctx.globalAlpha = 1;
   }
 
+  // a tower crane serves every front-row lot that is rising or coming
+  // down — the lever's drama made visible. The hook carries a girder on
+  // the way up and swings a wrecking ball on the way down.
+  function drawCrane(b) {
+    if (!(b.rising || b.demolishing) || b.progress >= 1 || b.progress <= 0) return;
+    var h = b.h * easeOutCubic(b.progress);
+    var top = GROUND_Y - h;
+    var finalH = (b.next && b.demolishing) ? Math.max(b.h, b.next.h) : b.h;
+    var mastTop = GROUND_Y - finalH - 46;
+
+    var side = (Math.floor(b.x) % 2 === 0) ? -1 : 1;   // deterministic per lot
+    var mastX = side === -1 ? b.x - 10 : b.x + b.w + 10;
+    if (mastX < 14) { side = 1; mastX = b.x + b.w + 10; }
+    if (mastX > VIEW_W - 14) { side = -1; mastX = b.x - 10; }
+
+    var jibLen = b.w * 0.8 + 10;
+    var jibTip = side === -1 ? mastX + jibLen : mastX - jibLen;   // out over the lot
+    var hookX = mastX + (jibTip - mastX) * 0.72;
+
+    ctx.fillStyle = TEAL_TRIM;                          // mast + jib + counter-jib
+    ctx.fillRect(mastX - 2, mastTop, 4, GROUND_Y - mastTop);
+    ctx.fillRect(Math.min(mastX, jibTip), mastTop, Math.abs(jibTip - mastX), 3);
+    ctx.fillRect(side === -1 ? mastX - 26 : mastX + 2, mastTop, 24, 3);
+    ctx.fillStyle = BRASS;                              // counterweight + cab
+    ctx.fillRect(side === -1 ? mastX - 30 : mastX + 22, mastTop - 2, 8, 8);
+    ctx.fillRect(mastX - 4, mastTop + 4, 8, 7);
+
+    ctx.strokeStyle = TEAL_TRIM;                        // cable to the load
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(hookX, mastTop + 3);
+    ctx.lineTo(hookX, top - 8);
+    ctx.stroke();
+    if (b.demolishing) {                                // the wrecking ball
+      ctx.fillStyle = TEAL_TRIM;
+      ctx.beginPath(); ctx.arc(hookX, top - 2, 7, 0, Math.PI * 2); ctx.fill();
+    } else {                                            // a girder going up
+      ctx.fillStyle = BRASS;
+      ctx.fillRect(hookX - 2, top - 8, 4, 4);
+      ctx.fillStyle = b.color;
+      ctx.fillRect(hookX - 11, top - 5, 22, 5);
+    }
+  }
+
+  function drawDust() {
+    if (reducedMotion.matches) return;
+    for (var i = 0; i < dust.length; i++) {
+      var p = dust[i];
+      ctx.globalAlpha = Math.max(0, 0.5 * (1 - p.life / 1.1));
+      ctx.fillStyle = CREAM_HI;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
   function drawBuilding(b, litLevel) {
     if (b.progress <= 0) return;
     var h = b.h * easeOutCubic(b.progress);
@@ -1103,6 +1196,12 @@
 
     ctx.fillStyle = b.color;
     ctx.fillRect(b.x, top, b.w, h);
+
+    // a burnt-orange safety cordon crowns any works in progress
+    if (b.progress < 1 && (b.rising || b.demolishing) && h > 8) {
+      ctx.fillStyle = ORANGE;
+      ctx.fillRect(b.x, top, b.w, 3);
+    }
 
     if (b.progress === 1) {
       if (b.cap) {
@@ -1269,6 +1368,8 @@
     for (i = 0; i < bgCity.length; i++) drawBuilding(bgCity[i], litLevel);
     for (i = 0; i < landmarks.length; i++) drawLandmark(landmarks[i], litLevel);
     for (i = 0; i < city.length; i++) drawBuilding(city[i], litLevel);
+    for (i = 0; i < city.length; i++) drawCrane(city[i]);
+    drawDust();
 
     drawCars(litLevel);
     drawMonorail(litLevel);
