@@ -52,7 +52,9 @@
 
   /* ---------------- simulation tuning ---------------- */
 
-  var INITIAL_BUILT   = 3;                  // buildings standing at power-on
+  var INITIAL_BUILT   = 5;                  // buildings standing at power-on (front + back row)
+  var BG_WEIGHT       = 0.3;                // back-row contribution to population
+  var DENSIFY_PACE    = 1.6;                // spawn-interval multiplier for replacements
   var SPAWN_INTERVAL  = [Infinity, 5.0, 1.3]; // s between new builds, per lever
   var RISE_DURATION   = 2.6;                // s for a building to top out
   var DENSITY         = 0.06;               // town numbers, not metropolis numbers
@@ -124,6 +126,13 @@
   var TRIM_RGB = hexToRgb(TEAL_TRIM);
   var CREAM_RGB = hexToRgb('#E8DCC0');
 
+  // back-row silhouettes: the console teals lifted toward cream — flat
+  // constants that read as atmospheric distance on every sky
+  var BG_TEALS = [];
+  for (i = 0; i < TEALS.length; i++) {
+    BG_TEALS.push(rgbStr(mixRgb(hexToRgb(TEALS[i]), CREAM_RGB, 0.32)));
+  }
+
   /* ---------------- seeded rng ---------------- */
 
   function mulberry32(a) {
@@ -149,9 +158,38 @@
 
   function generatePlan() {
     var lots = [];
+    var bg = [];
     var x = 0;
     var b, i;
 
+    // window dots: an irregular subset of a facade grid exists (poster
+    // look), drawn as brass dots at ALL times; each pane also gets a
+    // baked schedule threshold — when the time's `lit` level exceeds
+    // it, a flat halo glow switches on behind the dot
+    function makeWindows(bx, bw, bh) {
+      var panes = [];
+      var colSpace = 20, rowSpace = 24, inset = 15;
+      var cols = Math.max(2, Math.floor((bw - inset * 2) / colSpace));
+      var rows = Math.max(2, Math.floor((bh - inset * 2 - 8) / rowSpace));
+      var gridW = (cols - 1) * colSpace;
+      var gridH = (rows - 1) * rowSpace;
+      var x0 = bx + Math.round((bw - gridW) / 2);
+      var y0 = GROUND_Y - bh + inset + Math.round((bh - inset * 2 - gridH) / 2);
+      for (var r = 0; r < rows; r++) {
+        for (var c = 0; c < cols; c++) {
+          if (rng() < 0.40) continue;             // no pane on this grid cell
+          panes.push({
+            x: x0 + c * colSpace,
+            y: y0 + r * rowSpace,
+            threshold: rng(),
+            accent: rng() < 0.05
+          });
+        }
+      }
+      return panes;
+    }
+
+    // ---- front row ----
     while (true) {
       var w = 70 + Math.floor(rng() * 65);        // 70–134
       if (x + w > VIEW_W - 80) break;
@@ -165,46 +203,64 @@
         jitter: 0.6 + rng() * 0.8,                // spawn-interval variation
         progress: 0,                              // 0 pending → 1 topped out
         rising: false,
+        demolishing: false,
         windows: []
       };
       lots.push(b);
       x += w + 14 + Math.floor(rng() * 24);
     }
 
-    // center the row on the 1600 stage
     var shift = Math.round((VIEW_W - x + 14) / 2) + 40;
-    var tallest = lots[0];
-    for (i = 0; i < lots.length; i++) {
-      lots[i].x += shift;
-      if (lots[i].h > tallest.h) tallest = lots[i];
-    }
-    tallest.mast = true;                          // brass mast on the tallest
+    for (i = 0; i < lots.length; i++) lots[i].x += shift;
+    for (i = 0; i < lots.length; i++) lots[i].windows = makeWindows(lots[i].x, lots[i].w, lots[i].h);
 
-    // window dots: an irregular subset of each building's grid exists
-    // (poster look), drawn as brass dots at ALL times; each pane also
-    // gets a baked schedule threshold — when the time's `lit` level
-    // exceeds it, a flat halo glow switches on behind the dot
+    // ---- back row: shorter, narrower, lifted-teal silhouettes ----
+    x = 0;
+    while (true) {
+      var w2 = 55 + Math.floor(rng() * 60);       // 55–114
+      if (x + w2 > VIEW_W - 40) break;
+      bg.push({
+        x: x,
+        w: w2,
+        h: 90 + Math.floor(rng() * 150),          // 90–239, below the front row
+        color: BG_TEALS[Math.floor(rng() * BG_TEALS.length)],
+        cap: false,
+        door: false,
+        jitter: 0.6 + rng() * 0.8,
+        progress: 0,
+        rising: false,
+        demolishing: false,
+        windows: []
+      });
+      x += w2 + 8 + Math.floor(rng() * 18);
+    }
+    shift = Math.round((VIEW_W - x + 8) / 2) + 20;
+    for (i = 0; i < bg.length; i++) bg[i].x += shift;
+
+    // ---- densification: the city's second act ----
+    // every short front-row lot gets a planned taller replacement; once
+    // construction exhausts, replacements demolish-and-rise in order
     for (i = 0; i < lots.length; i++) {
       b = lots[i];
-      var colSpace = 20, rowSpace = 24, inset = 15;
-      var cols = Math.max(2, Math.floor((b.w - inset * 2) / colSpace));
-      var rows = Math.max(2, Math.floor((b.h - inset * 2 - 8) / rowSpace));
-      var gridW = (cols - 1) * colSpace;
-      var gridH = (rows - 1) * rowSpace;
-      var x0 = b.x + Math.round((b.w - gridW) / 2);
-      var y0 = GROUND_Y - b.h + inset + Math.round((b.h - inset * 2 - gridH) / 2);
-      for (var r = 0; r < rows; r++) {
-        for (var c = 0; c < cols; c++) {
-          if (rng() < 0.40) continue;             // no pane on this grid cell
-          b.windows.push({
-            x: x0 + c * colSpace,
-            y: y0 + r * rowSpace,
-            threshold: rng(),
-            accent: rng() < 0.05
-          });
-        }
-      }
+      if (b.h >= 300) continue;
+      var nh = Math.min(430, b.h + 90 + Math.floor(rng() * 150));
+      b.next = {
+        h: nh,
+        color: TEALS[Math.floor(rng() * TEALS.length)],
+        cap: rng() < 0.6,
+        door: rng() < 0.3,
+        windows: makeWindows(b.x, b.w, nh)
+      };
     }
+
+    // brass mast goes to the tallest FINAL form of the skyline
+    var tallest = lots[0];
+    var tallestH = 0;
+    for (i = 0; i < lots.length; i++) {
+      var finalH = lots[i].next ? lots[i].next.h : lots[i].h;
+      if (finalH > tallestH) { tallestH = finalH; tallest = lots[i]; }
+    }
+    if (tallest.next) tallest.next.mast = true; else tallest.mast = true;
 
     // star field for the dark palettes
     var stars = [];
@@ -217,35 +273,56 @@
       });
     }
 
-    // deterministic build order (Fisher–Yates on lot indices)
-    var order = [];
-    for (i = 0; i < lots.length; i++) order.push(i);
-    for (i = order.length - 1; i > 0; i--) {
-      var j = Math.floor(rng() * (i + 1));
-      var t = order[i]; order[i] = order[j]; order[j] = t;
+    // deterministic build order: shuffle each row, then weave the back
+    // row between front-row builds so depth fills in alongside the street
+    function shuffled(arr) {
+      var order = arr.slice();
+      for (var i = order.length - 1; i > 0; i--) {
+        var j = Math.floor(rng() * (i + 1));
+        var t = order[i]; order[i] = order[j]; order[j] = t;
+      }
+      return order;
+    }
+    var frontOrder = shuffled(lots);
+    var backOrder = shuffled(bg);
+    var queue = [];
+    var n = Math.max(frontOrder.length, backOrder.length);
+    for (i = 0; i < n; i++) {
+      if (i < frontOrder.length) queue.push(frontOrder[i]);
+      if (i < backOrder.length) queue.push(backOrder[i]);
     }
 
-    return { lots: lots, order: order, stars: stars };
+    // replacements run in the same front-row order
+    var densify = [];
+    for (i = 0; i < frontOrder.length; i++) {
+      if (frontOrder[i].next) densify.push(frontOrder[i]);
+    }
+
+    return { lots: lots, bg: bg, queue: queue, densify: densify, stars: stars };
   }
 
   var plan = generatePlan();
   var city = plan.lots;
+  var bgCity = plan.bg;
+  var allBuildings = city.concat(bgCity);
   var stars = plan.stars;
-  var buildQueue = plan.order.slice();
+  var buildQueue = plan.queue.slice();
+  var denseQueue = plan.densify.slice();
 
   for (var k = 0; k < INITIAL_BUILT && buildQueue.length; k++) {
-    city[buildQueue.shift()].progress = 1;
+    buildQueue.shift().progress = 1;
   }
 
   // the low dawn/dusk discs sit near the horizon, but the skyline is
-  // seed-dependent — lift them just clear of the planned roofline under
-  // them so they always peek out (still deterministic, still low)
+  // seed-dependent — lift them just clear of the planned FINAL roofline
+  // under them so they always peek out (still deterministic, still low)
   function settleLowCelestial(cel) {
     var roofY = GROUND_Y;
-    for (var i = 0; i < city.length; i++) {
-      var b = city[i];
+    for (var i = 0; i < allBuildings.length; i++) {
+      var b = allBuildings[i];
+      var finalH = b.next ? b.next.h : b.h;
       if (b.x < cel.x + cel.r && b.x + b.w > cel.x - cel.r) {
-        roofY = Math.min(roofY, GROUND_Y - b.h);
+        roofY = Math.min(roofY, GROUND_Y - finalH);
       }
     }
     cel.y = Math.min(cel.y, roofY - cel.r * 0.35);
@@ -318,10 +395,26 @@
 
   function builtMass() {
     var area = 0;
-    for (var i = 0; i < city.length; i++) {
+    var i;
+    for (i = 0; i < city.length; i++) {
       area += city[i].w * city[i].h * easeOutCubic(city[i].progress);
     }
+    for (i = 0; i < bgCity.length; i++) {
+      area += bgCity[i].w * bgCity[i].h * easeOutCubic(bgCity[i].progress) * BG_WEIGHT;
+    }
     return area;
+  }
+
+  // demolition finished — the lot becomes its planned taller self
+  function applyNext(b) {
+    var n = b.next;
+    b.h = n.h;
+    b.color = n.color;
+    b.cap = n.cap;
+    b.door = n.door;
+    b.windows = n.windows;
+    b.mast = n.mast || false;
+    b.next = null;
   }
 
   function easeLevels(levels, target, dt, fade) {
@@ -337,15 +430,25 @@
 
     if (growthIndex > 0) {                        // DORMANT freezes construction
       spawnTimer -= dt;
-      if (spawnTimer <= 0 && buildQueue.length) {
-        var next = city[buildQueue.shift()];
-        next.rising = true;
-        if (reducedMotion.matches) { next.progress = 1; next.rising = false; }
-        spawnTimer = SPAWN_INTERVAL[growthIndex] * next.jitter;
+      if (spawnTimer <= 0) {
+        if (buildQueue.length) {
+          var next = buildQueue.shift();
+          next.rising = true;
+          if (reducedMotion.matches) { next.progress = 1; next.rising = false; }
+          spawnTimer = SPAWN_INTERVAL[growthIndex] * next.jitter;
+        } else if (denseQueue.length) {           // second act: densification
+          var lot = denseQueue.shift();
+          if (reducedMotion.matches) { applyNext(lot); lot.progress = 1; }
+          else { lot.demolishing = true; lot.rising = false; }
+          spawnTimer = SPAWN_INTERVAL[growthIndex] * DENSIFY_PACE * lot.jitter;
+        }
       }
-      for (i = 0; i < city.length; i++) {
-        var b = city[i];
-        if (b.rising) {
+      for (i = 0; i < allBuildings.length; i++) {
+        var b = allBuildings[i];
+        if (b.demolishing) {
+          b.progress = Math.max(0, b.progress - dt / (RISE_DURATION * 0.6));
+          if (b.progress === 0) { applyNext(b); b.demolishing = false; b.rising = true; }
+        } else if (b.rising) {
           b.progress = Math.min(1, b.progress + dt / RISE_DURATION);
           if (b.progress === 1) b.rising = false;
         }
@@ -641,6 +744,7 @@
       }, (moonW / wSum) * celDim, sky);
     }
 
+    for (i = 0; i < bgCity.length; i++) drawBuilding(bgCity[i], litLevel);
     for (i = 0; i < city.length; i++) drawBuilding(city[i], litLevel);
 
     drawRain(weatherLevel[1], skyLum);
@@ -670,6 +774,6 @@
 
   /* ---------------- debug surface ---------------- */
 
-  window.MUNICITRON_CITY = { seed: seed, city: city, reducedMotion: reducedMotion };
+  window.MUNICITRON_CITY = { seed: seed, city: city, bg: bgCity, reducedMotion: reducedMotion };
   console.info('MUNICITRON M-58 · city seed ' + seed + ' — reproduce with ?seed=' + seed);
 })();
