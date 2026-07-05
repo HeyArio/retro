@@ -657,6 +657,67 @@
     'FORECAST: SNOW — PLOWS DISPATCHED',
     'AURORA WATCH IN EFFECT — LOOK UP'
   ];
+
+  /* ---------------- the municipal wire (sixth rng stream) -------------- */
+  /* A slow drip of civic life between official notices. The town has
+     recurring characters: Mayor Wembly (perpetually campaigning), the
+     Grebbsville rivalry, the courthouse clock nobody can wind, and the
+     Ladies' Garden Auxiliary. Lines post from a shuffled deck so the
+     whole paper is read before any story repeats. */
+
+  var rng5 = mulberry32(seed ^ 0x85EBCA77);
+
+  var WIRE_LINES = [
+    'MAYOR WEMBLY DECLARES THIS "A FINE TOWN, GETTING FINER"',
+    'MAYOR WEMBLY DENIES RUMORS — DECLINES TO SAY WHICH ONES',
+    'MAYOR WEMBLY TO SEEK RE-ELECTION — OPPONENT YET TO BE FOUND',
+    'MAYOR WEMBLY CUTS RIBBON — SECOND RIBBON ORDERED',
+    'COURTHOUSE CLOCK STILL STOPPED — KEY REMAINS MISSING',
+    'COURTHOUSE CLOCK KEY REPORTEDLY SEEN IN A COAT POCKET, 1949',
+    'CLOCK COMMITTEE VOTES TO FORM A SECOND COMMITTEE',
+    'GREBBSVILLE CLAIMS LARGER GAZEBO — CLAIM DISPUTED',
+    'ANNUAL GREBBSVILLE MATCH ENDS IN PROTEST, AGAIN',
+    'GREBBSVILLE PAPER PRINTS UNKIND WORDS — SUBSCRIPTION CANCELED',
+    'LADIES’ GARDEN AUXILIARY ANNOUNCES TULIP OFFENSIVE',
+    'GARDEN AUXILIARY DEFEATS BEETLES — VICTORY TEA SUNDAY',
+    'BAND CONCERT SUNDAY AT THE PAVILION — BRING A HAT',
+    'LOST: ONE DOG, ANSWERS TO "COMET" — REWARD: GRATITUDE',
+    'FOUND: ONE DOG, WILL NOT STOP ANSWERING',
+    'BARBERSHOP QUARTET SEEKS FIFTH MEMBER FOR SAFETY',
+    'LIBRARY REPORTS RECORD QUIET — LIBRARIAN COMMENDED',
+    'MILKMAN COMPLETES ROUTE IN RECORD TIME — HORSE CREDITED',
+    'SODA FOUNTAIN INTRODUCES FOURTH FLAVOR — LINES EXPECTED',
+    'PICTURE PALACE HELD OVER: "ROCKET GIRLS OF SATURN"',
+    'BOWLING LEAGUE STANDINGS UNCHANGED — TENSION MOUNTS',
+    'SCHOOL SPELLING BEE WON ON THE WORD "MUNICIPAL"',
+    'STREET SWEEPER WAVES BACK — CITIZENS DELIGHTED',
+    'PIGEON COUNCIL CONVENES ON COURTHOUSE LEDGE',
+    'ZONING BOARD APPROVES ITSELF ANOTHER MEETING',
+    'FIRE BRIGADE RESCUES CAT — CAT UNGRATEFUL',
+    'CIVIL DEFENSE DRILL POSTPONED — SIREN ON LOAN TO GREBBSVILLE',
+    'NAZARBAN FIELD ENGINEER PRAISES LOCAL DIALS',
+    'TELEPHONE EXCHANGE ADDS DIGIT — OPERATORS BRACE',
+    'BUS LINE EXTENDS TO THE NEW DISTRICT — NICKEL FARE HOLDS',
+    'HARDWARE STORE SELLS OUT OF LADDERS — NO EXPLANATION',
+    'WEATHER BUREAU APOLOGIZES FOR TUESDAY',
+    'AMATEUR ASTRONOMERS MEET FRIDAY — SKY EXPECTED',
+    'DINER PIE OF THE WEEK: RHUBARB, REGRETTABLY',
+    'STAMP CLUB DECLARES POSTCARD RENAISSANCE UNDERWAY'
+  ];
+
+  var wireDeck = [];
+  var wireTimer = 18 + rng5() * 20;
+
+  function nextWireLine() {
+    if (!wireDeck.length) {
+      for (var i = 0; i < WIRE_LINES.length; i++) wireDeck.push(i);
+      for (i = wireDeck.length - 1; i > 0; i--) {
+        var j = Math.floor(rng5() * (i + 1));
+        var t = wireDeck[i]; wireDeck[i] = wireDeck[j]; wireDeck[j] = t;
+      }
+    }
+    return WIRE_LINES[wireDeck.pop()];
+  }
   var weatherBooted = false;
   var densifyNoticed = false;
   var nextCensusNotice = 10000;
@@ -1006,6 +1067,13 @@
     if (foundersTimer >= 0) {
       foundersTimer -= dt;
       if (foundersTimer < 0) startShow(10);
+    }
+
+    // the town wire files a story when the board is quiet
+    wireTimer -= dt;
+    if (wireTimer <= 0) {
+      wireTimer = 24 + rng5() * 36;
+      if (!bulletin.queue.length) postBulletin(nextWireLine());
     }
 
     // rotate the bulletin wire (its own clock — runs even in DORMANT)
