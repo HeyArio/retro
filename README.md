@@ -54,7 +54,13 @@ snow settles on every rooftop and the monorail beam.
 
 A sixteen-second civic month drives the seasons: December strings lights
 between rooftops, October turns the windows orange, spring blossoms the
-park, July throws the Founders' Day fireworks. The bulletin wire carries
+park, July throws the Founders' Day fireworks and puts pennants on the
+tail-finned cars. Every town has a drive-in that screens an abstract
+picture after dark — until 36,000 souls recommission the lot as the
+permanent fairground and the Ferris wheel goes up. The park keeps a
+bandstand, a fountain, a bench and lobed poster trees; vacant civic
+plazas hold survey billboards until their landmark is commissioned.
+The bulletin wire carries
 Mayor Wembly's campaigns, the Grebbsville rivalry and the courthouse
 clock saga. Birds commute at dawn and dusk, a balloon regatta drifts
 through on rare occasions, rain ends in a poster rainbow — and once in a

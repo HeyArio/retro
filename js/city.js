@@ -209,30 +209,32 @@
 
     // ---- landmark plazas, chosen before the street is parceled ----
     // three civic zones stay clear of front-row lots so commissioned
-    // landmarks stand in the open instead of hiding behind towers
+    // landmarks stand in the open instead of hiding behind towers; each
+    // reserves only what its landmark actually needs at ground level
     var zones = [
       230 + Math.floor(rng() * 140),
       760 + Math.floor(rng() * 120),
       1290 + Math.floor(rng() * 140)
     ];
+    var ZONE_HALVES = [62, 76, 80];               // saucer / rocket / atom footprints
     for (i = zones.length - 1; i > 0; i--) {
       var zj = Math.floor(rng() * (i + 1));
       var zt = zones[i]; zones[i] = zones[zj]; zones[zj] = zt;
     }
-    var PLAZA_HALF = 88;
-    var PARK_HALF = 74;
+    var PARK_HALF = 66;
+    var DRIVEIN_HALF = 80;                        // the future fairground
 
     // ---- the municipal park: one green gap the street builds around ----
     var parkX = 320 + rng() * 960;
     for (i = 0; i < 20; i++) {
       var pOK = true;
       for (var pz = 0; pz < zones.length; pz++) {
-        if (Math.abs(parkX - zones[pz]) < PLAZA_HALF + PARK_HALF + 10) pOK = false;
+        if (Math.abs(parkX - zones[pz]) < ZONE_HALVES[pz] + PARK_HALF + 10) pOK = false;
       }
       if (pOK) break;
       parkX = 320 + rng() * 960;
     }
-    var park = { x: parkX, trees: [] };
+    var park = { x: parkX, trees: [], shrubs: [] };
     var treeCount = 4 + Math.floor(rng() * 3);
     for (i = 0; i < treeCount; i++) {
       var tr = 9 + rng() * 7;
@@ -246,10 +248,30 @@
         blossoms: blossoms
       });
     }
+    // the fountain takes one side of the bandstand, the bench the other
+    var fountainSide = rng() < 0.5 ? -1 : 1;
+    park.fountain = parkX + fountainSide * 48;
+    park.bench = parkX - fountainSide * 44;
+    for (i = 0; i < 3; i++) {
+      park.shrubs.push({ x: parkX - 62 + rng() * 124, r: 4 + rng() * 3.5 });
+    }
+
+    // ---- the drive-in: every town has one; at 36,000 souls the lot is
+    // recommissioned as the permanent fairground and the wheel goes up
+    var driveIn = { x: 800 };
+    for (i = 0; i < 24; i++) {
+      var dx = 360 + rng() * 880;
+      var dOK = Math.abs(dx - parkX) > PARK_HALF + DRIVEIN_HALF + 10;
+      for (var dz = 0; dz < zones.length && dOK; dz++) {
+        if (Math.abs(dx - zones[dz]) < ZONE_HALVES[dz] + DRIVEIN_HALF + 10) dOK = false;
+      }
+      if (dOK) { driveIn.x = dx; break; }
+    }
 
     var obstacles = [];
-    for (i = 0; i < zones.length; i++) obstacles.push({ x: zones[i], half: PLAZA_HALF });
+    for (i = 0; i < zones.length; i++) obstacles.push({ x: zones[i], half: ZONE_HALVES[i] });
     obstacles.push({ x: parkX, half: PARK_HALF });
+    obstacles.push({ x: driveIn.x, half: DRIVEIN_HALF });
 
     function clearOfPlazas(px, pw) {
       for (var z = 0; z < obstacles.length; z++) {
@@ -261,16 +283,34 @@
       return px;
     }
 
+    // room from px to the nearest reservation ahead of it
+    function gapAt(px) {
+      var g = VIEW_W - 40 - px;
+      for (var z = 0; z < obstacles.length; z++) {
+        var start = obstacles[z].x - obstacles[z].half;
+        if (start >= px && start - px < g) g = start - px;
+      }
+      return g;
+    }
+
     // ---- front row ----
     x = 30 + Math.floor(rng() * 40);
     while (true) {
       var w = 70 + Math.floor(rng() * 65);        // 70–134
-      x = clearOfPlazas(x, w);
+      // if a full lot won't fit before the next civic reservation, put a
+      // narrow shopfront in whatever room the gap actually has
+      var pushed = clearOfPlazas(x, w);
+      if (pushed !== x) {
+        var avail = (clearOfPlazas(x, 1) === x) ? gapAt(x) - 6 : 0;
+        if (avail >= 50) w = Math.floor(Math.min(avail, 54 + rng() * 18));
+        else x = pushed;
+      }
       if (x + w > VIEW_W - 40) break;
       b = {
         x: x,
         w: w,
-        h: 150 + Math.floor(rng() * 250),         // 150–399
+        h: w < 70 ? 110 + Math.floor(rng() * 110) // narrow shopfronts stay low
+                  : 150 + Math.floor(rng() * 250),
         color: TEALS[Math.floor(rng() * TEALS.length)],
         cap: rng() < 0.5,                         // darker parapet slab
         door: rng() < 0.3,                        // burnt-orange door accent
@@ -316,7 +356,7 @@
     // construction exhausts, replacements demolish-and-rise in order
     for (i = 0; i < lots.length; i++) {
       b = lots[i];
-      if (b.h >= 300) continue;
+      if (b.h >= 300 || b.w < 70) continue;       // shopfronts stay shopfronts
       var nh = Math.min(430, b.h + 90 + Math.floor(rng() * 150));
       b.next = {
         h: nh,
@@ -377,7 +417,8 @@
     var landmarks = [
       { kind: 'saucer', title: 'OBSERVATION TOWER', threshold: 12000, x: zones[0], h: 470, progress: 0, commissioned: false },
       { kind: 'rocket', title: 'MUNICIPAL ROCKETPORT', threshold: 18000, x: zones[1], h: 420, progress: 0, commissioned: false },
-      { kind: 'atom',   title: 'ATOMIC PAVILION', threshold: 26000, x: zones[2], h: 250, progress: 0, commissioned: false }
+      { kind: 'atom',   title: 'ATOMIC PAVILION', threshold: 26000, x: zones[2], h: 250, progress: 0, commissioned: false },
+      { kind: 'wheel',  title: 'PERMANENT FAIRGROUND', threshold: 36000, x: driveIn.x, h: 190, progress: 0, commissioned: false }
     ];
 
     // ---- rooftop starburst signs on two lucky buildings ----
@@ -392,13 +433,14 @@
       }
     }
 
-    return { lots: lots, bg: bg, queue: queue, densify: densify, stars: stars, landmarks: landmarks, park: park };
+    return { lots: lots, bg: bg, queue: queue, densify: densify, stars: stars, landmarks: landmarks, park: park, driveIn: driveIn };
   }
 
   var plan = generatePlan();
   var city = plan.lots;
   var bgCity = plan.bg;
   var park = plan.park;
+  var driveIn = plan.driveIn;
   var allBuildings = city.concat(bgCity);
   var stars = plan.stars;
   var landmarks = plan.landmarks;
@@ -713,6 +755,7 @@
           y: GROUND_Y,
           vy: -(300 + rng6() * 130),
           burstY: 100 + rng6() * 180,
+          type: Math.floor(rng6() * 3),           // chrysanthemum / ring / willow
           color: FW_COLORS[Math.floor(rng6() * 3)]
         });
       }
@@ -722,27 +765,36 @@
       p.y += p.vy * dt;
       p.vy += 60 * dt;
       if (p.y <= p.burstY || p.vy > -50) {
-        var n = 20 + Math.floor(rng6() * 10);
-        for (var s = 0; s < n && fw.sparks.length < 240; s++) {
-          var ang = (s / n) * Math.PI * 2 + rng6() * 0.2;
-          var spd = 60 + rng6() * 110;
+        var n = p.type === 1 ? 18 : 22 + Math.floor(rng6() * 8);
+        for (var s = 0; s < n && fw.sparks.length < 260; s++) {
+          var ang = (s / n) * Math.PI * 2 + (p.type === 1 ? 0 : rng6() * 0.25);
+          var spd = p.type === 1 ? 104 + rng6() * 8         // a crisp ring
+                  : p.type === 2 ? 50 + rng6() * 70         // willow droops
+                  : 60 + rng6() * 110;                      // chrysanthemum
           fw.sparks.push({
             x: p.x, y: p.y,
             vx: Math.cos(ang) * spd,
             vy: Math.sin(ang) * spd,
+            g: p.type === 2 ? 130 : p.type === 1 ? 30 : 70,
+            s: 1.2 + rng6() * 1.1,
             life: 0,
-            max: 1.0 + rng6() * 0.5,
-            color: p.color
+            max: p.type === 2 ? 1.6 + rng6() * 0.6 : 1.0 + rng6() * 0.5,
+            color: p.type === 2 ? BRASS : p.color
           });
+        }
+        if (fw.sparks.length < 260) {                       // the core flash
+          fw.sparks.push({ x: p.x, y: p.y, flash: true, life: 0, max: 0.16 });
         }
         fw.shells.splice(i, 1);
       }
     }
     for (i = fw.sparks.length - 1; i >= 0; i--) {
       p = fw.sparks[i];
-      p.x += p.vx * dt;
-      p.y += p.vy * dt;
-      p.vy += 70 * dt;
+      if (!p.flash) {
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vy += p.g * dt;
+      }
       p.life += dt;
       if (p.life > p.max) fw.sparks.splice(i, 1);
     }
@@ -811,7 +863,9 @@
     'WEATHER BUREAU APOLOGIZES FOR TUESDAY',
     'AMATEUR ASTRONOMERS MEET FRIDAY — SKY EXPECTED',
     'DINER PIE OF THE WEEK: RHUBARB, REGRETTABLY',
-    'STAMP CLUB DECLARES POSTCARD RENAISSANCE UNDERWAY'
+    'STAMP CLUB DECLARES POSTCARD RENAISSANCE UNDERWAY',
+    'DRIVE-IN DOUBLE FEATURE FRIDAY — SOUND VIA WINDOW SPEAKER',
+    'FAIRGROUND WHEEL INSPECTED — DECLARED "ROUND"'
   ];
 
   var wireDeck = [];
@@ -1221,6 +1275,7 @@
       if (!L.commissioned && growthIndex > 0 && target >= L.threshold) {
         L.commissioned = true;
         postBulletin(L.title + ' COMMISSIONED — FORM 7-B FILED');
+        if (L.kind === 'wheel') postBulletin('DRIVE-IN MAKES ROOM — LAST PICTURE FRIDAY');
         recordFirst('landmark', 'FIRST LANDMARK COMMISSIONED');
         startShow(5);
         document.dispatchEvent(new CustomEvent('municitron:landmark', {
@@ -1396,20 +1451,22 @@
     ctx.globalAlpha = 1;
   }
 
-  function glowDots(dots, r, lit) {
-    if (lit <= 0.55) return;
-    ctx.fillStyle = GLOW_BRASS;
+  function coloredDots(dots, r, lit, fill, glowFill) {
+    var i;
+    if (lit > 0.55) {
+      ctx.fillStyle = glowFill;
+      ctx.beginPath();
+      for (i = 0; i < dots.length; i++) dotPath(dots[i][0], dots[i][1], r + 4);
+      ctx.fill();
+    }
+    ctx.fillStyle = fill;
     ctx.beginPath();
-    for (var i = 0; i < dots.length; i++) dotPath(dots[i][0], dots[i][1], r + 4);
+    for (i = 0; i < dots.length; i++) dotPath(dots[i][0], dots[i][1], r);
     ctx.fill();
   }
 
   function brassDots(dots, r, lit) {
-    glowDots(dots, r, lit);
-    ctx.fillStyle = BRASS;
-    ctx.beginPath();
-    for (var i = 0; i < dots.length; i++) dotPath(dots[i][0], dots[i][1], r);
-    ctx.fill();
+    coloredDots(dots, r, lit, BRASS, GLOW_BRASS);
   }
 
   function drawSaucer(cx, H, lit) {
@@ -1505,9 +1562,152 @@
     }
   }
 
+  // the permanent fairground: a Ferris wheel that never stops turning
+  function drawWheel(cx, H, lit) {
+    var R = (H - 44) / 2;
+    var cy = GROUND_Y - 24 - R;
+    var ang = reducedMotion.matches ? 0.3 : effT * 0.12;
+    var i, ga, gx, gy;
+
+    ctx.fillStyle = TEAL_TRIM;                    // plinth
+    ctx.fillRect(cx - 64, GROUND_Y - 10, 128, 10);
+    ctx.fillStyle = '#183B37';                    // A-frame legs
+    ctx.beginPath();
+    ctx.moveTo(cx - 4, cy); ctx.lineTo(cx - 48, GROUND_Y - 10); ctx.lineTo(cx - 34, GROUND_Y - 10);
+    ctx.lineTo(cx - 1, cy + 8);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(cx + 4, cy); ctx.lineTo(cx + 48, GROUND_Y - 10); ctx.lineTo(cx + 34, GROUND_Y - 10);
+    ctx.lineTo(cx + 1, cy + 8);
+    ctx.closePath(); ctx.fill();
+
+    ctx.strokeStyle = '#1E4744';                  // eight spokes
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (i = 0; i < 8; i++) {
+      ga = ang + i * Math.PI / 4;
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(ga) * R, cy + Math.sin(ga) * R);
+    }
+    ctx.stroke();
+    ctx.strokeStyle = BRASS;                      // double rim
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+    ctx.lineWidth = 1.2;
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath(); ctx.arc(cx, cy, R - 8, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    var glow = [];
+    for (i = 0; i < 8; i++) {                     // gondolas swing upright
+      ga = ang + i * Math.PI / 4;
+      gx = cx + Math.cos(ga) * R;
+      gy = cy + Math.sin(ga) * R;
+      ctx.strokeStyle = TEAL_TRIM;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(gx, gy); ctx.lineTo(gx, gy + 5); ctx.stroke();
+      ctx.fillStyle = i % 2 ? ORANGE : CREAM_HI;
+      ctx.beginPath();
+      ctx.moveTo(gx - 7, gy + 5);
+      ctx.lineTo(gx + 7, gy + 5);
+      ctx.lineTo(gx + 5, gy + 12);
+      ctx.lineTo(gx - 5, gy + 12);
+      ctx.closePath(); ctx.fill();
+      glow.push([gx, gy + 8]);
+    }
+    if (lit > 0.55) {                             // carnival lights at night
+      ctx.fillStyle = GLOW_BRASS;
+      ctx.beginPath();
+      for (i = 0; i < glow.length; i++) dotPath(glow[i][0], glow[i][1], 8);
+      ctx.fill();
+    }
+    ctx.fillStyle = BRASS;                        // hub
+    ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = ORANGE;
+    ctx.beginPath(); ctx.arc(cx, cy, 2.5, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // the drive-in: a cleared lot, a big screen, and on good nights a
+  // picture nobody in the front row will describe the same way twice
+  function drawDriveIn(litLevel) {
+    if (!driveIn) return;
+    var x = driveIn.x;
+    var showing = litLevel > 0.6;
+    var wheelUp = landmarks[3].progress > 0;      // the fairground took the lot
+
+    if (!wheelUp) {
+      ctx.fillStyle = TEAL_TRIM;                  // screen legs
+      ctx.fillRect(x - 46, GROUND_Y - 28, 6, 28);
+      ctx.fillRect(x + 40, GROUND_Y - 28, 6, 28);
+      ctx.fillStyle = '#183B37';                  // screen frame
+      ctx.fillRect(x - 55, GROUND_Y - 94, 110, 68);
+      if (showing && !reducedMotion.matches) {    // tonight's picture
+        var reel = Math.floor(effT / 2.8);
+        var fields = ['#235450', ORANGE, '#1E4744', BRASS];
+        ctx.globalAlpha = 0.92 + 0.08 * Math.sin(effT * 30); // projector flutter
+        ctx.fillStyle = fields[((reel % 4) + 4) % 4];
+        ctx.fillRect(x - 51, GROUND_Y - 90, 102, 60);
+        ctx.fillStyle = fields[(((reel + 2) % 4) + 4) % 4];  // the abstract lead
+        ctx.beginPath();
+        ctx.arc(x - 41 + ((effT * 9) % 82), GROUND_Y - 60, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      } else {                                    // matinée-blank cream
+        ctx.fillStyle = showing ? CREAM_HI : '#E8DCC0';
+        ctx.fillRect(x - 51, GROUND_Y - 90, 102, 60);
+      }
+    }
+
+    ctx.fillStyle = TEAL_TRIM;                    // the audience, parked
+    var lot = [-38, -8, 22];
+    for (var ci = 0; ci < lot.length; ci++) {
+      var px = x + lot[ci];
+      ctx.fillRect(px, GROUND_Y - 5, 20, 4);
+      ctx.fillRect(px + 5, GROUND_Y - 8, 10, 3);
+    }
+
+    ctx.fillStyle = TEAL_TRIM;                    // marquee: pole + orange lozenge
+    ctx.fillRect(x + 60, GROUND_Y - 34, 3, 34);
+    ctx.save();
+    ctx.translate(x + 61.5, GROUND_Y - 40);
+    ctx.rotate(Math.PI / 4);
+    ctx.fillStyle = ORANGE;
+    ctx.fillRect(-6, -6, 12, 12);
+    ctx.restore();
+    ctx.fillStyle = BRASS;
+    ctx.beginPath(); ctx.arc(x + 61.5, GROUND_Y - 40, 2, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // an uncommissioned plaza holds a survey billboard — the city has plans
+  function drawVacantSign(x) {
+    ctx.fillStyle = TEAL_TRIM;                    // posts
+    ctx.fillRect(x - 20, GROUND_Y - 24, 3, 24);
+    ctx.fillRect(x + 17, GROUND_Y - 24, 3, 24);
+    ctx.fillStyle = CREAM_HI;                     // panel
+    ctx.fillRect(x - 27, GROUND_Y - 42, 54, 20);
+    ctx.save();                                   // civic caution stripes
+    ctx.beginPath();
+    ctx.rect(x - 27, GROUND_Y - 42, 54, 20);
+    ctx.clip();
+    ctx.fillStyle = ORANGE;
+    for (var sx = x - 34; sx < x + 30; sx += 16) {
+      ctx.beginPath();
+      ctx.moveTo(sx, GROUND_Y - 22);
+      ctx.lineTo(sx + 12, GROUND_Y - 42);
+      ctx.lineTo(sx + 17, GROUND_Y - 42);
+      ctx.lineTo(sx + 5, GROUND_Y - 22);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+    ctx.strokeStyle = TEAL_TRIM;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x - 27, GROUND_Y - 42, 54, 20);
+  }
+
   // commissioned landmarks reveal bottom-up behind a construction curtain
   function drawLandmark(L, litLevel) {
-    if (L.progress <= 0) return;
+    // the wheel's lot is the drive-in until the day it isn't
+    if (L.progress <= 0) { if (L.kind !== 'wheel') drawVacantSign(L.x); return; }
     var revealH = L.h * easeOutCubic(L.progress) + 44;   // headroom for spires
     ctx.save();
     ctx.beginPath();
@@ -1515,6 +1715,7 @@
     ctx.clip();
     if (L.kind === 'saucer') drawSaucer(L.x, L.h, litLevel);
     else if (L.kind === 'rocket') drawRocket(L.x, L.h, litLevel);
+    else if (L.kind === 'wheel') drawWheel(L.x, L.h, litLevel);
     else drawAtom(L.x, L.h, litLevel);
     ctx.restore();
   }
@@ -1569,20 +1770,50 @@
 
   function drawCars(litLevel) {
     if (reducedMotion.matches) return;
+    var parade = calendar.month === 6;            // Founders' Day pennants
     for (var i = 0; i < cars.length; i++) {
       var p = cars[i];
       if (!p.active) continue;
       var y = GROUND_Y - 7;
-      ctx.fillStyle = TEAL_TRIM;                  // low finned body + cabin
-      ctx.fillRect(p.x, y, p.len, 5);
-      ctx.fillRect(p.x + p.len * (p.dir === 1 ? 0.2 : 0.35), y - 4, p.len * 0.45, 4);
       var nose = p.dir === 1 ? p.x + p.len : p.x;
       var tail = p.dir === 1 ? p.x : p.x + p.len;
-      ctx.fillStyle = ORANGE;                     // tail light
-      ctx.beginPath(); ctx.arc(tail, y + 2, 1.8, 0, Math.PI * 2); ctx.fill();
+      var cabX = p.x + p.len * (p.dir === 1 ? 0.22 : 0.33);
+
+      ctx.fillStyle = TEAL_TRIM;                  // body with a swept tail fin
+      ctx.beginPath();
+      ctx.moveTo(tail, y + 5);
+      ctx.lineTo(tail, y - 3.5);                  // the fin's leading edge
+      ctx.lineTo(tail + p.dir * 4, y);
+      ctx.lineTo(nose - p.dir * 2, y);
+      ctx.quadraticCurveTo(nose, y, nose, y + 2.5);
+      ctx.lineTo(nose, y + 5);
+      ctx.closePath(); ctx.fill();
+      ctx.beginPath();                            // rounded cabin
+      ctx.moveTo(cabX, y);
+      ctx.quadraticCurveTo(cabX + p.dir * p.len * 0.1, y - 4.5, cabX + p.dir * p.len * 0.24, y - 4.5);
+      ctx.quadraticCurveTo(cabX + p.dir * p.len * 0.42, y - 4.5, cabX + p.dir * p.len * 0.45, y);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = BRASS;                      // chrome rocker line
+      ctx.fillRect(p.x + 2, y + 3.2, p.len - 4, 1);
+      ctx.fillStyle = ORANGE;                     // tail light on the fin
+      ctx.beginPath(); ctx.arc(tail, y - 2.5, 1.6, 0, Math.PI * 2); ctx.fill();
       if (litLevel > 0.55) {                      // headlight after dark
         ctx.fillStyle = CREAM_HI;
         ctx.beginPath(); ctx.arc(nose, y + 2, 1.8, 0, Math.PI * 2); ctx.fill();
+      }
+      if (parade) {                               // a pennant whips from the cabin
+        ctx.strokeStyle = TEAL_TRIM;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(cabX + p.dir * p.len * 0.2, y - 4.5);
+        ctx.lineTo(cabX + p.dir * p.len * 0.2, y - 12);
+        ctx.stroke();
+        ctx.fillStyle = ORANGE;
+        ctx.beginPath();
+        ctx.moveTo(cabX + p.dir * p.len * 0.2, y - 12);
+        ctx.lineTo(cabX + p.dir * p.len * 0.2 - p.dir * 6, y - 10.5);
+        ctx.lineTo(cabX + p.dir * p.len * 0.2, y - 9);
+        ctx.closePath(); ctx.fill();
       }
     }
   }
@@ -1642,16 +1873,24 @@
     var x = -40 + sputnik.p * (VIEW_W + 80);
     var y = 84 + sputnik.p * 52;
     ctx.globalAlpha = Math.min(1, starLevel) * 0.9;
-    ctx.strokeStyle = BRASS;                      // four trailing antennae
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = BRASS;                      // four swept, kinked antennae
+    ctx.lineWidth = 1.2;
     ctx.beginPath();
-    ctx.moveTo(x, y); ctx.lineTo(x - 26, y - 10);
-    ctx.moveTo(x, y); ctx.lineTo(x - 24, y - 3);
-    ctx.moveTo(x, y); ctx.lineTo(x - 24, y + 4);
-    ctx.moveTo(x, y); ctx.lineTo(x - 26, y + 11);
+    var spread = [-11, -4, 4, 11];
+    for (var an = 0; an < 4; an++) {
+      ctx.moveTo(x - 2.5, y + spread[an] * 0.25);
+      ctx.lineTo(x - 18, y + spread[an] * 0.7);
+      ctx.lineTo(x - 31, y + spread[an]);
+    }
     ctx.stroke();
-    ctx.fillStyle = BRASS;
-    ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = BRASS;                        // polished sphere
+    ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = CREAM_HI;                     // specular glint
+    ctx.beginPath(); ctx.arc(x - 1.3, y - 1.4, 1.3, 0, Math.PI * 2); ctx.fill();
+    if (Math.sin(effT * 7) > 0.2) {               // telemetry beacon
+      ctx.fillStyle = ORANGE;
+      ctx.beginPath(); ctx.arc(x + 3.6, y - 2.2, 1.5, 0, Math.PI * 2); ctx.fill();
+    }
     ctx.globalAlpha = 1;
   }
 
@@ -1738,22 +1977,52 @@
       var b = regatta.balloons[i];
       if (b.x < -100 || b.x > VIEW_W + 100) continue;
       var y = b.y + Math.sin(effT * b.f + b.ph) * b.amp;
-      var basketY = y + b.r + 14;
+      var r = b.r;
+      var basketY = y + r * 1.05 + 12;
+
       ctx.strokeStyle = TEAL_TRIM;                // rigging
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(b.x - b.r * 0.5, y + b.r * 0.8); ctx.lineTo(b.x - 4, basketY);
-      ctx.moveTo(b.x + b.r * 0.5, y + b.r * 0.8); ctx.lineTo(b.x + 4, basketY);
+      ctx.moveTo(b.x - r * 0.34, y + r * 1.0); ctx.lineTo(b.x - 4, basketY);
+      ctx.moveTo(b.x + r * 0.34, y + r * 1.0); ctx.lineTo(b.x + 4, basketY);
       ctx.stroke();
-      ctx.fillStyle = b.color;                    // envelope
-      ctx.beginPath(); ctx.arc(b.x, y, b.r, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = TEAL_TRIM;                  // center gore
-      ctx.fillRect(b.x - 1.5, y - b.r, 3, b.r * 2);
+
+      ctx.fillStyle = b.color;                    // teardrop envelope
+      ctx.beginPath();
+      ctx.moveTo(b.x - r * 0.38, y + r * 1.05);
+      ctx.bezierCurveTo(b.x - r * 1.15, y + r * 0.4, b.x - r * 1.05, y - r * 0.95, b.x, y - r);
+      ctx.bezierCurveTo(b.x + r * 1.05, y - r * 0.95, b.x + r * 1.15, y + r * 0.4, b.x + r * 0.38, y + r * 1.05);
+      ctx.closePath();
+      ctx.fill();
+      ctx.save();                                 // panel band, clipped to hull
+      ctx.clip();
+      ctx.globalAlpha = 0.3;
+      ctx.fillStyle = TEAL_TRIM;
+      ctx.fillRect(b.x - r * 1.2, y + r * 0.3, r * 2.4, r * 0.3);
+      ctx.globalAlpha = 1;
+      ctx.restore();
+      ctx.strokeStyle = TEAL_TRIM;                // two curved gores
+      ctx.globalAlpha = 0.4;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(b.x - r * 0.14, y + r * 1.02);
+      ctx.quadraticCurveTo(b.x - r * 0.6, y, b.x - r * 0.2, y - r * 0.97);
+      ctx.moveTo(b.x + r * 0.14, y + r * 1.02);
+      ctx.quadraticCurveTo(b.x + r * 0.6, y, b.x + r * 0.2, y - r * 0.97);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
       ctx.fillStyle = BRASS;                      // basket
       ctx.fillRect(b.x - 5, basketY, 10, 7);
-      if (litLevel > 0.55) {                      // burner glow after dark
+      ctx.fillStyle = TEAL_TRIM;
+      ctx.fillRect(b.x - 5, basketY + 2.5, 10, 1.5);
+      if (litLevel > 0.55) {                      // burner flame flickers
+        ctx.globalAlpha = 0.55 + 0.45 * Math.sin(effT * 7 + b.ph);
         ctx.fillStyle = GLOW_ORANGE;
-        ctx.beginPath(); ctx.arc(b.x, y + b.r + 4, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(b.x, y + r * 1.08 + 3, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = ORANGE;
+        ctx.beginPath(); ctx.arc(b.x, y + r * 1.08 + 3, 2, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
       }
     }
   }
@@ -1800,18 +2069,38 @@
     ctx.fillStyle = BRASS;                        // finial
     ctx.beginPath(); ctx.arc(bx, GROUND_Y - 46, 2.5, 0, Math.PI * 2); ctx.fill();
 
+    for (i = 0; i < park.shrubs.length; i++) {    // round shrubs at ground level
+      var sh = park.shrubs[i];
+      if (Math.abs(sh.x - bx) < 32 || Math.abs(sh.x - park.fountain) < 24) continue;
+      ctx.fillStyle = '#183B37';
+      ctx.beginPath(); ctx.arc(sh.x, GROUND_Y, sh.r, Math.PI, Math.PI * 2); ctx.fill();
+    }
+
     for (i = 0; i < park.trees.length; i++) {
       t = park.trees[i];
-      if (Math.abs(t.x - bx) < 32) continue;      // keep the bandstand clear
-      var cy = GROUND_Y - 14 - t.r * 0.7;
-      ctx.fillStyle = TEAL_TRIM;
-      ctx.fillRect(t.x - 2, GROUND_Y - 15, 4, 15);
-      ctx.fillStyle = '#235450';
-      ctx.beginPath(); ctx.arc(t.x, cy, t.r, 0, Math.PI * 2); ctx.fill();
+      if (Math.abs(t.x - bx) < 32 ||              // keep the bandstand clear
+          Math.abs(t.x - park.fountain) < 22 ||   // and the fountain
+          Math.abs(t.x - park.bench) < 18) continue;
+      var cy = GROUND_Y - 16 - t.r * 0.8;
+      ctx.fillStyle = TEAL_TRIM;                  // tapered trunk
+      ctx.beginPath();
+      ctx.moveTo(t.x - 2.5, GROUND_Y);
+      ctx.lineTo(t.x - 1, cy + t.r * 0.4);
+      ctx.lineTo(t.x + 1, cy + t.r * 0.4);
+      ctx.lineTo(t.x + 2.5, GROUND_Y);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#235450';                  // three-lobed poster canopy
+      ctx.beginPath();
+      dotPath(t.x - t.r * 0.55, cy + t.r * 0.18, t.r * 0.72);
+      dotPath(t.x + t.r * 0.55, cy + t.r * 0.18, t.r * 0.72);
+      dotPath(t.x, cy - t.r * 0.28, t.r * 0.82);
+      ctx.fill();
+      ctx.fillStyle = '#183B37';                  // flat dappled shade
+      ctx.beginPath(); ctx.arc(t.x + t.r * 0.38, cy + t.r * 0.32, t.r * 0.45, 0, Math.PI * 2); ctx.fill();
       if (snowAmt > 0.05) {                       // settled snow cap
         ctx.globalAlpha = snowAmt;
         ctx.fillStyle = CREAM_HI;
-        ctx.beginPath(); ctx.arc(t.x, cy, t.r, Math.PI, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(t.x, cy - t.r * 0.28, t.r * 0.82, Math.PI, Math.PI * 2); ctx.fill();
         ctx.globalAlpha = 1;
       }
       if (spring) {                               // blossom season
@@ -1823,12 +2112,47 @@
         ctx.fill();
       }
     }
+
+    // the fountain: teal basin, brass rim, cream water riding an arc
+    var fx = park.fountain;
+    ctx.fillStyle = TEAL_TRIM;
+    ctx.fillRect(fx - 20, GROUND_Y - 8, 40, 8);
+    ctx.fillStyle = BRASS;
+    ctx.fillRect(fx - 20, GROUND_Y - 9, 40, 2);
+    ctx.fillStyle = TEAL_TRIM;                    // pedestal + bowl
+    ctx.fillRect(fx - 2.5, GROUND_Y - 21, 5, 13);
+    ctx.beginPath(); ctx.ellipse(fx, GROUND_Y - 21, 9, 2.8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = CREAM_HI;                     // droplets on two arcs + a jet
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath();
+    for (i = 0; i < 3; i++) {
+      var wt = reducedMotion.matches ? (i + 1) / 4 : ((effT * 0.55 + i / 3) % 1);
+      var span = (wt * 2 - 1);                    // -1 … 1 across the arc
+      var wy = GROUND_Y - 20 + wt * 11 - (1 - span * span) * 10;
+      dotPath(fx - wt * 15, wy, 1.6);
+      dotPath(fx + wt * 15, wy, 1.6);
+      dotPath(fx, GROUND_Y - 24 - i * 6 -
+        (reducedMotion.matches ? 0 : Math.sin(effT * 3 + i) * 2), 1.4);
+    }
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // a bench for watching all of it
+    var bex = park.bench;
+    ctx.fillStyle = TEAL_TRIM;
+    ctx.fillRect(bex - 9, GROUND_Y - 7, 2.5, 7);
+    ctx.fillRect(bex + 6.5, GROUND_Y - 7, 2.5, 7);
+    ctx.fillStyle = BRASS;
+    ctx.fillRect(bex - 11, GROUND_Y - 8, 22, 2.5);
+    ctx.fillRect(bex - 11, GROUND_Y - 15, 2.5, 7);
   }
 
-  // December: festive strings sag between neighboring rooftops
+  // December: festive strings sag between neighboring rooftops with
+  // alternating brass and burnt-orange bulbs
   function drawStringLights(litLevel) {
     if (calendar.month !== 11) return;
-    var dots = [];
+    var dotsA = [], dotsB = [];
+    var bulb = 0;
     ctx.strokeStyle = TEAL_TRIM;
     ctx.lineWidth = 1.2;
     ctx.beginPath();
@@ -1846,29 +2170,57 @@
       ctx.quadraticCurveTo(cx, cyq, bx, by);
       for (var tq = 0.2; tq <= 0.81; tq += 0.15) {
         var mt = 1 - tq;
-        dots.push([
+        (bulb++ % 2 ? dotsB : dotsA).push([
           mt * mt * ax + 2 * mt * tq * cx + tq * tq * bx,
           mt * mt * ay + 2 * mt * tq * cyq + tq * tq * by + 3
         ]);
       }
     }
     ctx.stroke();
-    brassDots(dots, 2, Math.max(litLevel, 0.6));  // festive bulbs always glow a touch
+    // festive bulbs always glow a touch
+    coloredDots(dotsA, 2, Math.max(litLevel, 0.6), BRASS, GLOW_BRASS);
+    coloredDots(dotsB, 2, Math.max(litLevel, 0.6), ORANGE, GLOW_ORANGE);
   }
 
-  // the benefactor's streetlamps: brass heads down the whole street
+  // the benefactor's streetlamps: curved-arm posts with teardrop shades
+  // that pour flat cones of light onto the street after dark
   function drawStreetlamps(litLevel) {
     if (!streetlamps) return;
     var glowing = litLevel > 0.55;
-    for (var x = 85; x < VIEW_W; x += 170) {
+    var x;
+    if (glowing) {                                // light cones first, batched
+      ctx.fillStyle = 'rgba(242, 233, 210, 0.09)';
+      ctx.beginPath();
+      for (x = 85; x < VIEW_W; x += 170) {
+        ctx.moveTo(x + 6, GROUND_Y - 26);
+        ctx.lineTo(x - 6, GROUND_Y);
+        ctx.lineTo(x + 18, GROUND_Y);
+      }
+      ctx.fill();
+    }
+    for (x = 85; x < VIEW_W; x += 170) {
+      ctx.strokeStyle = TEAL_TRIM;                // post with a curved arm
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(x, GROUND_Y);
+      ctx.lineTo(x, GROUND_Y - 22);
+      ctx.quadraticCurveTo(x, GROUND_Y - 30, x + 7, GROUND_Y - 29);
+      ctx.stroke();
+      ctx.fillStyle = TEAL_TRIM;                  // base foot
+      ctx.fillRect(x - 3, GROUND_Y - 2, 6, 2);
       if (glowing) {
         ctx.fillStyle = GLOW_BRASS;
-        ctx.beginPath(); ctx.arc(x, GROUND_Y - 26, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x + 7, GROUND_Y - 26, 8, 0, Math.PI * 2); ctx.fill();
       }
-      ctx.fillStyle = TEAL_TRIM;
-      ctx.fillRect(x - 1.5, GROUND_Y - 24, 3, 24);
-      ctx.fillStyle = BRASS;
-      ctx.beginPath(); ctx.arc(x, GROUND_Y - 26, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = BRASS;                      // teardrop shade
+      ctx.beginPath();
+      ctx.moveTo(x + 2.5, GROUND_Y - 29);
+      ctx.lineTo(x + 11.5, GROUND_Y - 29);
+      ctx.lineTo(x + 9.5, GROUND_Y - 24.5);
+      ctx.lineTo(x + 4.5, GROUND_Y - 24.5);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = glowing ? CREAM_HI : '#235450';   // the bulb itself
+      ctx.beginPath(); ctx.arc(x + 7, GROUND_Y - 24, 2, 0, Math.PI * 2); ctx.fill();
     }
   }
 
@@ -1914,8 +2266,15 @@
     for (i = 0; i < fw.sparks.length; i++) {
       p = fw.sparks[i];
       ctx.globalAlpha = Math.max(0, 0.95 * (1 - p.life / p.max));
-      ctx.fillStyle = p.color;
-      ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3);
+      if (p.flash) {                              // the burst's bright core
+        ctx.fillStyle = CREAM_HI;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 15 * (1 - p.life / p.max), 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x - p.s, p.y - p.s, p.s * 2, p.s * 2);
+      }
     }
     ctx.globalAlpha = 1;
   }
@@ -1946,6 +2305,16 @@
     ctx.fillStyle = BRASS;                              // counterweight + cab
     ctx.fillRect(side === -1 ? mastX - 30 : mastX + 22, mastTop - 2, 8, 8);
     ctx.fillRect(mastX - 4, mastTop + 4, 8, 7);
+
+    ctx.fillStyle = TEAL_TRIM;                          // apex post + tie cables
+    ctx.fillRect(mastX - 1.5, mastTop - 12, 3, 12);
+    ctx.strokeStyle = TEAL_TRIM;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(mastX, mastTop - 11); ctx.lineTo(jibTip, mastTop + 1.5);
+    ctx.moveTo(mastX, mastTop - 11);
+    ctx.lineTo(side === -1 ? mastX - 26 : mastX + 26, mastTop + 1.5);
+    ctx.stroke();
 
     ctx.strokeStyle = TEAL_TRIM;                        // cable to the load
     ctx.lineWidth = 1.5;
@@ -2024,22 +2393,37 @@
         ctx.arc(mx, top - 40, 4.5, 0, Math.PI * 2);
         ctx.fill();
       }
-      if (b.sign && !b.mast) {                    // rooftop atomic starburst
+      if (b.sign && !b.mast) {                    // rooftop Googie starburst
         var sx = b.x + b.w / 2;
-        var sy2 = top - 32;
+        var sy2 = top - 36;
+        var night = litLevel > 0.55;
         ctx.fillStyle = BRASS;
-        ctx.fillRect(sx - 1.5, top - 20, 3, 20);
-        ctx.strokeStyle = BRASS;
+        ctx.fillRect(sx - 1.5, top - 22, 3, 22);
+        ctx.strokeStyle = BRASS;                  // twelve spokes, long and short
         ctx.lineWidth = 2;
         ctx.beginPath();
-        for (var sp = 0; sp < 8; sp++) {
-          var sa = sp * Math.PI / 4 + Math.PI / 8;
+        for (var sp = 0; sp < 12; sp++) {
+          var sa = sp * Math.PI / 6 + Math.PI / 12;
+          var sl = sp % 2 ? 9 : 16;
           ctx.moveTo(sx + Math.cos(sa) * 4, sy2 + Math.sin(sa) * 4);
-          ctx.lineTo(sx + Math.cos(sa) * 12, sy2 + Math.sin(sa) * 12);
+          ctx.lineTo(sx + Math.cos(sa) * sl, sy2 + Math.sin(sa) * sl);
         }
         ctx.stroke();
-        ctx.fillStyle = ORANGE;
-        ctx.beginPath(); ctx.arc(sx, sy2, 3.5, 0, Math.PI * 2); ctx.fill();
+        for (var tp = 0; tp < 12; tp += 2) {      // tip balls twinkle after dark
+          var ta = tp * Math.PI / 6 + Math.PI / 12;
+          var tx = sx + Math.cos(ta) * 16;
+          var ty = sy2 + Math.sin(ta) * 16;
+          if (night && (tp / 2 + Math.floor(effT * 2.5)) % 3 !== 0) {
+            ctx.fillStyle = GLOW_BRASS;
+            ctx.beginPath(); ctx.arc(tx, ty, 4.5, 0, Math.PI * 2); ctx.fill();
+          }
+          ctx.fillStyle = BRASS;
+          ctx.beginPath(); ctx.arc(tx, ty, 2.2, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.fillStyle = ORANGE;                   // orange heart, cream pin
+        ctx.beginPath(); ctx.arc(sx, sy2, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = CREAM_HI;
+        ctx.beginPath(); ctx.arc(sx, sy2, 1.5, 0, Math.PI * 2); ctx.fill();
       }
     }
 
@@ -2215,6 +2599,7 @@
     drawSearchlights(starLevel);
     for (i = 0; i < landmarks.length; i++) drawLandmark(landmarks[i], litLevel);
     drawPark(litLevel);
+    drawDriveIn(litLevel);
     for (i = 0; i < city.length; i++) drawBuilding(city[i], litLevel);
     drawSmoke(smokeColor);
     drawStreetlamps(litLevel);
@@ -2246,7 +2631,7 @@
       if (streetlamps) {
         ctx.fillStyle = BRASS;
         for (var lx = 85; lx < VIEW_W; lx += 170) {
-          ctx.fillRect(lx - 1, GROUND_Y + 5, 2, 24);
+          ctx.fillRect(lx + 6, GROUND_Y + 5, 2, 24);
         }
       }
       ctx.fillStyle = ORANGE;
@@ -2323,6 +2708,7 @@
     landmarks: landmarks,
     calendar: calendar,
     park: park,
+    driveIn: driveIn,
     ambient: {
       monorail: monorail, sputnik: sputnik, airship: airship, cars: cars,
       birds: birds, regatta: regatta, ufo: ufo
