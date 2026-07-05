@@ -55,6 +55,10 @@
   var INITIAL_BUILT   = 5;                  // buildings standing at power-on (front + back row)
   var BG_WEIGHT       = 0.3;                // back-row contribution to population
   var DENSIFY_PACE    = 1.6;                // spawn-interval multiplier for replacements
+  var RAIL_Y          = 448;                // monorail beam height
+  var TRAIN_LEN       = 170;
+  var TRAIN_SPEED     = 230;                // logical px/s
+  var LANDMARK_RISE   = 5;                  // s for a commissioned landmark to reveal
   var SPAWN_INTERVAL  = [Infinity, 5.0, 1.3]; // s between new builds, per lever
   var RISE_DURATION   = 2.6;                // s for a building to top out
   var DENSITY         = 0.06;               // town numbers, not metropolis numbers
@@ -189,10 +193,36 @@
       return panes;
     }
 
+    // ---- landmark plazas, chosen before the street is parceled ----
+    // three civic zones stay clear of front-row lots so commissioned
+    // landmarks stand in the open instead of hiding behind towers
+    var zones = [
+      230 + Math.floor(rng() * 140),
+      760 + Math.floor(rng() * 120),
+      1290 + Math.floor(rng() * 140)
+    ];
+    for (i = zones.length - 1; i > 0; i--) {
+      var zj = Math.floor(rng() * (i + 1));
+      var zt = zones[i]; zones[i] = zones[zj]; zones[zj] = zt;
+    }
+    var PLAZA_HALF = 88;
+
+    function clearOfPlazas(px, pw) {
+      for (var z = 0; z < zones.length; z++) {
+        if (px < zones[z] + PLAZA_HALF && px + pw > zones[z] - PLAZA_HALF) {
+          px = zones[z] + PLAZA_HALF + 8;
+          z = -1;                                 // recheck all zones from the new x
+        }
+      }
+      return px;
+    }
+
     // ---- front row ----
+    x = 30 + Math.floor(rng() * 40);
     while (true) {
       var w = 70 + Math.floor(rng() * 65);        // 70–134
-      if (x + w > VIEW_W - 80) break;
+      x = clearOfPlazas(x, w);
+      if (x + w > VIEW_W - 40) break;
       b = {
         x: x,
         w: w,
@@ -210,8 +240,6 @@
       x += w + 14 + Math.floor(rng() * 24);
     }
 
-    var shift = Math.round((VIEW_W - x + 14) / 2) + 40;
-    for (i = 0; i < lots.length; i++) lots[i].x += shift;
     for (i = 0; i < lots.length; i++) lots[i].windows = makeWindows(lots[i].x, lots[i].w, lots[i].h);
 
     // ---- back row: shorter, narrower, lifted-teal silhouettes ----
@@ -234,7 +262,7 @@
       });
       x += w2 + 8 + Math.floor(rng() * 18);
     }
-    shift = Math.round((VIEW_W - x + 8) / 2) + 20;
+    var shift = Math.round((VIEW_W - x + 8) / 2) + 20;
     for (i = 0; i < bg.length; i++) bg[i].x += shift;
 
     // ---- densification: the city's second act ----
@@ -298,7 +326,15 @@
       if (frontOrder[i].next) densify.push(frontOrder[i]);
     }
 
-    return { lots: lots, bg: bg, queue: queue, densify: densify, stars: stars };
+    // ---- milestone landmarks: the city of tomorrow ----
+    // they stand in the plazas reserved above; the census commissions them
+    var landmarks = [
+      { kind: 'saucer', title: 'OBSERVATION TOWER', threshold: 12000, x: zones[0], h: 470, progress: 0, commissioned: false },
+      { kind: 'rocket', title: 'MUNICIPAL ROCKETPORT', threshold: 18000, x: zones[1], h: 420, progress: 0, commissioned: false },
+      { kind: 'atom',   title: 'ATOMIC PAVILION', threshold: 26000, x: zones[2], h: 250, progress: 0, commissioned: false }
+    ];
+
+    return { lots: lots, bg: bg, queue: queue, densify: densify, stars: stars, landmarks: landmarks };
   }
 
   var plan = generatePlan();
@@ -306,6 +342,7 @@
   var bgCity = plan.bg;
   var allBuildings = city.concat(bgCity);
   var stars = plan.stars;
+  var landmarks = plan.landmarks;
   var buildQueue = plan.queue.slice();
   var denseQueue = plan.densify.slice();
 
@@ -383,6 +420,15 @@
     { base: 178, amp: 36, th: 40, f: 0.0043, sp: 0.7,  color: '201,162,39',  a: 0.30 },
     { base: 100, amp: 24, th: 30, f: 0.0065, sp: 1.4,  color: '232,220,192', a: 0.22 }
   ];
+
+  /* ---------------- ambient traffic (fourth rng stream) ---------------- */
+  /* Monorail departures and Sputnik passes are scheduled at runtime from
+     their own stream, so ambient life can never perturb the city. */
+
+  var rng4 = mulberry32(seed ^ 0xC2B2AE35);
+
+  var monorail = { x: 0, dir: 1, active: false, timer: 5 + rng4() * 8 };
+  var sputnik = { p: 0, active: false, timer: 18 + rng4() * 30 };
 
   /* ---------------- simulation state ---------------- */
 
@@ -491,6 +537,31 @@
     if (!reducedMotion.matches) {
       effT += dt;
 
+      // monorail: departs on its own clock, alternating direction
+      if (monorail.active) {
+        monorail.x += TRAIN_SPEED * dt * monorail.dir;
+        if (monorail.x > VIEW_W + TRAIN_LEN + 40 || monorail.x < -TRAIN_LEN - 40) {
+          monorail.active = false;
+          monorail.dir = -monorail.dir;
+          monorail.timer = 26 + rng4() * 38;
+        }
+      } else {
+        monorail.timer -= dt;
+        if (monorail.timer <= 0) {
+          monorail.active = true;
+          monorail.x = monorail.dir === 1 ? -TRAIN_LEN - 30 : VIEW_W + 30;
+        }
+      }
+
+      // sputnik: crosses high over the star field (visible when dark)
+      if (sputnik.active) {
+        sputnik.p += dt / 34;
+        if (sputnik.p >= 1) { sputnik.active = false; sputnik.timer = 60 + rng4() * 90; }
+      } else {
+        sputnik.timer -= dt;
+        if (sputnik.timer <= 0) { sputnik.active = true; sputnik.p = 0; }
+      }
+
       if (weatherLevel[1] > 0.01) {
         for (i = 0; i < rain.length; i++) {
           p = rain[i];
@@ -510,6 +581,21 @@
     }
 
     var target = Math.min(POP_MAX, builtMass() * DENSITY + ambientPop);
+
+    // the census commissions landmarks; the console's XMIT lamp salutes
+    for (i = 0; i < landmarks.length; i++) {
+      var L = landmarks[i];
+      if (!L.commissioned && growthIndex > 0 && target >= L.threshold) {
+        L.commissioned = true;
+        document.dispatchEvent(new CustomEvent('municitron:landmark', {
+          detail: { kind: L.kind, title: L.title }
+        }));
+      }
+      if (L.commissioned && L.progress < 1 && growthIndex > 0) {
+        L.progress = reducedMotion.matches ? 1 : Math.min(1, L.progress + dt / LANDMARK_RISE);
+      }
+    }
+
     if (displayedPop < 0 || reducedMotion.matches) displayedPop = target;
     else displayedPop += (target - displayedPop) * Math.min(1, dt * 2);
 
@@ -625,6 +711,189 @@
       dotPath(((p.x + sway) % VIEW_W + VIEW_W) % VIEW_W, p.y, p.r);
     }
     ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  function glowDots(dots, r, lit) {
+    if (lit <= 0.55) return;
+    ctx.fillStyle = GLOW_BRASS;
+    ctx.beginPath();
+    for (var i = 0; i < dots.length; i++) dotPath(dots[i][0], dots[i][1], r + 4);
+    ctx.fill();
+  }
+
+  function brassDots(dots, r, lit) {
+    glowDots(dots, r, lit);
+    ctx.fillStyle = BRASS;
+    ctx.beginPath();
+    for (var i = 0; i < dots.length; i++) dotPath(dots[i][0], dots[i][1], r);
+    ctx.fill();
+  }
+
+  function drawSaucer(cx, H, lit) {
+    var top = GROUND_Y - H;
+    var sy = top + 46;
+    ctx.fillStyle = '#183B37';                    // base flare
+    ctx.beginPath();
+    ctx.moveTo(cx - 36, GROUND_Y);
+    ctx.lineTo(cx - 4, GROUND_Y - 130);
+    ctx.lineTo(cx + 4, GROUND_Y - 130);
+    ctx.lineTo(cx + 36, GROUND_Y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#1E4744';                    // shaft
+    ctx.fillRect(cx - 6, sy, 12, GROUND_Y - sy);
+    ctx.fillStyle = BRASS;                        // spire
+    ctx.fillRect(cx - 1.5, sy - 36, 3, 24);
+    ctx.beginPath(); ctx.arc(cx, sy - 38, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = TEAL_TRIM;                    // under-disc shadow plate
+    ctx.beginPath(); ctx.ellipse(cx, sy + 8, 40, 9, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = CREAM_HI;                     // the saucer
+    ctx.beginPath(); ctx.ellipse(cx, sy, 54, 14, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#235450';                    // cabin dome
+    ctx.beginPath(); ctx.ellipse(cx, sy - 8, 22, 11, 0, Math.PI, 0); ctx.fill();
+    var dots = [];
+    for (var wx = -36; wx <= 36; wx += 18) dots.push([cx + wx, sy + 2]);
+    brassDots(dots, 2.5, lit);
+  }
+
+  function drawRocket(cx, H, lit) {
+    var top = GROUND_Y - H;
+    var bx = cx + 10;
+    ctx.fillStyle = TEAL_TRIM;                    // launch platform
+    ctx.fillRect(cx - 70, GROUND_Y - 10, 140, 10);
+    ctx.fillStyle = '#183B37';                    // gantry mast
+    ctx.fillRect(cx - 52, top + 30, 14, GROUND_Y - top - 40);
+    ctx.fillStyle = BRASS;                        // gantry rungs to the ship
+    for (var yy = top + 44; yy < GROUND_Y - 20; yy += 22) {
+      ctx.fillRect(cx - 56, yy, 30, 2);
+    }
+    ctx.fillStyle = ORANGE;                       // fins
+    ctx.beginPath();
+    ctx.moveTo(bx - 16, GROUND_Y - 64); ctx.lineTo(bx - 34, GROUND_Y - 10); ctx.lineTo(bx - 16, GROUND_Y - 10);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(bx + 16, GROUND_Y - 64); ctx.lineTo(bx + 34, GROUND_Y - 10); ctx.lineTo(bx + 16, GROUND_Y - 10);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = CREAM_HI;                     // hull
+    ctx.fillRect(bx - 16, top + 62, 32, GROUND_Y - top - 72);
+    ctx.fillStyle = ORANGE;                       // nose cone
+    ctx.beginPath();
+    ctx.moveTo(bx - 16, top + 64);
+    ctx.quadraticCurveTo(bx, top + 4, bx + 16, top + 64);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#1E4744';                    // hull band
+    ctx.fillRect(bx - 16, top + 92, 32, 8);
+    var dots = [];
+    for (var d = 0; d < 3; d++) dots.push([bx, top + 132 + d * 36]);
+    brassDots(dots, 3.5, lit);
+  }
+
+  function drawAtom(cx, H, lit) {
+    var top = GROUND_Y - H;
+    var ey = top + 52;                            // emblem nucleus
+    ctx.fillStyle = TEAL_TRIM;                    // plinth
+    ctx.fillRect(cx - 78, GROUND_Y - 12, 156, 12);
+    ctx.fillStyle = '#1E4744';                    // dome
+    ctx.beginPath(); ctx.ellipse(cx, GROUND_Y - 12, 72, 92, 0, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = CREAM_HI;                     // entry arch
+    ctx.beginPath(); ctx.ellipse(cx, GROUND_Y - 12, 15, 26, 0, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = BRASS;                        // emblem support rod
+    ctx.fillRect(cx - 1.5, ey + 12, 3, (GROUND_Y - 104) - (ey + 12));
+    ctx.strokeStyle = BRASS;                      // electron orbits
+    ctx.lineWidth = 2;
+    var rots = [0, Math.PI / 3, (2 * Math.PI) / 3];
+    var r;
+    for (r = 0; r < 3; r++) {
+      ctx.beginPath();
+      ctx.ellipse(cx, ey, 38, 13, rots[r], 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.fillStyle = BRASS;                        // nucleus
+    ctx.beginPath(); ctx.arc(cx, ey, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = ORANGE;                       // orbiting electrons
+    for (r = 0; r < 3; r++) {
+      var ang = effT * (0.9 + r * 0.35) + r * 2.1;
+      var ex = Math.cos(ang) * 38, eyy = Math.sin(ang) * 13;
+      var rot = rots[r];
+      ctx.beginPath();
+      ctx.arc(cx + ex * Math.cos(rot) - eyy * Math.sin(rot),
+              ey + ex * Math.sin(rot) + eyy * Math.cos(rot), 3.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // commissioned landmarks reveal bottom-up behind a construction curtain
+  function drawLandmark(L, litLevel) {
+    if (L.progress <= 0) return;
+    var revealH = L.h * easeOutCubic(L.progress) + 44;   // headroom for spires
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(L.x - 115, GROUND_Y - revealH, 230, revealH);
+    ctx.clip();
+    if (L.kind === 'saucer') drawSaucer(L.x, L.h, litLevel);
+    else if (L.kind === 'rocket') drawRocket(L.x, L.h, litLevel);
+    else drawAtom(L.x, L.h, litLevel);
+    ctx.restore();
+  }
+
+  function drawMonorail(litLevel) {
+    ctx.fillStyle = TEAL_TRIM;                    // pylons
+    for (var px = 90; px < VIEW_W + 40; px += 260) {
+      ctx.fillRect(px - 5, RAIL_Y + 5, 10, GROUND_Y - RAIL_Y - 5);
+    }
+    ctx.fillRect(0, RAIL_Y, VIEW_W, 7);           // beam
+    ctx.fillStyle = BRASS;
+    ctx.fillRect(0, RAIL_Y - 2, VIEW_W, 2);       // brass running rail
+
+    if (!monorail.active || reducedMotion.matches) return;
+    var x = monorail.x;
+    var y = RAIL_Y - 26;
+    var noseX = monorail.dir === 1 ? x + TRAIN_LEN - 12 : x + 12;
+    ctx.beginPath();                              // streamlined cream body
+    ctx.moveTo(x + 12, y);
+    ctx.lineTo(x + TRAIN_LEN - 12, y);
+    ctx.arc(x + TRAIN_LEN - 12, y + 12, 12, -Math.PI / 2, Math.PI / 2);
+    ctx.lineTo(x + 12, y + 24);
+    ctx.arc(x + 12, y + 12, 12, Math.PI / 2, -Math.PI / 2);
+    ctx.closePath();
+    ctx.fillStyle = CREAM_HI;
+    ctx.fill();
+    ctx.strokeStyle = TEAL_TRIM;                  // keeps it crisp on any sky
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.save();                                   // orange nose cap, clipped to the hull
+    ctx.clip();
+    ctx.fillStyle = ORANGE;
+    ctx.beginPath(); ctx.arc(noseX, y + 12, 14, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#1E4744';                    // teal beltline
+    ctx.fillRect(x + 6, y + 17, TRAIN_LEN - 12, 4);
+    ctx.restore();
+    var dots = [];
+    var wStart = monorail.dir === 1 ? x + 22 : x + 46;
+    for (var w = 0; w < 5; w++) dots.push([wStart + w * 26, y + 10]);
+    ctx.fillStyle = '#1E4744';                    // teal portholes by day…
+    ctx.beginPath();
+    for (w = 0; w < dots.length; w++) dotPath(dots[w][0], dots[w][1], 3.5);
+    ctx.fill();
+    if (litLevel > 0.55) brassDots(dots, 3.5, litLevel);   // …brass-lit at night
+  }
+
+  function drawSputnik(starLevel) {
+    if (!sputnik.active || reducedMotion.matches || starLevel <= 0.05) return;
+    var x = -40 + sputnik.p * (VIEW_W + 80);
+    var y = 84 + sputnik.p * 52;
+    ctx.globalAlpha = Math.min(1, starLevel) * 0.9;
+    ctx.strokeStyle = BRASS;                      // four trailing antennae
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x, y); ctx.lineTo(x - 26, y - 10);
+    ctx.moveTo(x, y); ctx.lineTo(x - 24, y - 3);
+    ctx.moveTo(x, y); ctx.lineTo(x - 24, y + 4);
+    ctx.moveTo(x, y); ctx.lineTo(x - 26, y + 11);
+    ctx.stroke();
+    ctx.fillStyle = BRASS;
+    ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.fill();
     ctx.globalAlpha = 1;
   }
 
@@ -774,8 +1043,13 @@
       }, (moonW / wSum) * celDim, sky);
     }
 
+    drawSputnik(starLevel);
+
     for (i = 0; i < bgCity.length; i++) drawBuilding(bgCity[i], litLevel);
+    for (i = 0; i < landmarks.length; i++) drawLandmark(landmarks[i], litLevel);
     for (i = 0; i < city.length; i++) drawBuilding(city[i], litLevel);
+
+    drawMonorail(litLevel);
 
     drawRain(weatherLevel[1], skyLum);
     drawSnow(weatherLevel[2]);
@@ -819,6 +1093,8 @@
     population: 0,
     city: city,
     bg: bgCity,
+    landmarks: landmarks,
+    ambient: { monorail: monorail, sputnik: sputnik },
     reducedMotion: reducedMotion
   };
   console.info('MUNICITRON M-58 · ' + CITY_NAME + ' · seed ' + seed + ' — reproduce with ?seed=' + seed);

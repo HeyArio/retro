@@ -159,6 +159,11 @@
     renderPopulation();
   });
 
+  // the machine salutes a commissioned landmark
+  document.addEventListener('municitron:landmark', function () {
+    flashLamp(xmitLamp, 'xmit', 2200);
+  });
+
   /* ---------------- lamps ---------------- */
 
   var lampTimers = {};
