@@ -34,7 +34,7 @@
     if ('letterSpacing' in c) c.letterSpacing = (spacingCss * S) + 'px';
   }
 
-  function compose(name, pop, seed) {
+  function compose(name, pop, seed, conditions) {
     var pc = document.createElement('canvas');
     pc.width = CARD_W * S;
     pc.height = CARD_H * S;
@@ -88,6 +88,13 @@
     c.fillStyle = ENGRAVE;
     c.fillText('POP. ' + pop.toLocaleString('en-US') + '  —  TRANSMITTED VIA MUNICITRON', FACE_L * S, y3);
 
+    // conditions at the moment of transmission
+    if (conditions) {
+      setFont(c, '600', 11, 'Jost, Futura, sans-serif', 2.5);
+      c.fillStyle = 'rgba(74, 53, 16, 0.6)';
+      c.fillText('CONDITIONS AT TRANSMISSION: ' + conditions, FACE_L * S, y3 + 26 * S);
+    }
+
     // fine print, with the seed as the transmission number
     setFont(c, '600', 9.5, 'Jost, Futura, sans-serif', 2.5);
     c.fillStyle = 'rgba(74, 53, 16, 0.55)';
@@ -111,12 +118,13 @@
   document.addEventListener('municitron:transmit', function (e) {
     var M = window.MUNICITRON_CITY || {};
     var name = (e.detail && e.detail.name) || M.name || 'YOUR CITY';
+    var conditions = (e.detail && e.detail.conditions) || null;
     var pop = M.population || 0;
     var seed = M.seed || 0;
     var fontsReady = (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve();
     fontsReady.then(function () {
-      if (frameImg.complete && frameImg.naturalWidth) compose(name, pop, seed);
-      else frameImg.onload = function () { compose(name, pop, seed); };
+      if (frameImg.complete && frameImg.naturalWidth) compose(name, pop, seed, conditions);
+      else frameImg.onload = function () { compose(name, pop, seed, conditions); };
     });
   });
 })();

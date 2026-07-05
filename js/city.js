@@ -457,6 +457,28 @@
 
   var flickTimer = 0.8;                           // individual window lights
 
+  /* ---------------- municipal bulletin ---------------- */
+  /* A one-line civic wire service on the ground band. Runs on its own
+     clock so notices post even while the lever is DORMANT. */
+
+  var bulletin = { current: null, until: 0, clock: 0, queue: [] };
+
+  function postBulletin(msg) {
+    if (bulletin.queue.length < 4 && bulletin.queue.indexOf(msg) === -1) {
+      bulletin.queue.push(msg);
+    }
+  }
+
+  var WEATHER_NOTICES = [
+    'SKIES CLEAR — ALL FORMS NOMINAL',
+    'FORECAST: RAIN — CARRY FORM RB-2',
+    'FORECAST: SNOW — PLOWS DISPATCHED',
+    'AURORA WATCH IN EFFECT — LOOK UP'
+  ];
+  var weatherBooted = false;
+  var densifyNoticed = false;
+  var nextCensusNotice = 10000;
+
   /* ---------------- simulation state ---------------- */
 
   var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -493,6 +515,12 @@
     if (!lastTime) {
       for (var i = 0; i < 4; i++) weatherLevel[i] = (i === weatherTo) ? 1 : 0;
     }
+    if (weatherBooted) postBulletin(WEATHER_NOTICES[weatherTo]);
+    weatherBooted = true;
+  });
+
+  document.addEventListener('municitron:transmit', function () {
+    postBulletin('POSTCARD TRANSMITTED — FORM PC-1 FILED');
   });
 
   function builtMass() {
@@ -543,6 +571,10 @@
           if (reducedMotion.matches) { applyNext(lot); lot.progress = 1; }
           else { lot.demolishing = true; lot.rising = false; }
           spawnTimer = SPAWN_INTERVAL[growthIndex] * DENSIFY_PACE * lot.jitter;
+          if (!densifyNoticed) {
+            densifyNoticed = true;
+            postBulletin('URBAN RENEWAL NOTICE — FORM D-4 POSTED');
+          }
         }
       }
       for (i = 0; i < allBuildings.length; i++) {
@@ -577,6 +609,9 @@
         if (monorail.timer <= 0) {
           monorail.active = true;
           monorail.x = monorail.dir === 1 ? -TRAIN_LEN - 30 : VIEW_W + 30;
+          if (rng4() < 0.35) {
+            postBulletin('MONORAIL DEPARTING — PLATFORM ' + (monorail.dir === 1 ? '1' : '2'));
+          }
         }
       }
 
@@ -666,6 +701,7 @@
       var L = landmarks[i];
       if (!L.commissioned && growthIndex > 0 && target >= L.threshold) {
         L.commissioned = true;
+        postBulletin(L.title + ' COMMISSIONED — FORM 7-B FILED');
         document.dispatchEvent(new CustomEvent('municitron:landmark', {
           detail: { kind: L.kind, title: L.title }
         }));
@@ -683,6 +719,19 @@
       lastEmitted = whole;
       window.MUNICITRON_CITY.population = whole;
       document.dispatchEvent(new CustomEvent('municitron:population', { detail: whole }));
+      if (whole >= nextCensusNotice) {
+        postBulletin('CENSUS MILESTONE — POP. ' + nextCensusNotice.toLocaleString('en-US'));
+        nextCensusNotice += 10000;
+      }
+    }
+
+    // rotate the bulletin wire (its own clock — runs even in DORMANT)
+    bulletin.clock += dt;
+    if (bulletin.current && bulletin.clock > bulletin.until) bulletin.current = null;
+    if (!bulletin.current && bulletin.queue.length) {
+      bulletin.current = bulletin.queue.shift();
+      bulletin.started = bulletin.clock;
+      bulletin.until = bulletin.clock + 6.5;
     }
   }
 
@@ -1236,11 +1285,27 @@
 
     // engraved city-name plate on the ground band (darkens when snow
     // pales the band so it always reads)
+    var plateColor = rgbStr(mixRgb(hexToRgb(BRASS), TRIM_RGB, weatherLevel[2] * 0.7));
+    var bandMid = GROUND_Y + (VIEW_H - GROUND_Y) / 2 + 2;
     ctx.font = '600 15px Jost, Futura, sans-serif';
     if ('letterSpacing' in ctx) ctx.letterSpacing = '3px';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = rgbStr(mixRgb(hexToRgb(BRASS), TRIM_RGB, weatherLevel[2] * 0.7));
-    ctx.fillText('CITY OF ' + CITY_NAME, 22, GROUND_Y + (VIEW_H - GROUND_Y) / 2 + 2);
+    ctx.fillStyle = plateColor;
+    ctx.fillText('CITY OF ' + CITY_NAME, 22, bandMid);
+
+    // the municipal bulletin wire, right-aligned, fading in and out
+    if (bulletin.current) {
+      var age = bulletin.clock - bulletin.started;
+      var left = bulletin.until - bulletin.clock;
+      var fade = Math.min(1, age / 0.4, left / 0.4);
+      ctx.globalAlpha = Math.max(0, fade) * 0.9;
+      ctx.font = '600 13px Jost, Futura, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillStyle = plateColor;
+      ctx.fillText('☆ ' + bulletin.current, VIEW_W - 22, bandMid);
+      ctx.textAlign = 'left';
+      ctx.globalAlpha = 1;
+    }
     if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
   }
 
@@ -1270,5 +1335,6 @@
     ambient: { monorail: monorail, sputnik: sputnik, airship: airship, cars: cars },
     reducedMotion: reducedMotion
   };
+  postBulletin('MUNICIPAL SIMULATION IN PROGRESS — MODEL M-58');
   console.info('MUNICITRON M-58 · ' + CITY_NAME + ' · seed ' + seed + ' — reproduce with ?seed=' + seed);
 })();

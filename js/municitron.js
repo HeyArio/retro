@@ -185,7 +185,10 @@
     // compose + download the PNG (js/postcard.js); an edited blank wins
     var custom = postcardCity.textContent.replace(/\s+/g, ' ').trim();
     document.dispatchEvent(new CustomEvent('municitron:transmit', {
-      detail: { name: custom || null }
+      detail: {
+        name: custom || null,
+        conditions: WEATHER[state.weather] + ' — ' + TIME_NAMES[state.time]
+      }
     }));
   });
 
@@ -213,6 +216,29 @@
     flashLamp(coinLamp, 'coin', 1200);
     window.open(KOFI_URL, '_blank', 'noopener');
   });
+
+  /* ---------------- attract mode ---------------- */
+  /* After 90 idle seconds the machine strolls through the day on its
+     own — a living desk toy in a background tab. Any touch of the
+     console hands the wheel back. Disabled under reduced motion. */
+
+  var lastInteraction = Date.now();
+  var lastAttractStep = 0;
+
+  function wake() { lastInteraction = Date.now(); }
+  machine.addEventListener('pointerdown', wake);
+  document.addEventListener('keydown', wake);
+
+  setInterval(function () {
+    var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced || !overlay.hidden || document.visibilityState !== 'visible') return;
+    var now = Date.now();
+    if (now - lastInteraction < 90000 || now - lastAttractStep < 12000) return;
+    lastAttractStep = now;
+    state.time = (state.time + 1) % 8;
+    renderTime();
+    announce('time', state.time, TIME_NAMES[state.time]);
+  }, 1000);
 
   /* ---------------- scale machine to viewport ---------------- */
 
