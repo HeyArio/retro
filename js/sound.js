@@ -81,6 +81,7 @@
   document.addEventListener('municitron:population', function () { tick(); });
   document.addEventListener('municitron:landmark', function () { chime(); });
   document.addEventListener('municitron:transmit', function () { chime(); });
+  document.addEventListener('municitron:certificate', function () { chime(); });
   document.addEventListener('municitron:coin', function () { bell(); });
   document.addEventListener('municitron:fireworks', function () { thump(); });
   document.addEventListener('municitron:ufo', function () { wobble(); });

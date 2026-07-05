@@ -431,6 +431,42 @@
     return name;
   })();
 
+  // every municipality needs a motto in confident schoolhouse Latin;
+  // drawn from the naming stream AFTER the name so names are unchanged
+  var CITY_MOTTO = (function () {
+    var VIRTUES = ['INDUSTRIA', 'CIVITAS', 'PROGRESSUS', 'CONCORDIA',
+                   'LUMEN', 'FORTITUDO', 'PROSPERITAS', 'VIGILANTIA'];
+    var a = VIRTUES[Math.floor(rng3() * VIRTUES.length)];
+    var b = VIRTUES[Math.floor(rng3() * VIRTUES.length)];
+    while (b === a) b = VIRTUES[Math.floor(rng3() * VIRTUES.length)];
+    return a + ' ET ' + b;
+  })();
+
+  /* ---------------- the municipal ledger (localStorage) ---------------- */
+  /* The ledger belongs to the commissioner, not to any one city: civic
+     firsts are entered once, ever, and a returning commissioner is
+     welcomed back by name of office. Fails silently where storage is
+     unavailable — the toy never depends on it. */
+
+  var memory = (function () {
+    try {
+      var m = JSON.parse(localStorage.getItem('municitron-m58') || '{}');
+      if (!m.records) m.records = {};
+      m.visits = (m.visits || 0) + 1;
+      m.prevVisit = m.lastVisit || 0;
+      m.lastVisit = Date.now();
+      localStorage.setItem('municitron-m58', JSON.stringify(m));
+      return m;
+    } catch (err) { return null; }
+  })();
+
+  function recordFirst(key, notice) {
+    if (!memory || memory.records[key]) return;
+    memory.records[key] = new Date().toISOString();
+    try { localStorage.setItem('municitron-m58', JSON.stringify(memory)); } catch (err) {}
+    postBulletin('MUNICIPAL LEDGER — ' + notice);
+  }
+
   /* ---------------- weather particles (separate rng stream) ------------ */
 
   var rng2 = mulberry32(seed ^ 0x9E3779B9);
@@ -548,6 +584,7 @@
     ufo.x = ufo.dir === 1 ? -60 : VIEW_W + 60;
     ufo.y = 80 + rng6() * 60;
     postBulletin('OBJECT REPORTED OVER NORTHERN DISTRICT — OFFICIALS DECLINE COMMENT');
+    recordFirst('object', 'FIRST UNEXPLAINED OBJECT LOGGED');
   });
 
   // demolition dust: flat cream puffs shaken loose by the wrecking crews
@@ -760,6 +797,8 @@
     }
     if (weatherBooted) {
       postBulletin(WEATHER_NOTICES[weatherTo]);
+      if (weatherTo === 2) recordFirst('snow', 'FIRST SNOWFALL WITNESSED');
+      if (weatherTo === 3) recordFirst('aurora', 'FIRST AURORA WITNESSED');
       // a change in the sky startles a rooftop flock
       var roost = city[Math.floor(rng6() * city.length)];
       if (roost.progress === 1 && rng6() < 0.6) {
@@ -801,7 +840,18 @@
     } else {
       postBulletin('ANOTHER KIND CITIZEN — THE TOWN SALUTES YOU');
     }
+    recordFirst('benefaction', 'FIRST BENEFACTION ENTERED');
     startShow(3);
+  });
+
+  // the census gauge issues incorporation papers (see js/certificate.js)
+  document.addEventListener('municitron:certificate', function () {
+    postBulletin('CERTIFICATE OF INCORPORATION ISSUED — FRAME IT PROUDLY');
+    recordFirst('incorporation', 'FIRST INCORPORATION FILED');
+    startShow(4);
+  });
+  document.addEventListener('municitron:certificate-denied', function () {
+    postBulletin('INCORPORATION REQUIRES POP. 10,000 — KEEP BUILDING');
   });
 
   function builtMass() {
@@ -1052,6 +1102,7 @@
       if (!L.commissioned && growthIndex > 0 && target >= L.threshold) {
         L.commissioned = true;
         postBulletin(L.title + ' COMMISSIONED — FORM 7-B FILED');
+        recordFirst('landmark', 'FIRST LANDMARK COMMISSIONED');
         startShow(5);
         document.dispatchEvent(new CustomEvent('municitron:landmark', {
           detail: { kind: L.kind, title: L.title }
@@ -2009,6 +2060,8 @@
   window.MUNICITRON_CITY = {
     seed: seed,
     name: CITY_NAME,
+    motto: CITY_MOTTO,
+    ledger: memory,
     population: 0,
     city: city,
     bg: bgCity,
@@ -2022,5 +2075,12 @@
     reducedMotion: reducedMotion
   };
   postBulletin('MUNICIPAL SIMULATION IN PROGRESS — MODEL M-58');
+  if (memory && memory.prevVisit) {
+    var away = Math.floor((memory.lastVisit - memory.prevVisit) / 86400000);
+    if (away >= 1) {
+      postBulletin('WELCOME BACK, COMMISSIONER — ' + away +
+                   (away === 1 ? ' DAY' : ' DAYS') + ' SINCE LAST INSPECTION');
+    }
+  }
   console.info('MUNICITRON M-58 · ' + CITY_NAME + ' · seed ' + seed + ' — reproduce with ?seed=' + seed);
 })();

@@ -173,6 +173,22 @@
     flashLamp(xmitLamp, 'xmit', 2200);
   });
 
+  // the census gauge doubles as the registrar's window: once the count
+  // clears 10,000 a click issues the certificate of incorporation
+  gaugeFace.title = 'ISSUE CERTIFICATE OF INCORPORATION (POP. 10,000 REQUIRED)';
+  gaugeFace.style.cursor = 'pointer';
+  gaugeFace.addEventListener('click', function () {
+    if (state.population >= 10000) {
+      flashLamp(xmitLamp, 'xmit', 1400);
+      var custom = postcardCity.textContent.replace(/\s+/g, ' ').trim();
+      document.dispatchEvent(new CustomEvent('municitron:certificate', {
+        detail: { name: custom || null, population: state.population }
+      }));
+    } else {
+      document.dispatchEvent(new CustomEvent('municitron:certificate-denied'));
+    }
+  });
+
   /* ---------------- lamps ---------------- */
 
   var lampTimers = {};

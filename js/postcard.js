@@ -95,6 +95,30 @@
       c.fillText('CONDITIONS AT TRANSMISSION: ' + conditions, FACE_L * S, y3 + 26 * S);
     }
 
+    // collectible editions: cards mailed under special skies carry a
+    // rubber-stamp overprint across the photo corner
+    var edition = null;
+    if (conditions) {
+      if (conditions.indexOf('AURORA') !== -1) edition = 'AURORA SPECIAL';
+      else if (conditions.indexOf('SNOW') !== -1) edition = 'WINTER CARNIVAL EDITION';
+      else if (/MIDNIGHT|EVENING|NIGHT/.test(conditions)) edition = 'NIGHT AIRMAIL';
+    }
+    if (edition) {
+      c.save();
+      c.translate((FACE_L + 330) * S, (FACE_T + 148) * S);
+      c.rotate(-0.14);
+      setFont(c, '700', 15, 'Jost, Futura, sans-serif', 3);
+      var ew = c.measureText(edition).width;
+      c.strokeStyle = 'rgba(217, 111, 50, 0.75)';
+      c.lineWidth = 2 * S;
+      c.strokeRect(-ew / 2 - 10 * S, -14 * S, ew + 20 * S, 24 * S);
+      c.fillStyle = 'rgba(217, 111, 50, 0.8)';
+      c.textAlign = 'center';
+      c.fillText(edition, 0, 3 * S);
+      c.textAlign = 'left';
+      c.restore();
+    }
+
     // fine print, with the seed as the transmission number
     setFont(c, '600', 9.5, 'Jost, Futura, sans-serif', 2.5);
     c.fillStyle = 'rgba(74, 53, 16, 0.55)';
