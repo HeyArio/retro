@@ -1,0 +1,788 @@
+/* ==========================================================================
+   MUNICITRON M-58 — Nazarban Instrument Works, 1958
+   ========================================================================== */
+
+:root {
+  --cream:        #E8DCC0;
+  --cream-hi:     #F2E9D2;
+  --cream-lo:     #D5C6A2;
+  --teal:         #1E4744;
+  --teal-trim:    #16332F;
+  --teal-hi:      #235450;
+  --teal-lo:      #183B37;
+  --brass-dark:   #8A6D1D;
+  --brass-mid:    #C9A227;
+  --brass-light:  #D9B54A;
+  --brass-hi:     #E5C868;
+  --engrave:      #4A3510;
+  --orange:       #D96F32;
+  --orange-hi:    #E88A50;
+  --orange-lo:    #A94F1D;
+  --orange-deep:  #8a3f15;
+  --olive:        #7FA653;
+  --needle-red:   #C23B22;
+  --bakelite-hi:  #443a31;
+  --bakelite-mid: #2b241e;
+  --bakelite-lo:  #150f0b;
+  --label:        #C9BFA4;
+  --readout:     #9db3ad;
+
+  --brass-face:   linear-gradient(135deg, var(--brass-light) 0%, var(--brass-mid) 45%, var(--brass-dark) 100%);
+  --brass-face-r: linear-gradient(315deg, var(--brass-light) 0%, var(--brass-mid) 50%, var(--brass-dark) 100%);
+  --brass-plate:  linear-gradient(160deg, var(--brass-light) 0%, var(--brass-mid) 40%, var(--brass-dark) 100%);
+  --bakelite:     radial-gradient(circle at 34% 28%, var(--bakelite-hi) 0%, var(--bakelite-mid) 45%, var(--bakelite-lo) 100%);
+
+  --display: 'Jost', 'Futura', sans-serif;
+  --body:    'Cabin', 'Gill Sans', sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #101d1b;
+  font-family: var(--body);
+  overflow: hidden;
+}
+
+/* ---- stage: scales the fixed 1600×900 machine to the viewport ---- */
+.stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.machine {
+  width: 1600px;
+  height: 900px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  background: var(--cream);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+  transform-origin: center center;
+}
+
+/* ==========================================================================
+   Simulation viewport
+   ========================================================================== */
+
+.sim {
+  height: 600px;
+  background: var(--cream);
+}
+
+.sim canvas { display: block; width: 100%; height: 100%; }
+
+/* ==========================================================================
+   Console panel
+   ========================================================================== */
+
+.console {
+  height: 300px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 54px 26px;
+  background: linear-gradient(180deg, var(--teal-hi) 0%, var(--teal) 12%, var(--teal) 88%, var(--teal-lo) 100%);
+  border-top: 10px solid var(--teal-trim);
+  box-shadow: inset 0 2px 0 rgba(232, 220, 192, 0.14), inset 0 -14px 30px rgba(0, 0, 0, 0.35);
+}
+
+.control {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.control-name {
+  font-family: var(--display);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  color: var(--cream);
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.5);
+}
+
+.control-readout {
+  font-family: var(--display);
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--readout);
+}
+
+.console-footer {
+  position: absolute;
+  left: 0; right: 0; bottom: 7px;
+  text-align: center;
+  font-family: var(--display);
+  font-size: 9px;
+  letter-spacing: 2.5px;
+  color: rgba(232, 220, 192, 0.55);
+}
+
+/* ---- shared brass bezel (three stacked tones) ---- */
+
+.bezel {
+  background: var(--brass-face);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+  padding: 5px;
+}
+
+.bezel-round { border-radius: 50%; }
+
+.bezel-inner,
+.bezel-round > .bezel-inner {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--brass-face-r);
+  padding: 4px;
+}
+
+.bakelite {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--bakelite);
+  box-shadow: inset 0 2px 3px rgba(255, 255, 255, 0.15), inset 0 -3px 6px rgba(0, 0, 0, 0.7);
+}
+
+.hub {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 16px; height: 16px;
+  margin: -8px 0 0 -8px;
+  border-radius: 50%;
+}
+
+.hub-brass {
+  background: radial-gradient(circle at 35% 30%, var(--brass-hi), var(--brass-dark));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* ---- 1 · WEATHER knob ---- */
+
+.knob-area { position: relative; cursor: pointer; }
+
+.weather-area { width: 236px; height: 148px; }
+
+.knob-bezel {
+  position: absolute;
+  top: 34px;
+  width: 110px;
+  height: 110px;
+}
+
+.weather-area .knob-bezel { left: 63px; }
+
+.knob-label {
+  position: absolute;
+  width: 52px;
+  font-family: var(--display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  color: var(--label);
+}
+
+.pos-clear  { left: 0;      top: 44px; text-align: right; }
+.pos-rain   { left: 60px;   top: 8px;  text-align: right; }
+.pos-snow   { right: 68px;  top: 8px;  text-align: left; }
+.pos-aurora { right: -8px;  top: 44px; text-align: left; width: 58px; }
+
+.knob-rotor {
+  position: absolute;
+  inset: 0;
+  transition: transform 0.25s cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+
+.knob-pointer {
+  position: absolute;
+  left: 50%; top: 8px;
+  width: 5px; height: 26px;
+  margin-left: -2.5px;
+  border-radius: 3px;
+  background: var(--cream);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+/* ---- 2 · TIME OF DAY dial (pointer-window drum) ---- */
+
+.time-area { width: 130px; height: 148px; }
+.time-area .knob-bezel { left: 10px; }
+
+.knurl-ring {
+  position: absolute;
+  inset: 26px;
+  border-radius: 50%;
+  border: 2px dotted rgba(232, 220, 192, 0.22);
+}
+
+.time-window {
+  position: absolute;
+  left: 50%; top: 6px;
+  width: 26px; height: 30px;
+  margin-left: -13px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, var(--brass-light), var(--brass-dark));
+  padding: 3px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.time-window-face {
+  width: 100%; height: 100%;
+  border-radius: 2px;
+  background: radial-gradient(circle at 40% 30%, #F0E6CC, var(--cream-lo));
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--engrave);
+}
+
+/* ---- nameplate ---- */
+
+.center-stack { gap: 12px; }
+
+.nameplate {
+  position: relative;
+  width: 264px;
+  height: 80px;
+  border-radius: 5px;
+  background: var(--brass-plate);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 244, 214, 0.6), inset 0 -2px 3px rgba(74, 53, 16, 0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+.nameplate-title {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 25px;
+  letter-spacing: 7px;
+  margin-left: 7px;
+  color: var(--engrave);
+  text-shadow: 0 1px 0 rgba(255, 244, 214, 0.45);
+}
+
+.nameplate-sub {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 8.5px;
+  letter-spacing: 1.8px;
+  margin-left: 1.8px;
+  white-space: nowrap;
+  color: var(--engrave);
+  text-shadow: 0 1px 0 rgba(255, 244, 214, 0.35);
+}
+
+/* ---- corner screws ---- */
+
+.screw {
+  position: absolute;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--brass-hi), var(--brass-dark));
+  box-shadow: inset 0 -1px 1px rgba(74, 53, 16, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.screw i { display: block; width: 7px; height: 1.5px; background: var(--engrave); }
+
+.screw.sm { width: 7px; height: 7px; }
+.screw.sm i { width: 5px; }
+
+.screw-tl { left: 8px;  top: 8px; }    .screw-tl i { transform: rotate(38deg); }
+.screw-tr { right: 8px; top: 8px; }    .screw-tr i { transform: rotate(-24deg); }
+.screw-bl { left: 8px;  bottom: 8px; } .screw-bl i { transform: rotate(80deg); }
+.screw-br { right: 8px; bottom: 8px; } .screw-br i { transform: rotate(-60deg); }
+
+.coin-plate .screw-tl, .coin-plate .screw-tr { top: 6px; }
+.coin-plate .screw-bl, .coin-plate .screw-br { bottom: 6px; }
+.coin-plate .screw-tl, .coin-plate .screw-bl { left: 6px; }
+.coin-plate .screw-tr, .coin-plate .screw-br { right: 6px; }
+
+/* ---- coin mechanism ---- */
+
+.coin-mech {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.coin-plate {
+  position: relative;
+  width: 92px;
+  height: 62px;
+  border-radius: 6px;
+  background: linear-gradient(150deg, var(--brass-light) 0%, var(--brass-mid) 45%, var(--brass-dark) 100%);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 244, 214, 0.55), inset 0 -2px 3px rgba(74, 53, 16, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.coin-throat {
+  width: 54px;
+  height: 42px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, var(--bakelite-mid), #16110d);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.9), 0 1px 0 rgba(255, 244, 214, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+}
+
+.coin-slot {
+  width: 7px;
+  height: 28px;
+  border-radius: 3px;
+  background: #000;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 1), 0 0 0 1.5px rgba(217, 181, 74, 0.55);
+}
+
+.coin-caption-plate {
+  width: 232px;
+  height: 22px;
+  border-radius: 3px;
+  background: var(--brass-plate);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 244, 214, 0.55), inset 0 -1px 2px rgba(74, 53, 16, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--display);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+  white-space: nowrap;
+  color: var(--engrave);
+  text-shadow: 0 1px 0 rgba(255, 244, 214, 0.4);
+}
+
+/* ---- 4 · POPULATION gauge ---- */
+
+.gauge-bezel { width: 158px; height: 158px; padding: 6px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); }
+
+.gauge-face {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 42% 34%, var(--cream-hi) 0%, var(--cream) 55%, var(--cream-lo) 100%);
+  box-shadow: inset 0 -3px 8px rgba(0, 0, 0, 0.25);
+}
+
+.gauge-tick {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 2px; height: 10px;
+  margin: -5px 0 0 -1px;
+  background: var(--engrave);
+}
+
+.gauge-needle {
+  position: absolute;
+  left: 50%; bottom: 50%;
+  width: 3px; height: 48px;
+  margin-left: -1.5px;
+  border-radius: 2px 2px 0 0;
+  background: var(--needle-red);
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
+  transform-origin: bottom center;
+  transition: transform 0.4s ease-out;
+}
+
+.gauge-face .hub { width: 12px; height: 12px; margin: -6px 0 0 -6px; box-shadow: none; }
+
+.gauge-title {
+  position: absolute;
+  left: 0; right: 0; top: 26px;
+  text-align: center;
+  font-family: var(--display);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  color: var(--engrave);
+}
+
+.odometer {
+  position: absolute;
+  left: 50%; bottom: 22px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 1px;
+  padding: 2px;
+  border-radius: 3px;
+  background: var(--engrave);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.odometer .digit {
+  width: 12px;
+  height: 17px;
+  overflow: hidden;
+  position: relative;
+  background: linear-gradient(180deg, #241a10, var(--bakelite-lo) 40%, #241a10);
+}
+
+.odometer .digit-strip {
+  position: absolute;
+  left: 0; top: 0;
+  width: 100%;
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.odometer .digit-strip span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 17px;
+  color: var(--cream);
+  font-family: var(--display);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ---- 3 · GROWTH lever ---- */
+
+.lever-area {
+  position: relative;
+  width: 138px;
+  height: 148px;
+  margin-top: 8px;
+}
+
+.lever-track {
+  position: absolute;
+  left: 38px; top: 4px;
+  width: 18px; height: 140px;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #10201d, var(--teal-trim));
+  box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.8), 0 1px 0 rgba(232, 220, 192, 0.12);
+}
+
+.lever-handle {
+  position: absolute;
+  left: 24px;
+  top: 63px;
+  width: 46px; height: 26px;
+  border-radius: 6px;
+  background: radial-gradient(circle at 35% 28%, var(--bakelite-hi) 0%, var(--bakelite-mid) 50%, var(--bakelite-lo) 100%);
+  box-shadow: 0 3px 7px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+  transition: top 0.25s cubic-bezier(0.3, 1.3, 0.5, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+}
+
+.lever-stripe {
+  width: 30px; height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--brass-dark), var(--brass-light), var(--brass-dark));
+}
+
+.lever-label {
+  position: absolute;
+  left: 76px;
+  font-family: var(--display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  color: var(--label);
+  cursor: pointer;
+}
+
+.pos-boom    { top: 10px; }
+.pos-steady  { top: 64px; }
+.pos-dormant { top: 118px; }
+
+/* ---- lamps ---- */
+
+.lamp-row { display: flex; gap: 22px; margin-bottom: 2px; }
+
+.lamp-unit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.lamp-unit span {
+  font-family: var(--display);
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  color: var(--label);
+}
+
+.lamp {
+  position: relative;
+  width: 15px; height: 15px;
+  border-radius: 50%;
+  background: var(--bakelite-mid);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.8), 0 1px 0 rgba(232, 220, 192, 0.15);
+}
+
+.lamp-sm {
+  width: 11px; height: 11px;
+  background: #16110d;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 0 1.5px rgba(217, 181, 74, 0.45);
+}
+
+.lamp-glow {
+  position: absolute;
+  inset: 2px;
+  border-radius: 50%;
+  opacity: 0.12;
+  transition: opacity 0.2s ease;
+}
+
+.lamp-glow.olive  { background: var(--olive); }
+.lamp-glow.orange { background: var(--orange); }
+
+.lamp-glow.on { opacity: 1; }
+.lamp-glow.olive.on  { box-shadow: 0 0 8px 2px rgba(127, 166, 83, 0.6); }
+.lamp-glow.orange.on { box-shadow: 0 0 8px 2px rgba(217, 111, 50, 0.6); }
+
+.lamp-glow.blink { animation: mtron-blink 0.45s linear infinite; }
+
+@keyframes mtron-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.25; }
+}
+
+/* ---- 5 · TRANSMIT button ---- */
+
+.button-collar {
+  width: 118px; height: 118px;
+  padding: 7px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.transmit-button {
+  width: 100%; height: 100%;
+  border: none;
+  border-radius: 50%;
+  padding: 0;
+  cursor: pointer;
+  background: radial-gradient(circle at 38% 30%, var(--orange-hi) 0%, var(--orange) 45%, var(--orange-lo) 100%);
+  box-shadow: 0 5px 0 var(--orange-deep), 0 8px 12px rgba(0, 0, 0, 0.45), inset 0 2px 3px rgba(255, 255, 255, 0.35);
+  transform: translateY(-4px);
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+
+.transmit-button:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 0 var(--orange-deep), 0 2px 5px rgba(0, 0, 0, 0.4), inset 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* ==========================================================================
+   Postcard overlay (machine output)
+   ========================================================================== */
+
+.postcard-overlay {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 1600px; height: 900px;
+  margin: -450px 0 0 -800px;
+  transform-origin: center center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  background: rgba(16, 29, 27, 0.82);
+  z-index: 10;
+}
+
+.postcard-overlay[hidden] { display: none; }
+
+.postcard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  animation: postcard-in 0.45s cubic-bezier(0.2, 1.2, 0.4, 1);
+}
+
+@keyframes postcard-in {
+  from { transform: translateY(60px) rotate(-2deg); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+
+.postcard-frame {
+  width: 860px;
+  height: 570px;
+  padding: 14px;
+  background: #F1E8D2;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+.postcard-frame > .postcard-face { border: none; }
+
+.postcard-frame {
+  /* striped airmail frame confined to a 12px band */
+  background:
+    linear-gradient(#F1E8D2, #F1E8D2) content-box,
+    repeating-linear-gradient(45deg, var(--teal) 0 14px, #F1E8D2 14px 22px, var(--olive) 22px 36px, #F1E8D2 36px 44px);
+  padding: 12px;
+}
+
+.postcard-face {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #F1E8D2;
+  padding: 36px 42px;
+  display: flex;
+  flex-direction: column;
+}
+
+.stamp {
+  position: absolute;
+  top: 24px; right: 26px;
+  width: 96px; height: 116px;
+  background: var(--brass-plate);
+  border: 5px dashed #F1E8D2;
+  outline: 1px solid #C7B896;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  transform: rotate(2deg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.stamp-diamond { width: 28px; height: 28px; background: var(--teal); transform: rotate(45deg); }
+
+.stamp-text {
+  font-family: var(--display);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-align: center;
+  color: var(--engrave);
+}
+
+.postmark {
+  position: absolute;
+  top: 40px; right: 138px;
+  width: 122px; height: 122px;
+  border: 2.5px solid rgba(74, 53, 16, 0.65);
+  border-radius: 50%;
+  transform: rotate(-7deg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.postmark-line1 { font-family: var(--display); font-size: 9px; font-weight: 700; letter-spacing: 2px; text-align: center; line-height: 1.5; color: rgba(74, 53, 16, 0.7); }
+.postmark-line2 { font-family: var(--display); font-size: 11px; font-weight: 700; letter-spacing: 2.5px; color: rgba(74, 53, 16, 0.75); }
+.postmark-line3 { font-family: var(--display); font-size: 8.5px; font-weight: 600; letter-spacing: 2px; color: rgba(74, 53, 16, 0.6); }
+
+.cancellation {
+  position: absolute;
+  top: 84px; right: 248px;
+  width: 110px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  transform: rotate(-4deg);
+}
+
+.cancellation i { display: block; height: 2px; border-radius: 2px; background: rgba(74, 53, 16, 0.45); }
+
+.greeting {
+  margin-top: 168px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 50px;
+  letter-spacing: 8px;
+  line-height: 1.15;
+  color: var(--teal);
+  text-shadow: 2px 2px 0 rgba(217, 111, 50, 0.35);
+}
+
+.greeting-blank {
+  display: inline-block;
+  min-width: 300px;
+  border-bottom: 4px solid var(--engrave);
+  vertical-align: bottom;
+  color: var(--orange);
+  letter-spacing: 6px;
+  outline: none;
+}
+
+.greeting-blank:empty::before {
+  content: attr(data-placeholder);
+  color: rgba(217, 111, 50, 0.35);
+}
+
+.pop-line {
+  margin-top: 24px;
+  font-family: var(--body);
+  font-size: 18px;
+  letter-spacing: 3px;
+  color: var(--engrave);
+}
+
+.pop-blank {
+  display: inline-block;
+  min-width: 140px;
+  border-bottom: 2.5px solid var(--engrave);
+  font-family: var(--display);
+  font-weight: 600;
+  letter-spacing: 4px;
+}
+
+.postcard-footer {
+  margin-top: auto;
+  font-family: var(--display);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 2.5px;
+  color: rgba(74, 53, 16, 0.55);
+}
+
+.postcard-dismiss {
+  font-family: var(--display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2.5px;
+  color: var(--cream);
+  background: radial-gradient(circle at 38% 30%, var(--orange-hi) 0%, var(--orange) 45%, var(--orange-lo) 100%);
+  border: none;
+  border-radius: 999px;
+  padding: 12px 28px;
+  cursor: pointer;
+  box-shadow: 0 4px 0 var(--orange-deep), 0 6px 12px rgba(0, 0, 0, 0.4);
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+
+.postcard-dismiss:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 var(--orange-deep), 0 2px 5px rgba(0, 0, 0, 0.35);
+}

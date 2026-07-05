@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MUNICITRON M-58 — Nazarban Instrument Works</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Cabin:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="stage">
+  <div class="machine" id="machine">
+
+    <!-- ============ SIMULATION VIEWPORT (canvas placeholder) ============ -->
+    <div class="sim">
+      <canvas id="sim-canvas" width="1600" height="600"></canvas>
+    </div>
+
+    <!-- ============ CONTROL CONSOLE ============ -->
+    <div class="console">
+
+      <!-- 1 · WEATHER knob -->
+      <div class="control">
+        <div class="knob-area weather-area" id="weather-knob" title="Cycle weather">
+          <span class="knob-label pos-clear">CLEAR</span>
+          <span class="knob-label pos-rain">RAIN</span>
+          <span class="knob-label pos-snow">SNOW</span>
+          <span class="knob-label pos-aurora">AURORA</span>
+          <div class="bezel bezel-round knob-bezel">
+            <div class="bezel-inner">
+              <div class="bakelite">
+                <div class="knob-rotor" id="weather-rotor">
+                  <div class="knob-pointer"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="control-name">WEATHER</div>
+        <div class="control-readout">SET: <span id="weather-readout">CLEAR</span></div>
+      </div>
+
+      <!-- 2 · TIME OF DAY dial -->
+      <div class="control">
+        <div class="knob-area time-area" id="time-dial" title="Advance time of day">
+          <div class="bezel bezel-round knob-bezel time-bezel">
+            <div class="bezel-inner">
+              <div class="bakelite">
+                <div class="knurl-ring"></div>
+                <div class="time-window">
+                  <div class="time-window-face" id="time-glyph">✶</div>
+                </div>
+                <div class="hub hub-brass"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="control-name">TIME OF DAY</div>
+        <div class="control-readout">SET: <span id="time-readout">MORNING</span></div>
+      </div>
+
+      <!-- CENTER · nameplate + coin mechanism -->
+      <div class="control center-stack">
+        <div class="nameplate">
+          <div class="screw screw-tl"><i></i></div>
+          <div class="screw screw-tr"><i></i></div>
+          <div class="screw screw-bl"><i></i></div>
+          <div class="screw screw-br"><i></i></div>
+          <div class="nameplate-title">MUNICITRON</div>
+          <div class="nameplate-sub">MODEL M-58 · MUNICIPAL SIMULATION UNIT</div>
+        </div>
+        <div class="coin-mech" id="coin-mech" title="Insert coin">
+          <div class="coin-plate">
+            <div class="screw screw-tl sm"><i></i></div>
+            <div class="screw screw-tr sm"><i></i></div>
+            <div class="screw screw-bl sm"><i></i></div>
+            <div class="screw screw-br sm"><i></i></div>
+            <div class="coin-throat">
+              <div class="coin-slot"></div>
+              <div class="lamp lamp-sm"><div class="lamp-glow olive" id="coin-lamp"></div></div>
+            </div>
+          </div>
+          <div class="coin-caption-plate">INSERT COIN — SUPPORT THE MACHINE</div>
+        </div>
+      </div>
+
+      <!-- 4 · POPULATION gauge -->
+      <div class="control">
+        <div class="bezel bezel-round gauge-bezel">
+          <div class="bezel-inner">
+            <div class="gauge-face" id="gauge-face">
+              <div class="gauge-needle" id="gauge-needle"></div>
+              <div class="hub hub-brass"></div>
+              <div class="gauge-title">POPULATION</div>
+              <div class="odometer" id="odometer"></div>
+            </div>
+          </div>
+        </div>
+        <div class="control-readout">CENSUS REGISTER</div>
+      </div>
+
+      <!-- 3 · GROWTH lever -->
+      <div class="control">
+        <div class="lever-area">
+          <div class="lever-track"></div>
+          <div class="lever-handle" id="lever-handle"><span class="lever-stripe"></span></div>
+          <div class="lever-label pos-boom" data-growth="2">BOOM</div>
+          <div class="lever-label pos-steady" data-growth="1">STEADY</div>
+          <div class="lever-label pos-dormant" data-growth="0">DORMANT</div>
+        </div>
+        <div class="control-name">GROWTH</div>
+        <div class="control-readout">SET: <span id="growth-readout">STEADY</span></div>
+      </div>
+
+      <!-- 5 · TRANSMIT button + lamps -->
+      <div class="control">
+        <div class="lamp-row">
+          <div class="lamp-unit">
+            <div class="lamp"><div class="lamp-glow olive on" id="power-lamp"></div></div>
+            <span>POWER</span>
+          </div>
+          <div class="lamp-unit">
+            <div class="lamp"><div class="lamp-glow orange" id="xmit-lamp"></div></div>
+            <span>XMIT</span>
+          </div>
+        </div>
+        <div class="bezel bezel-round button-collar">
+          <button class="transmit-button" id="transmit" title="Transmit postcard" aria-label="Transmit postcard"></button>
+        </div>
+        <div class="control-name">TRANSMIT POSTCARD</div>
+      </div>
+
+      <div class="console-footer">NAZARBAN INSTRUMENT WORKS · EST. 1958</div>
+    </div>
+  </div>
+
+  <!-- ============ POSTCARD OVERLAY (machine output) ============ -->
+  <div class="postcard-overlay" id="postcard-overlay" hidden>
+    <div class="postcard">
+      <div class="postcard-frame">
+        <div class="postcard-face">
+          <div class="stamp">
+            <div class="stamp-diamond"></div>
+            <div class="stamp-text">MUNICITRON<br>POST · 5¢</div>
+          </div>
+          <div class="postmark">
+            <div class="postmark-line1">TRANSMITTED<br>VIA</div>
+            <div class="postmark-line2">MUNICITRON</div>
+            <div class="postmark-line3">· 1958 ·</div>
+          </div>
+          <div class="cancellation"><i></i><i></i><i></i></div>
+          <div class="greeting">
+            GREETINGS<br>FROM
+            <span class="greeting-blank" id="postcard-city" contenteditable="true" spellcheck="false" data-placeholder="YOUR CITY"></span>
+          </div>
+          <div class="pop-line">POP. <span class="pop-blank" id="postcard-pop">&nbsp;</span></div>
+          <div class="postcard-footer">NAZARBAN INSTRUMENT WORKS · MODEL M-58 OUTPUT · FORM PC-1</div>
+        </div>
+      </div>
+      <button class="postcard-dismiss" id="postcard-dismiss">RETURN TO CONSOLE</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/municitron.js"></script>
+</body>
+</html>
