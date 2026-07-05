@@ -334,6 +334,18 @@
       { kind: 'atom',   title: 'ATOMIC PAVILION', threshold: 26000, x: zones[2], h: 250, progress: 0, commissioned: false }
     ];
 
+    // ---- rooftop starburst signs on two lucky buildings ----
+    var signed = 0;
+    var guard = 0;
+    while (signed < 2 && guard++ < 24) {
+      var sl = lots[Math.floor(rng() * lots.length)];
+      if (!sl.sign && (sl.next ? sl.next.h : sl.h) >= 200) {
+        sl.sign = true;
+        if (sl.next) sl.next.sign = true;
+        signed++;
+      }
+    }
+
     return { lots: lots, bg: bg, queue: queue, densify: densify, stars: stars, landmarks: landmarks };
   }
 
@@ -429,6 +441,21 @@
 
   var monorail = { x: 0, dir: 1, active: false, timer: 5 + rng4() * 8 };
   var sputnik = { p: 0, active: false, timer: 18 + rng4() * 30 };
+  var airship = { x: 0, y: 0, dir: 1, active: false, timer: 45 + rng4() * 80 };
+
+  var cars = [];
+  for (i = 0; i < 14; i++) {
+    cars.push({
+      active: false,
+      timer: 1 + rng4() * 8,
+      x: 0,
+      dir: 1,
+      v: 60 + rng4() * 55,
+      len: 22 + rng4() * 10
+    });
+  }
+
+  var flickTimer = 0.8;                           // individual window lights
 
   /* ---------------- simulation state ---------------- */
 
@@ -560,6 +587,58 @@
       } else {
         sputnik.timer -= dt;
         if (sputnik.timer <= 0) { sputnik.active = true; sputnik.p = 0; }
+      }
+
+      // the Nazarban airship: a rare, slow dignitary
+      if (airship.active) {
+        airship.x += 26 * dt * airship.dir;
+        if (airship.x > VIEW_W + 120 || airship.x < -120) {
+          airship.active = false;
+          airship.dir = -airship.dir;
+          airship.timer = 100 + rng4() * 140;
+        }
+      } else {
+        airship.timer -= dt;
+        if (airship.timer <= 0) {
+          airship.active = true;
+          airship.y = 130 + rng4() * 70;
+          airship.x = airship.dir === 1 ? -110 : VIEW_W + 110;
+        }
+      }
+
+      // street traffic scales with the census
+      var wantCars = Math.max(2, Math.min(cars.length, Math.floor(lastEmitted / 3500)));
+      var runningCars = 0;
+      for (i = 0; i < cars.length; i++) if (cars[i].active) runningCars++;
+      for (i = 0; i < cars.length; i++) {
+        p = cars[i];
+        if (p.active) {
+          p.x += p.v * dt * p.dir;
+          if (p.x > VIEW_W + 40 || p.x < -40 - p.len) {
+            p.active = false;
+            p.timer = 1 + rng4() * 7;
+            runningCars--;
+          }
+        } else if (runningCars < wantCars) {
+          p.timer -= dt;
+          if (p.timer <= 0) {
+            p.active = true;
+            p.dir = rng4() < 0.5 ? -1 : 1;
+            p.x = p.dir === 1 ? -30 - p.len : VIEW_W + 30;
+            runningCars++;
+          }
+        }
+      }
+
+      // one window light somewhere flips on/off now and then
+      flickTimer -= dt;
+      if (flickTimer <= 0) {
+        flickTimer = 0.4 + rng4() * 0.7;
+        var lot = city[Math.floor(rng4() * city.length)];
+        if (lot.progress === 1 && lot.windows.length) {
+          var pane = lot.windows[Math.floor(rng4() * lot.windows.length)];
+          pane.flickUntil = effT + 1.5 + rng4() * 3.5;
+        }
       }
 
       if (weatherLevel[1] > 0.01) {
@@ -879,6 +958,76 @@
     if (litLevel > 0.55) brassDots(dots, 3.5, litLevel);   // …brass-lit at night
   }
 
+  function drawCars(litLevel) {
+    if (reducedMotion.matches) return;
+    for (var i = 0; i < cars.length; i++) {
+      var p = cars[i];
+      if (!p.active) continue;
+      var y = GROUND_Y - 7;
+      ctx.fillStyle = TEAL_TRIM;                  // low finned body + cabin
+      ctx.fillRect(p.x, y, p.len, 5);
+      ctx.fillRect(p.x + p.len * (p.dir === 1 ? 0.2 : 0.35), y - 4, p.len * 0.45, 4);
+      var nose = p.dir === 1 ? p.x + p.len : p.x;
+      var tail = p.dir === 1 ? p.x : p.x + p.len;
+      ctx.fillStyle = ORANGE;                     // tail light
+      ctx.beginPath(); ctx.arc(tail, y + 2, 1.8, 0, Math.PI * 2); ctx.fill();
+      if (litLevel > 0.55) {                      // headlight after dark
+        ctx.fillStyle = CREAM_HI;
+        ctx.beginPath(); ctx.arc(nose, y + 2, 1.8, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  }
+
+  function drawAirship(litLevel) {
+    if (!airship.active || reducedMotion.matches) return;
+    var x = airship.x, y = airship.y;
+    var rear = airship.dir === 1 ? x - 58 : x + 58;
+    ctx.fillStyle = '#235450';                    // envelope
+    ctx.beginPath(); ctx.ellipse(x, y, 64, 19, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = CREAM_HI;                     // tail fins
+    ctx.fillRect(rear - 6, y - 16, 12, 12);
+    ctx.fillRect(rear - 6, y + 4, 12, 12);
+    ctx.fillStyle = BRASS;                        // gondola
+    ctx.fillRect(x - 14, y + 17, 28, 8);
+    ctx.fillStyle = TEAL_TRIM;
+    ctx.beginPath();
+    dotPath(x - 7, y + 21, 1.8); dotPath(x, y + 21, 1.8); dotPath(x + 7, y + 21, 1.8);
+    ctx.fill();
+    ctx.font = '600 10px Jost, Futura, sans-serif';
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '3px';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(242, 233, 210, 0.85)';
+    ctx.fillText('NAZARBAN', x, y + 1);
+    ctx.textAlign = 'left';
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+  }
+
+  function drawSearchlights(starLevel) {
+    if (starLevel <= 0.35) return;
+    var beacon = null;
+    for (var i = 0; i < city.length; i++) {
+      if (city[i].mast && city[i].progress === 1) { beacon = city[i]; break; }
+    }
+    if (!beacon) return;
+    var bx = beacon.x + beacon.w / 2;
+    var by = GROUND_Y - beacon.h - 38;
+    var alpha = 0.10 * Math.min(1, (starLevel - 0.35) / 0.4);
+    ctx.fillStyle = 'rgba(242, 233, 210, ' + alpha.toFixed(3) + ')';
+    var angles = [
+      -1.15 + Math.sin(effT * 0.10) * 0.45,
+      -1.95 + Math.sin(effT * 0.13 + 2.1) * 0.45
+    ];
+    for (var a = 0; a < 2; a++) {
+      ctx.beginPath();
+      ctx.moveTo(bx, by);
+      ctx.lineTo(bx + Math.cos(angles[a] - 0.035) * 540, by + Math.sin(angles[a] - 0.035) * 540);
+      ctx.lineTo(bx + Math.cos(angles[a] + 0.035) * 540, by + Math.sin(angles[a] + 0.035) * 540);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
   function drawSputnik(starLevel) {
     if (!sputnik.active || reducedMotion.matches || starLevel <= 0.05) return;
     var x = -40 + sputnik.p * (VIEW_W + 80);
@@ -919,16 +1068,36 @@
         ctx.arc(mx, top - 40, 4.5, 0, Math.PI * 2);
         ctx.fill();
       }
+      if (b.sign && !b.mast) {                    // rooftop atomic starburst
+        var sx = b.x + b.w / 2;
+        var sy2 = top - 32;
+        ctx.fillStyle = BRASS;
+        ctx.fillRect(sx - 1.5, top - 20, 3, 20);
+        ctx.strokeStyle = BRASS;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (var sp = 0; sp < 8; sp++) {
+          var sa = sp * Math.PI / 4 + Math.PI / 8;
+          ctx.moveTo(sx + Math.cos(sa) * 4, sy2 + Math.sin(sa) * 4);
+          ctx.lineTo(sx + Math.cos(sa) * 12, sy2 + Math.sin(sa) * 12);
+        }
+        ctx.stroke();
+        ctx.fillStyle = ORANGE;
+        ctx.beginPath(); ctx.arc(sx, sy2, 3.5, 0, Math.PI * 2); ctx.fill();
+      }
     }
 
     // four batched passes: flat halo glows for scheduled-lit panes first,
-    // then every pane's dot on top (brass, plus rare orange accents)
+    // then every pane's dot on top (brass, plus rare orange accents).
+    // A pane whose flicker override is running shows the opposite of its
+    // schedule — someone in there just hit the switch.
     ctx.fillStyle = GLOW_BRASS;
     ctx.beginPath();
     for (i = 0; i < b.windows.length; i++) {
       wd = b.windows[i];
       if (wd.y < top + 6) continue;               // above the built portion
-      if (wd.threshold < litLevel && !wd.accent) dotPath(wd.x, wd.y, 7);
+      var lit = (wd.threshold < litLevel) !== (wd.flickUntil > effT);
+      if (lit && !wd.accent) dotPath(wd.x, wd.y, 7);
     }
     ctx.fill();
 
@@ -937,7 +1106,8 @@
     for (i = 0; i < b.windows.length; i++) {
       wd = b.windows[i];
       if (wd.y < top + 6) continue;
-      if (wd.threshold < litLevel && wd.accent) dotPath(wd.x, wd.y, 7);
+      var lit2 = (wd.threshold < litLevel) !== (wd.flickUntil > effT);
+      if (lit2 && wd.accent) dotPath(wd.x, wd.y, 7);
     }
     ctx.fill();
 
@@ -1044,11 +1214,14 @@
     }
 
     drawSputnik(starLevel);
+    drawAirship(litLevel);
+    drawSearchlights(starLevel);
 
     for (i = 0; i < bgCity.length; i++) drawBuilding(bgCity[i], litLevel);
     for (i = 0; i < landmarks.length; i++) drawLandmark(landmarks[i], litLevel);
     for (i = 0; i < city.length; i++) drawBuilding(city[i], litLevel);
 
+    drawCars(litLevel);
     drawMonorail(litLevel);
 
     drawRain(weatherLevel[1], skyLum);
@@ -1094,7 +1267,7 @@
     city: city,
     bg: bgCity,
     landmarks: landmarks,
-    ambient: { monorail: monorail, sputnik: sputnik },
+    ambient: { monorail: monorail, sputnik: sputnik, airship: airship, cars: cars },
     reducedMotion: reducedMotion
   };
   console.info('MUNICITRON M-58 · ' + CITY_NAME + ' · seed ' + seed + ' — reproduce with ?seed=' + seed);
