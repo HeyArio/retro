@@ -70,12 +70,19 @@
     c.fillStyle = ENGRAVE;
     c.fillText('NAZARBAN INSTRUMENT WORKS · MUNICIPAL SIMULATION UNIT', cx, 78 * S);
 
-    // the headline, teal over a flat orange offset (house style)
-    setFont(c, '700', 42, 'Jost, Futura, sans-serif', 6);
+    // the headline, teal over a flat orange offset (house style),
+    // shrunk as a whole line until it clears the rules
+    var headline = 'CERTIFICATE OF INCORPORATION';
+    var hSize = 42;
+    setFont(c, '700', hSize, 'Jost, Futura, sans-serif', 6);
+    while (hSize > 22 && c.measureText(headline).width > (W - 140) * S) {
+      hSize -= 2;
+      setFont(c, '700', hSize, 'Jost, Futura, sans-serif', 6);
+    }
     c.fillStyle = 'rgba(217, 111, 50, 0.35)';
-    c.fillText('CERTIFICATE OF INCORPORATION', cx + 2 * S, 142 * S + 2 * S);
+    c.fillText(headline, cx + 2 * S, 142 * S + 2 * S);
     c.fillStyle = TEAL;
-    c.fillText('CERTIFICATE OF INCORPORATION', cx, 142 * S);
+    c.fillText(headline, cx, 142 * S);
 
     setFont(c, '500', 15, 'Cabin, Gill Sans, sans-serif', 3);
     c.fillStyle = ENGRAVE;
@@ -103,16 +110,16 @@
     c.fillText('MOTTO: “' + motto + '”', cx, 408 * S);
 
     // the corporate seal, bottom left
-    var sx = 190 * S, sy = 520 * S;
+    var sx = 190 * S, sy = 498 * S;
     c.strokeStyle = BRASS;
     c.lineWidth = 4 * S;
-    c.beginPath(); c.arc(sx, sy, 54 * S, 0, Math.PI * 2); c.stroke();
+    c.beginPath(); c.arc(sx, sy, 50 * S, 0, Math.PI * 2); c.stroke();
     c.lineWidth = 1.5 * S;
-    c.beginPath(); c.arc(sx, sy, 46 * S, 0, Math.PI * 2); c.stroke();
-    starburst(c, sx, sy, 30 * S);
+    c.beginPath(); c.arc(sx, sy, 42 * S, 0, Math.PI * 2); c.stroke();
+    starburst(c, sx, sy, 28 * S);
     setFont(c, '700', 11, 'Jost, Futura, sans-serif', 3);
     c.fillStyle = ENGRAVE;
-    c.fillText('CORPORATE SEAL', sx, sy + 68 * S + 6 * S);
+    c.fillText('CORPORATE SEAL', sx, 570 * S);
 
     // Mayor Wembly signs anything, bottom right
     var gx = (W - 250) * S;

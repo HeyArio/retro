@@ -24,11 +24,23 @@
    architecture as weather — so knob/dial spamming always blends smoothly.
    Population tuned to town scale and the register never fully settles.
 
+   Content pass: visible construction (cranes, wrecking balls, dust), a
+   civic calendar (seasons, string lights, Founders' Day fireworks), a
+   municipal park, wildlife and visitors (birds, balloons, rainbow, the
+   object), the town wire's storylines, benefactor streetlamps, the
+   factory test pattern, and a localStorage municipal ledger.
+
    Console ↔ city contract (DOM CustomEvents on document):
-   - listens  'municitron:growth'     detail {index, name}  0=DORMANT 1=STEADY 2=BOOM
-   - listens  'municitron:time'       detail {index, name}  0=MIDNIGHT … 7=NIGHT
-   - listens  'municitron:weather'    detail {index, name}  0=CLEAR 1=RAIN 2=SNOW 3=AURORA
-   - emits    'municitron:population' detail <int>
+   - listens  'municitron:growth'      detail {index, name}  0=DORMANT 1=STEADY 2=BOOM
+   - listens  'municitron:time'        detail {index, name}  0=MIDNIGHT … 7=NIGHT
+   - listens  'municitron:weather'     detail {index, name}  0=CLEAR 1=RAIN 2=SNOW 3=AURORA
+   - listens  'municitron:coin'        (streetlamps, salute)
+   - listens  'municitron:certificate' / 'municitron:certificate-denied'
+   - listens  'municitron:testpattern' (typed code NAZARBAN)
+   - listens  'municitron:ufo'         (also self-dispatched on its own timer)
+   - emits    'municitron:population'  detail <int>
+   - emits    'municitron:landmark'    detail {kind, title}
+   - emits    'municitron:fireworks'   (a show is starting)
    ========================================================================== */
 
 (function () {
@@ -1671,6 +1683,7 @@
       if (a.progress !== 1 || b.progress !== 1) continue;
       var gap = b.x - (a.x + a.w);
       if (gap < 6 || gap > 90) continue;          // never across a plaza or the park
+      if (Math.abs(a.h - b.h) > 130) continue;    // no zip-lines between mismatched roofs
       var ax = a.x + a.w - 3, ay = GROUND_Y - a.h + 4;
       var bx = b.x + 3, by = GROUND_Y - b.h + 4;
       var sagY = Math.max(ay, by) + 18;
