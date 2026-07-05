@@ -57,17 +57,31 @@
   var GLOW_ORANGE = 'rgba(217, 111, 50, 0.32)';
 
   /* logical drawing space — everything renders in these coordinates and
-     is mapped to the real backing store with a single setTransform */
+     is mapped to the real backing store with a single setTransform.
+     The WIDTH is fixed (the city plan lives in it); the HEIGHT adapts
+     to the viewer's screen: tall screens get more sky, short screens
+     crop the tallest spires. The ground line rides the bottom; sky
+     furniture scales into whatever sky there is via SKY_K. */
   var VIEW_W = 1600;
   var VIEW_H = 600;
   var GROUND_Y = 552;
+  var SKY_K = 1;                                  // GROUND_Y / 552
+
+  document.addEventListener('municitron:viewport', function (e) {
+    var h = e.detail && e.detail.h;
+    if (!h || h === VIEW_H) return;
+    VIEW_H = h;
+    GROUND_Y = VIEW_H - 48;
+    SKY_K = GROUND_Y / 552;
+    if (typeof onViewportChange === 'function') onViewportChange();
+  });
 
   /* ---------------- simulation tuning ---------------- */
 
   var INITIAL_BUILT   = 5;                  // buildings standing at power-on (front + back row)
   var BG_WEIGHT       = 0.3;                // back-row contribution to population
   var DENSIFY_PACE    = 1.6;                // spawn-interval multiplier for replacements
-  var RAIL_Y          = 448;                // monorail beam height
+  var RAIL_Y          = 448;                // monorail beam height (kept 104 above ground)
   var TRAIN_LEN       = 170;
   var TRAIN_SPEED     = 230;                // logical px/s
   var LANDMARK_RISE   = 5;                  // s for a commissioned landmark to reveal
@@ -183,7 +197,9 @@
     // window dots: an irregular subset of a facade grid exists (poster
     // look), drawn as brass dots at ALL times; each pane also gets a
     // baked schedule threshold — when the time's `lit` level exceeds
-    // it, a flat halo glow switches on behind the dot
+    // it, a flat halo glow switches on behind the dot. Pane y is stored
+    // RELATIVE TO THE GROUND LINE so a resizing viewport can't strand
+    // the windows off their buildings.
     function makeWindows(bx, bw, bh) {
       var panes = [];
       var colSpace = 20, rowSpace = 24, inset = 15;
@@ -192,13 +208,13 @@
       var gridW = (cols - 1) * colSpace;
       var gridH = (rows - 1) * rowSpace;
       var x0 = bx + Math.round((bw - gridW) / 2);
-      var y0 = GROUND_Y - bh + inset + Math.round((bh - inset * 2 - gridH) / 2);
+      var y0 = -bh + inset + Math.round((bh - inset * 2 - gridH) / 2);
       for (var r = 0; r < rows; r++) {
         for (var c = 0; c < cols; c++) {
           if (rng() < 0.40) continue;             // no pane on this grid cell
           panes.push({
             x: x0 + c * colSpace,
-            y: y0 + r * rowSpace,
+            y: y0 + r * rowSpace,                 // offset from GROUND_Y (negative)
             threshold: rng(),
             accent: rng() < 0.05
           });
@@ -513,8 +529,27 @@
     }
     cel.y = Math.min(cel.y, roofY - cel.r * 0.35);
   }
-  settleLowCelestial(TIMES[1].cel);
-  settleLowCelestial(TIMES[5].cel);
+
+  // sky furniture re-seats itself whenever the sky changes size: the
+  // sun and moon scale into the available headroom, then the low discs
+  // settle just clear of the roofline as before
+  for (i = 0; i < TIMES.length; i++) TIMES[i].cel.baseY = TIMES[i].cel.y;
+
+  function settleSky() {
+    for (var i = 0; i < TIMES.length; i++) {
+      TIMES[i].cel.y = TIMES[i].cel.baseY * SKY_K;
+    }
+    settleLowCelestial(TIMES[1].cel);
+    settleLowCelestial(TIMES[5].cel);
+  }
+  settleSky();
+
+  function onViewportChange() {
+    RAIL_Y = GROUND_Y - 104;
+    settleSky();
+    vignette = null;                              // regenerate for the new frame
+    requestMeasure();
+  }
 
   /* ---------------- city name (third rng stream) ----------------------- */
   /* Same seed = same name, always; a separate stream so naming can never
@@ -636,25 +671,27 @@
     });
   }
 
-  // poster clouds: flat blob clusters that drift across every sky and
-  // darken toward the console trim when weather rolls in
+  // poster clouds: proper flat-bottomed cumulus — a chain of half-circle
+  // lobes (small, big, small) closed along one baseline, so the shape
+  // reads as a single silhouette instead of glued circles. `fy` is a
+  // fraction of the sky, so clouds spread into any sky height.
   var clouds = [];
   for (i = 0; i < 6; i++) {
-    var puffs = [];
-    var puffN = 3 + Math.floor(rng2() * 3);
-    for (var pj = 0; pj < puffN; pj++) {
-      puffs.push({
-        dx: (pj - (puffN - 1) / 2) * 20 + (rng2() * 10 - 5),
-        dy: -(rng2() * 9),
-        r: 13 + rng2() * 12
-      });
+    var lobes = [];
+    var lobeN = 3 + Math.floor(rng2() * 3);
+    var R = 15 + rng2() * 12;
+    var lx = 0;
+    for (var pj = 0; pj < lobeN; pj++) {
+      var lr = R * (0.45 + 0.55 * Math.sin(Math.PI * (pj + 0.5) / lobeN)) + rng2() * 3;
+      if (pj > 0) lx += (lobes[pj - 1].r + lr) * 0.72;
+      lobes.push({ dx: lx, r: lr });
     }
     clouds.push({
       x: rng2() * VIEW_W,
-      y: 55 + rng2() * 165,
+      fy: 0.06 + rng2() * 0.38,                   // fraction of the sky height
       v: 6 + rng2() * 10,
       s: 0.8 + rng2() * 0.8,
-      puffs: puffs
+      lobes: lobes
     });
   }
 
@@ -745,6 +782,12 @@
   })();
   var mail = { phase: 0, t: 0, timer: 110 + rng6() * 140 };   // 0 idle → in → hold → out
 
+  // hands-on city: floating notes from the bandstand, the drive-in's
+  // reel selector, and a throttle for aimed fireworks
+  var notes = [];
+  var reelShift = 0;
+  var lastAimed = -10;
+
   // KNAZ-TV: the telecast overlay (typed code on the console)
   var telecast = false;
   document.addEventListener('municitron:telecast', function () {
@@ -782,7 +825,7 @@
     for (var i = 0; i < count; i++) {
       regatta.balloons.push({
         x: base - regatta.dir * i * (70 + rng6() * 50),
-        y: 90 + rng6() * 160,
+        y: (90 + rng6() * 160) * SKY_K,
         r: 16 + rng6() * 7,
         drift: 10 + rng6() * 8,
         ph: rng6() * 6.283,
@@ -800,7 +843,7 @@
     ufo.active = true;
     ufo.dir = rng6() < 0.5 ? -1 : 1;
     ufo.x = ufo.dir === 1 ? -60 : VIEW_W + 60;
-    ufo.y = 80 + rng6() * 60;
+    ufo.y = (80 + rng6() * 60) * SKY_K;
     postBulletin('OBJECT REPORTED OVER NORTHERN DISTRICT — OFFICIALS DECLINE COMMENT');
     recordFirst('object', 'FIRST UNEXPLAINED OBJECT LOGGED');
   });
@@ -892,7 +935,7 @@
           x: 240 + rng6() * 1120,
           y: GROUND_Y,
           vy: -(300 + rng6() * 130),
-          burstY: 100 + rng6() * 180,
+          burstY: (100 + rng6() * 180) * SKY_K,
           type: Math.floor(rng6() * 3),           // chrysanthemum / ring / willow
           color: FW_COLORS[Math.floor(rng6() * 3)]
         });
@@ -1343,7 +1386,7 @@
         airship.timer -= dt;
         if (airship.timer <= 0) {
           airship.active = true;
-          airship.y = 130 + rng4() * 70;
+          airship.y = (130 + rng4() * 70) * SKY_K;
           airship.x = airship.dir === 1 ? -110 : VIEW_W + 110;
         }
       }
@@ -1507,7 +1550,7 @@
         birdTimer = 26 + rng6() * 50;
         if (timeLevel[1] > 0.5 || timeLevel[5] > 0.5) {
           var bdir = rng6() < 0.5 ? -1 : 1;
-          spawnFlock(bdir === 1 ? -60 : VIEW_W + 60, 140 + rng6() * 120, bdir);
+          spawnFlock(bdir === 1 ? -60 : VIEW_W + 60, (140 + rng6() * 120) * SKY_K, bdir);
         }
       }
       for (i = birds.length - 1; i >= 0; i--) {
@@ -1639,6 +1682,14 @@
         }
       }
 
+      // concert notes drift up from the bandstand and fade
+      for (i = notes.length - 1; i >= 0; i--) {
+        p = notes[i];
+        p.life += dt;
+        p.y -= p.vy * dt;
+        if (p.life > p.max) notes.splice(i, 1);
+      }
+
       // once in a while, a falling star
       if (shoot.t > 0) shoot.t -= dt;
       else {
@@ -1647,7 +1698,7 @@
           shoot.timer = 60 + rng6() * 120;
           shoot.t = 0.5;
           shoot.x = 150 + rng6() * 1150;
-          shoot.y = 40 + rng6() * 120;
+          shoot.y = (40 + rng6() * 120) * SKY_K;
           shoot.dx = (rng6() < 0.5 ? -1 : 1) * (200 + rng6() * 90);
           shoot.dy = 70 + rng6() * 50;
         }
@@ -1884,20 +1935,117 @@
   var canvas = document.getElementById('sim-canvas');
   var ctx = canvas.getContext('2d');
 
-  // the engraved city plate is the almanac desk: click it for Form CA-2
-  function plateHit(e) {
+  /* ---------------- a hands-on city ---------------- */
+  /* The canvas itself is a control surface: the city plate issues the
+     almanac, the sky takes aimed fireworks, buildings sparkle when
+     touched, the bandstand strikes up a tune, trees shake their
+     leaves loose, and the drive-in changes its picture. */
+
+  function canvasPoint(e) {
     var rect = canvas.getBoundingClientRect();
-    if (!rect.width || !rect.height) return false;
-    var lx = (e.clientX - rect.left) / rect.width * VIEW_W;
-    var ly = (e.clientY - rect.top) / rect.height * VIEW_H;
-    var px = LAND_L > 0 ? LAND_L + 22 : 22;
-    return ly > GROUND_Y - 8 && lx > px - 12 && lx < px + 330;
+    if (!rect.width || !rect.height) return null;
+    return {
+      x: (e.clientX - rect.left) / rect.width * VIEW_W,
+      y: (e.clientY - rect.top) / rect.height * VIEW_H
+    };
   }
+
+  function hitTest(p) {
+    if (!p) return null;
+    var i;
+    var plateX = LAND_L > 0 ? LAND_L + 22 : 22;
+    if (p.y > GROUND_Y - 8 && p.x > plateX - 12 && p.x < plateX + 330) {
+      return { kind: 'plate' };
+    }
+    if (Math.abs(p.x - park.x) < 32 && p.y > GROUND_Y - 56 && p.y < GROUND_Y) {
+      return { kind: 'bandstand' };
+    }
+    for (i = 0; i < park.trees.length; i++) {
+      var t = park.trees[i];
+      if (Math.abs(p.x - t.x) < t.r + 5 && p.y > GROUND_Y - 18 - t.r * 2 && p.y < GROUND_Y) {
+        return { kind: 'tree', tree: t };
+      }
+    }
+    if (driveIn && !landmarks[3].commissioned &&
+        Math.abs(p.x - driveIn.x) < 56 && p.y > GROUND_Y - 96 && p.y < GROUND_Y - 24) {
+      return { kind: 'screen' };
+    }
+    for (i = 0; i < city.length; i++) {
+      var b = city[i];
+      if (b.progress === 1 && p.x >= b.x && p.x <= b.x + b.w &&
+          p.y >= GROUND_Y - b.h && p.y < GROUND_Y) {
+        return { kind: 'building', building: b };
+      }
+    }
+    if (p.y < GROUND_Y - 12) return { kind: 'sky' };
+    return null;
+  }
+
   canvas.addEventListener('click', function (e) {
-    if (plateHit(e)) document.dispatchEvent(new CustomEvent('municitron:almanac'));
+    var p = canvasPoint(e);
+    var hit = hitTest(p);
+    if (!hit) return;
+    if (hit.kind === 'plate') {
+      document.dispatchEvent(new CustomEvent('municitron:almanac'));
+    } else if (hit.kind === 'bandstand') {
+      document.dispatchEvent(new CustomEvent('municitron:concert'));
+      if (!reducedMotion.matches) {
+        var glyphs = ['♪', '♫', '♩'];
+        for (var n = 0; n < 5 && notes.length < 18; n++) {
+          notes.push({
+            x: park.x - 14 + rng6() * 28,
+            y: GROUND_Y - 40 - rng6() * 8,
+            vy: 14 + rng6() * 8,
+            ph: rng6() * 6.283,
+            life: 0,
+            max: 2.2 + rng6() * 0.8,
+            g: glyphs[Math.floor(rng6() * 3)]
+          });
+        }
+      }
+    } else if (hit.kind === 'tree') {
+      if (!reducedMotion.matches) {
+        for (var l = 0; l < 5 && leaves.length < 30; l++) {
+          leaves.push({
+            x: hit.tree.x + (rng6() * 2 - 1) * hit.tree.r * 0.8,
+            y: GROUND_Y - 16 - hit.tree.r * 0.8,
+            vy: 12 + rng6() * 12,
+            ph: rng6() * 6.283,
+            f: 1 + rng6() * 1.5,
+            amp: 8 + rng6() * 10,
+            settle: 0,
+            color: rng6() < 0.6 ? ORANGE : BRASS
+          });
+        }
+      }
+    } else if (hit.kind === 'screen') {
+      reelShift++;                                // next picture, please
+    } else if (hit.kind === 'building') {
+      var wins = hit.building.windows;            // a ripple of lights
+      for (var w = 0; w < wins.length; w++) {
+        if (rng6() < 0.7) wins[w].flickUntil = effT + 0.3 + rng6() * 2.2;
+      }
+    } else if (hit.kind === 'sky' && !reducedMotion.matches) {
+      if (effT - lastAimed > 0.25) {              // an aimed salute
+        lastAimed = effT;
+        fw.shells.push({
+          x: p.x,
+          y: GROUND_Y,
+          vy: -(330 + rng6() * 80),
+          burstY: Math.max(36, Math.min(p.y, GROUND_Y - 110)),
+          type: Math.floor(rng6() * 3),
+          color: FW_COLORS[Math.floor(rng6() * 3)]
+        });
+        document.dispatchEvent(new CustomEvent('municitron:fireworks'));
+      }
+    }
   });
+
   canvas.addEventListener('mousemove', function (e) {
-    canvas.style.cursor = plateHit(e) ? 'pointer' : '';
+    var hit = hitTest(canvasPoint(e));
+    canvas.style.cursor = !hit ? ''
+      : hit.kind === 'sky' ? 'crosshair'
+      : 'pointer';
   });
 
   // the canvas lives inside the CSS transform-scaled machine, so the
@@ -1956,12 +2104,12 @@
       ctx.beginPath();
       var x;
       for (x = 0; x <= VIEW_W; x += 50) {
-        var y = rb.base + Math.sin(x * rb.f + effT * rb.sp) * rb.amp
+        var y = rb.base * SKY_K + Math.sin(x * rb.f + effT * rb.sp) * rb.amp
                         + Math.sin(x * rb.f * 2.3 + effT * rb.sp * 1.6) * rb.amp * 0.35;
         if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       }
       for (x = VIEW_W; x >= 0; x -= 50) {
-        var y2 = rb.base + rb.th
+        var y2 = rb.base * SKY_K + rb.th
                + Math.sin(x * rb.f * 1.3 + effT * rb.sp * 0.8) * 9
                + Math.sin(x * rb.f + effT * rb.sp) * rb.amp
                + Math.sin(x * rb.f * 2.3 + effT * rb.sp * 1.6) * rb.amp * 0.35;
@@ -2187,26 +2335,44 @@
     var wheelUp = landmarks[3].progress > 0;      // the fairground took the lot
 
     if (!wheelUp) {
+      if (showing && !reducedMotion.matches) {    // spill light on the lot
+        ctx.fillStyle = 'rgba(242, 233, 210, 0.07)';
+        ctx.beginPath();
+        ctx.moveTo(x - 51, GROUND_Y - 88);
+        ctx.lineTo(x + 51, GROUND_Y - 88);
+        ctx.lineTo(x + 78, GROUND_Y);
+        ctx.lineTo(x - 78, GROUND_Y);
+        ctx.closePath(); ctx.fill();
+      }
       ctx.fillStyle = TEAL_TRIM;                  // screen legs
       ctx.fillRect(x - 46, GROUND_Y - 28, 6, 28);
       ctx.fillRect(x + 40, GROUND_Y - 28, 6, 28);
       ctx.fillStyle = '#183B37';                  // screen frame
       ctx.fillRect(x - 55, GROUND_Y - 94, 110, 68);
       if (showing && !reducedMotion.matches) {    // tonight's picture
-        var reel = Math.floor(effT / 2.8);
+        var reel = Math.floor(effT / 2.8) + reelShift;
         var fields = ['#235450', ORANGE, '#1E4744', BRASS];
+        var f1 = fields[((reel % 4) + 4) % 4];
+        var f2 = fields[(((reel + 2) % 4) + 4) % 4];
         ctx.globalAlpha = 0.92 + 0.08 * Math.sin(effT * 30); // projector flutter
-        ctx.fillStyle = fields[((reel % 4) + 4) % 4];
-        ctx.fillRect(x - 51, GROUND_Y - 90, 102, 60);
-        ctx.fillStyle = fields[(((reel + 2) % 4) + 4) % 4];  // the abstract lead
-        ctx.beginPath();
-        ctx.arc(x - 41 + ((effT * 9) % 82), GROUND_Y - 60, 8, 0, Math.PI * 2);
+        ctx.fillStyle = f1;                       // the scene
+        ctx.fillRect(x - 51, GROUND_Y - 88, 102, 56);
+        ctx.fillStyle = f2;                       // its horizon
+        ctx.fillRect(x - 51, GROUND_Y - 48, 102, 3);
+        ctx.beginPath();                          // the abstract lead
+        ctx.arc(x - 41 + ((effT * 9) % 82), GROUND_Y - 62, 8, 0, Math.PI * 2);
         ctx.fill();
+        ctx.fillStyle = '#10201D';                // letterbox bars
+        ctx.fillRect(x - 51, GROUND_Y - 88, 102, 5);
+        ctx.fillRect(x - 51, GROUND_Y - 37, 102, 5);
         ctx.globalAlpha = 1;
       } else {                                    // matinée-blank cream
         ctx.fillStyle = showing ? CREAM_HI : '#E8DCC0';
         ctx.fillRect(x - 51, GROUND_Y - 90, 102, 60);
       }
+      var mq = [];                                // marquee bulbs on the hood
+      for (var mb = -44; mb <= 44; mb += 11) mq.push([x + mb, GROUND_Y - 97]);
+      brassDots(mq, 1.6, showing ? 1 : 0);
     }
 
     ctx.fillStyle = TEAL_TRIM;                    // the audience, parked
@@ -2609,6 +2775,20 @@
     ctx.globalAlpha = 1;
   }
 
+  function drawNotes() {
+    if (reducedMotion.matches || !notes.length) return;
+    ctx.font = '600 15px Jost, Futura, sans-serif';
+    ctx.textAlign = 'center';
+    for (var i = 0; i < notes.length; i++) {
+      var p = notes[i];
+      ctx.globalAlpha = Math.max(0, 0.9 * (1 - p.life / p.max));
+      ctx.fillStyle = BRASS;
+      ctx.fillText(p.g, p.x + Math.sin(effT * 2.2 + p.ph) * 5, p.y);
+    }
+    ctx.textAlign = 'left';
+    ctx.globalAlpha = 1;
+  }
+
   // a kite over the park in fair-weather months
   function drawKite() {
     if (!kite.active || reducedMotion.matches) return;
@@ -2882,7 +3062,7 @@
   function drawSputnik(starLevel) {
     if (!sputnik.active || reducedMotion.matches || starLevel <= 0.05) return;
     var x = -40 + sputnik.p * (VIEW_W + 80);
-    var y = 84 + sputnik.p * 52;
+    var y = (84 + sputnik.p * 52) * SKY_K;
     ctx.globalAlpha = Math.min(1, starLevel) * 0.9;
     ctx.strokeStyle = BRASS;                      // four swept, kinked antennae
     ctx.lineWidth = 1.2;
@@ -2910,12 +3090,14 @@
     ctx.beginPath();
     for (var i = 0; i < clouds.length; i++) {
       var cl = clouds[i];
-      for (var j = 0; j < cl.puffs.length; j++) {
-        var pf = cl.puffs[j];
-        dotPath(cl.x + pf.dx * cl.s, cl.y + pf.dy * cl.s, pf.r * cl.s);
+      var baseY = 34 + cl.fy * (GROUND_Y - 200);
+      var first = cl.lobes[0];
+      ctx.moveTo(cl.x + (first.dx - first.r) * cl.s, baseY);
+      for (var j = 0; j < cl.lobes.length; j++) {   // lumpy top, one pass
+        var lb = cl.lobes[j];
+        ctx.arc(cl.x + lb.dx * cl.s, baseY, lb.r * cl.s, Math.PI, 0);
       }
-      var ext = (cl.puffs.length * 11 + 14) * cl.s;
-      ctx.rect(cl.x - ext, cl.y, ext * 2, 6 * cl.s);   // the flat poster base
+      ctx.closePath();                              // …closed flat along the bottom
     }
     ctx.fill();
   }
@@ -2926,7 +3108,12 @@
     for (var i = 0; i < smoke.length; i++) {
       var p = smoke[i];
       ctx.globalAlpha = Math.max(0, 0.42 * (1 - p.life / p.max));
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath();                            // twin-lobed puff, flat base
+      ctx.moveTo(p.x - p.r * 1.15, p.y);
+      ctx.arc(p.x - p.r * 0.45, p.y, p.r * 0.7, Math.PI, 0);
+      ctx.arc(p.x + p.r * 0.4, p.y, p.r * 0.85, Math.PI, 0);
+      ctx.closePath();
+      ctx.fill();
     }
     ctx.globalAlpha = 1;
   }
@@ -3602,13 +3789,15 @@
     // A pane whose flicker override is running shows the opposite of its
     // schedule — someone in there just hit the switch. October swaps the
     // whole city's halos to burnt orange (harvest festival custom).
+    var wy;
     ctx.fillStyle = calendar.month === 9 ? GLOW_ORANGE : GLOW_BRASS;
     ctx.beginPath();
     for (i = 0; i < b.windows.length; i++) {
       wd = b.windows[i];
-      if (wd.y < top + 6) continue;               // above the built portion
+      wy = GROUND_Y + wd.y;
+      if (wy < top + 6) continue;                 // above the built portion
       var lit = (wd.threshold < litLevel) !== (wd.flickUntil > effT);
-      if (lit && !wd.accent) dotPath(wd.x, wd.y, 7);
+      if (lit && !wd.accent) dotPath(wd.x, wy, 7);
     }
     ctx.fill();
 
@@ -3616,9 +3805,10 @@
     ctx.beginPath();
     for (i = 0; i < b.windows.length; i++) {
       wd = b.windows[i];
-      if (wd.y < top + 6) continue;
+      wy = GROUND_Y + wd.y;
+      if (wy < top + 6) continue;
       var lit2 = (wd.threshold < litLevel) !== (wd.flickUntil > effT);
-      if (lit2 && wd.accent) dotPath(wd.x, wd.y, 7);
+      if (lit2 && wd.accent) dotPath(wd.x, wy, 7);
     }
     ctx.fill();
 
@@ -3626,8 +3816,9 @@
     ctx.beginPath();
     for (i = 0; i < b.windows.length; i++) {
       wd = b.windows[i];
-      if (wd.y < top + 6) continue;
-      if (!wd.accent) dotPath(wd.x, wd.y, 3);
+      wy = GROUND_Y + wd.y;
+      if (wy < top + 6) continue;
+      if (!wd.accent) dotPath(wd.x, wy, 3);
     }
     ctx.fill();
 
@@ -3635,8 +3826,9 @@
     ctx.beginPath();
     for (i = 0; i < b.windows.length; i++) {
       wd = b.windows[i];
-      if (wd.y < top + 6) continue;
-      if (wd.accent) dotPath(wd.x, wd.y, 3);
+      wy = GROUND_Y + wd.y;
+      if (wy < top + 6) continue;
+      if (wd.accent) dotPath(wd.x, wy, 3);
     }
     ctx.fill();
 
@@ -3720,7 +3912,7 @@
     if (starLevel > 0.01) {
       ctx.fillStyle = CREAM_HI;
       ctx.beginPath();
-      for (var s = 0; s < stars.length; s++) dotPath(stars[s].x, stars[s].y, stars[s].r);
+      for (var s = 0; s < stars.length; s++) dotPath(stars[s].x, stars[s].y * SKY_K, stars[s].r);
       ctx.globalAlpha = 0.75 * starLevel;
       ctx.fill();
       ctx.globalAlpha = 1;
@@ -3771,6 +3963,7 @@
     drawSearchlights(starLevel);
     for (i = 0; i < landmarks.length; i++) drawLandmark(landmarks[i], litLevel);
     drawPark(litLevel);
+    drawNotes();
     drawKite();
     drawDriveIn(litLevel);
     for (i = 0; i < city.length; i++) drawBuilding(city[i], litLevel);
@@ -3904,6 +4097,7 @@
       funicular: funi, kite: kite, folks: folks, milk: milk, mail: mail
     },
     request: request,
+    fx: fw,
     reducedMotion: reducedMotion
   };
   postBulletin('MUNICIPAL SIMULATION IN PROGRESS — MODEL M-58');

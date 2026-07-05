@@ -136,8 +136,10 @@
     timeReadout.textContent = TIME_NAMES[state.time];
   }
 
+  var draggingLever = false;
+
   function renderGrowth() {
-    leverHandle.style.top = LEVER_TOPS[state.growth] + 'px';
+    if (!draggingLever) leverHandle.style.top = LEVER_TOPS[state.growth] + 'px';
     growthReadout.textContent = GROWTH_NAMES[state.growth];
   }
 
@@ -164,6 +166,48 @@
   document.querySelectorAll('.lever-label').forEach(function (label) {
     label.addEventListener('click', function () { setGrowth(Number(label.dataset.growth)); });
   });
+
+  // the GROWTH lever really slides: grab the handle, drag it along the
+  // track, and it snaps to the nearest detent on release — the readout
+  // (and the city) follow live as you cross each notch
+  var leverArea = leverHandle.closest('.lever-area');
+
+  function leverSlotAt(top) {
+    var best = 0;
+    for (var i = 1; i < LEVER_TOPS.length; i++) {
+      if (Math.abs(top - LEVER_TOPS[i]) < Math.abs(top - LEVER_TOPS[best])) best = i;
+    }
+    return best;
+  }
+
+  leverHandle.addEventListener('pointerdown', function (e) {
+    draggingLever = true;
+    leverHandle.setPointerCapture(e.pointerId);
+    leverHandle.style.transition = 'none';
+    leverHandle.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+
+  leverHandle.addEventListener('pointermove', function (e) {
+    if (!draggingLever) return;
+    var rect = leverArea.getBoundingClientRect();
+    var scale = rect.height / 148;               // machine transform scale
+    var top = (e.clientY - rect.top) / scale - 13;   // half the handle height
+    top = Math.max(LEVER_TOPS[2], Math.min(LEVER_TOPS[0], top));
+    leverHandle.style.top = top + 'px';
+    var slot = leverSlotAt(top);
+    if (slot !== state.growth) setGrowth(slot);  // notch by notch, live
+  });
+
+  function leverRelease() {
+    if (!draggingLever) return;
+    draggingLever = false;
+    leverHandle.style.transition = '';
+    leverHandle.style.cursor = '';
+    renderGrowth();                              // snap to the detent
+  }
+  leverHandle.addEventListener('pointerup', leverRelease);
+  leverHandle.addEventListener('pointercancel', leverRelease);
 
   // modern convenience: the whole console from the keyboard.
   // arrows drive TIME and GROWTH, 1-4 dial the WEATHER, P transmits a
@@ -423,14 +467,34 @@
   })();
 
   /* ---------------- scale machine to viewport ---------------- */
+  /* The machine fills the screen: width is matched exactly, and the sim
+     viewport absorbs the leftover height — tall screens get more sky,
+     short-wide screens crop the tallest spires. The console block
+     itself never changes shape. The city renderer is told the new
+     logical sim height via 'municitron:viewport'. */
+
+  var simEl = document.querySelector('.sim');
+  var lastSimH = 600;
 
   function fit() {
     var w = window.innerWidth || document.documentElement.clientWidth;
     var h = window.innerHeight || document.documentElement.clientHeight;
     if (!w || !h) { requestAnimationFrame(fit); return; }
-    var scale = Math.min(w / 1600, h / 900);
+    var scale = w / 1600;
+    var simH = h / scale - 300;                  // logical px left for the city
+    if (simH < 320) {                            // ultra-wide: fall back to height fit
+      scale = h / 620;
+      simH = 320;
+    }
+    simH = Math.round(Math.min(simH, 1000));     // very tall: cap the sky, center
+    machine.style.height = (simH + 300) + 'px';
+    if (simEl) simEl.style.height = simH + 'px';
     machine.style.transform = 'scale(' + scale + ')';
     overlay.style.transform = 'scale(' + scale + ')';
+    if (simH !== lastSimH) {
+      lastSimH = simH;
+      document.dispatchEvent(new CustomEvent('municitron:viewport', { detail: { h: simH } }));
+    }
   }
 
   window.addEventListener('resize', fit);

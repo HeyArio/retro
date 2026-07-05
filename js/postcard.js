@@ -42,11 +42,21 @@
 
     c.drawImage(frameImg, 0, 0, CARD_W * S, CARD_H * S);
 
-    // the city photo: pasted print in the clear zone left of the stamp
-    // (430×161 keeps the sim canvas's 8:3 aspect)
+    // the city photo: pasted print in the clear zone left of the stamp.
+    // The live canvas can be any aspect now, so cover-crop to the
+    // print's 430×161 — anchored at the bottom so the city stays in
     var px = FACE_L * S, py = FACE_T * S, pw = 430 * S, ph = 161 * S;
     var sim = document.getElementById('sim-canvas');
-    c.drawImage(sim, 0, 0, sim.width, sim.height, px, py, pw, ph);
+    var want = 430 / 161;
+    var srcW = sim.width, srcH = sim.height, sx = 0, sy = 0;
+    if (srcW / srcH > want) {                     // too wide: crop the sides
+      srcW = srcH * want;
+      sx = (sim.width - srcW) / 2;
+    } else {                                      // too tall: keep the bottom
+      srcH = srcW / want;
+      sy = sim.height - srcH;
+    }
+    c.drawImage(sim, sx, sy, srcW, srcH, px, py, pw, ph);
     c.strokeStyle = '#16332F';
     c.lineWidth = 2 * S;
     c.strokeRect(px - S, py - S, pw + 2 * S, ph + 2 * S);

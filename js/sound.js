@@ -137,6 +137,7 @@
   document.addEventListener('municitron:milk', function () { clink(); });
   document.addEventListener('municitron:mail', function () { blip(1046, 0.12, 0.15, 'sine'); blip(1318, 0.2, 0.12, 'sine', 0.1); });
   document.addEventListener('municitron:record', function () { chime(); });
+  document.addEventListener('municitron:concert', function () { phrase(); });
 
   // Sputnik telemetry: watch the ambient state for a pass starting
   var wasUp = false;

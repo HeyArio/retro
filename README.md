@@ -43,9 +43,20 @@ real evening city by the machine itself).
 
 ## Controls
 
+The machine fills the browser window at any size: the sim viewport
+absorbs the extra height (tall screens get more sky; short-wide
+screens crop the tallest spires, cinema-style).
+
 Everything below also works from the keyboard: **←/→** turn the TIME
 dial, **↑/↓** work the GROWTH lever, **1–4** dial the WEATHER, **P**
-transmits a postcard, **M** works the speaker switch.
+transmits a postcard, **M** works the speaker switch. The GROWTH lever
+also really slides — grab it and drag; it snaps to the nearest detent.
+
+The city itself is a control surface too: **click the sky** to launch
+an aimed firework, **click a building** to ripple its window lights,
+**click the bandstand** for an impromptu tune (notes and all), **click
+a park tree** to shake leaves loose, and **click the drive-in screen**
+after dark to change the picture.
 
 - **WEATHER** knob — CLEAR / RAIN / SNOW / AURORA (the needle can't hold
   steady in rain; a change startles the rooftop flocks)
