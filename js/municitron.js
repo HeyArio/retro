@@ -15,13 +15,31 @@
   var GROWTH_NAMES = ['DORMANT', 'STEADY', 'BOOM'];
   var LEVER_TOPS = [117, 63, 9];          // px, DORMANT → BOOM
   var POP_MAX = 999999;
+  var KOFI_URL = 'https://ko-fi.com/municitron';   // placeholder until the owner supplies the real page
+
+  // shareable URLs are first-class: ?seed=N&t=&w=&g= restores the scene
+  var query = new URLSearchParams(window.location.search);
+  function idxParam(key, count, fallback) {
+    var v = parseInt(query.get(key), 10);
+    return (v >= 0 && v < count) ? v : fallback;
+  }
 
   var state = {
-    weather: 0,
-    time: 2,
-    growth: 1,
+    weather: idxParam('w', 4, 0),
+    time: idxParam('t', 8, 2),
+    growth: idxParam('g', 3, 1),
     population: 0            // the city simulation broadcasts the real figure
   };
+
+  function updateShareUrl() {
+    if (!window.history || !window.history.replaceState) return;
+    var seed = window.MUNICITRON_CITY && window.MUNICITRON_CITY.seed;
+    if (typeof seed !== 'number') return;
+    try {
+      window.history.replaceState(null, '',
+        '?seed=' + seed + '&t=' + state.time + '&w=' + state.weather + '&g=' + state.growth);
+    } catch (err) { /* file:// and sandboxed contexts may refuse; harmless */ }
+  }
 
   /* ---------------- dom ---------------- */
 
@@ -94,6 +112,7 @@
     document.dispatchEvent(new CustomEvent('municitron:' + channel, {
       detail: { index: index, name: name }
     }));
+    updateShareUrl();
   }
 
   /* ---------------- controls ---------------- */
@@ -158,6 +177,11 @@
     flashLamp(xmitLamp, 'xmit', 1400);
     postcardPop.textContent = Math.floor(state.population).toLocaleString('en-US');
     overlay.hidden = false;
+    // compose + download the PNG (js/postcard.js); an edited blank wins
+    var custom = postcardCity.textContent.replace(/\s+/g, ' ').trim();
+    document.dispatchEvent(new CustomEvent('municitron:transmit', {
+      detail: { name: custom || null }
+    }));
   });
 
   dismiss.addEventListener('click', function () {
@@ -182,6 +206,7 @@
 
   coinMech.addEventListener('click', function () {
     flashLamp(coinLamp, 'coin', 1200);
+    window.open(KOFI_URL, '_blank', 'noopener');
   });
 
   /* ---------------- scale machine to viewport ---------------- */
@@ -211,4 +236,9 @@
   announce('weather', state.weather, WEATHER[state.weather]);
   announce('time', state.time, TIME_NAMES[state.time]);
   announce('growth', state.growth, GROWTH_NAMES[state.growth]);
+
+  // the seeded city name prefills the postcard blank; typing over it wins
+  if (window.MUNICITRON_CITY && window.MUNICITRON_CITY.name && !postcardCity.textContent.trim()) {
+    postcardCity.textContent = window.MUNICITRON_CITY.name;
+  }
 })();

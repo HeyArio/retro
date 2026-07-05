@@ -330,6 +330,27 @@
   settleLowCelestial(TIMES[1].cel);
   settleLowCelestial(TIMES[5].cel);
 
+  /* ---------------- city name (third rng stream) ----------------------- */
+  /* Same seed = same name, always; a separate stream so naming can never
+     perturb the city plan or the weather. */
+
+  var rng3 = mulberry32(seed ^ 0x85EBCA6B);
+
+  var CITY_NAME = (function () {
+    var ONSETS = ['KER', 'MAR', 'BEL', 'NOR', 'VAL', 'HAR', 'WIN', 'ASH',
+                  'THORN', 'CRES', 'DUN', 'FAIR', 'GLEN', 'HOL', 'LOR',
+                  'MER', 'OAK', 'PEN', 'ROY', 'SIL'];
+    var MIDS   = ['A', 'O', 'E', 'ER', 'AR', 'EN', 'IN', 'OR', ''];
+    var ENDS   = ['TON', 'FIELD', 'MONT', 'BURY', 'FORD', 'HAVEN', 'WICK',
+                  'MOOR', 'DALE', 'BROOK', 'VALE', 'GATE', 'CREST', 'VIEW'];
+    var SUFFIXES = ['FALLS', 'HEIGHTS', 'JUNCTION', 'MESA', 'SPRINGS',
+                    'POINT', 'PARK', 'GROVE', 'TERRACE', 'FLATS'];
+    function pick(a) { return a[Math.floor(rng3() * a.length)]; }
+    var name = pick(ONSETS) + pick(MIDS) + pick(ENDS);
+    if (rng3() < 0.5) name += ' ' + pick(SUFFIXES);
+    return name;
+  })();
+
   /* ---------------- weather particles (separate rng stream) ------------ */
 
   var rng2 = mulberry32(seed ^ 0x9E3779B9);
@@ -385,12 +406,20 @@
     growthIndex = e.detail.index;
   });
 
+  // before the first frame (a shared ?t=&w= link restoring a scene),
+  // snap straight to the target instead of crossfading from the default
   document.addEventListener('municitron:time', function (e) {
     timeTo = e.detail.index;
+    if (!lastTime) {
+      for (var i = 0; i < 8; i++) timeLevel[i] = (i === timeTo) ? 1 : 0;
+    }
   });
 
   document.addEventListener('municitron:weather', function (e) {
     weatherTo = e.detail.index;
+    if (!lastTime) {
+      for (var i = 0; i < 4; i++) weatherLevel[i] = (i === weatherTo) ? 1 : 0;
+    }
   });
 
   function builtMass() {
@@ -487,6 +516,7 @@
     var whole = Math.floor(displayedPop);
     if (whole !== lastEmitted) {
       lastEmitted = whole;
+      window.MUNICITRON_CITY.population = whole;
       document.dispatchEvent(new CustomEvent('municitron:population', { detail: whole }));
     }
   }
@@ -756,6 +786,15 @@
     ctx.fillRect(0, GROUND_Y, VIEW_W, VIEW_H - GROUND_Y);
     ctx.fillStyle = BRASS;
     ctx.fillRect(0, GROUND_Y, VIEW_W, 3);
+
+    // engraved city-name plate on the ground band (darkens when snow
+    // pales the band so it always reads)
+    ctx.font = '600 15px Jost, Futura, sans-serif';
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '3px';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = rgbStr(mixRgb(hexToRgb(BRASS), TRIM_RGB, weatherLevel[2] * 0.7));
+    ctx.fillText('CITY OF ' + CITY_NAME, 22, GROUND_Y + (VIEW_H - GROUND_Y) / 2 + 2);
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
   }
 
   /* ---------------- loop ---------------- */
@@ -774,6 +813,13 @@
 
   /* ---------------- debug surface ---------------- */
 
-  window.MUNICITRON_CITY = { seed: seed, city: city, bg: bgCity, reducedMotion: reducedMotion };
-  console.info('MUNICITRON M-58 · city seed ' + seed + ' — reproduce with ?seed=' + seed);
+  window.MUNICITRON_CITY = {
+    seed: seed,
+    name: CITY_NAME,
+    population: 0,
+    city: city,
+    bg: bgCity,
+    reducedMotion: reducedMotion
+  };
+  console.info('MUNICITRON M-58 · ' + CITY_NAME + ' · seed ' + seed + ' — reproduce with ?seed=' + seed);
 })();
