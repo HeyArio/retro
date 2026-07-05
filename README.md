@@ -83,7 +83,11 @@ permanent fairground and the Ferris wheel goes up. The park keeps a
 bandstand, a fountain, a bench and lobed poster trees; vacant civic
 plazas hold survey billboards until their landmark is commissioned.
 Kites fly over the park in fair-weather
-months, and deep snow raises a snowman by the bench. The bulletin wire
+months, autumn strips the park trees leaf by leaf, and deep snow raises
+a snowman by the bench. Citizens stroll Main Street — some in hats, one
+or two walking Comet — somebody usually has the park bench, a fisherman
+works the pier when the water is open, and the courthouse keeps its
+clock stopped at 3:47 as it has been since 1949. The bulletin wire
 carries
 Mayor Wembly's campaigns, the Grebbsville rivalry and the courthouse
 clock saga. Birds commute at dawn and dusk, a balloon regatta drifts
@@ -92,5 +96,11 @@ long while an object officials decline to comment on crosses the
 northern district. Civic firsts are entered in a municipal ledger
 (localStorage) and returning commissioners are welcomed back.
 
-For technicians: typing `NAZARBAN` summons the factory test pattern, and
-a certain knob ritual (RAIN, SNOW, RAIN, AURORA) summons something else.
+Your city also remembers you: growth persists per seed in localStorage,
+so a returning commissioner finds the skyline where they left it —
+while a shared `?seed=` link still starts young for new visitors.
+
+For technicians: typing `NAZARBAN` summons the factory test pattern,
+typing `TELECAST` switches the whole scene to a KNAZ-TV evening
+broadcast (scanlines, rolling bar, station bug), and a certain knob
+ritual (RAIN, SNOW, RAIN, AURORA) summons something else.

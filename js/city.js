@@ -385,12 +385,22 @@
     var shift = Math.round((landR - x + 8) / 2) + 20;
     for (i = 0; i < bg.length; i++) bg[i].x += shift;
 
+    // ---- the courthouse: one mid-rise keeps the town's stopped clock,
+    // and being historic it is never redeveloped ----
+    for (i = 0; i < lots.length; i++) {
+      b = lots[i];
+      if (b.w >= 90 && b.h >= 170 && b.h <= 310) {
+        b.clock = true;
+        break;
+      }
+    }
+
     // ---- densification: the city's second act ----
     // every short front-row lot gets a planned taller replacement; once
     // construction exhausts, replacements demolish-and-rise in order
     for (i = 0; i < lots.length; i++) {
       b = lots[i];
-      if (b.h >= 300 || b.w < 70) continue;       // shopfronts stay shopfronts
+      if (b.h >= 300 || b.w < 70 || b.clock) continue;   // shopfronts stay; so does history
       var nh = Math.min(430, b.h + 90 + Math.floor(rng() * 150));
       b.next = {
         h: nh,
@@ -697,6 +707,35 @@
   var birdTimer = 20 + rng6() * 40;
   var parade = { active: false, x: 0, dir: 1 };   // Founders' Day procession
   var kite = { active: false, timer: 24 + rng6() * 40, until: 0, ph: 0, anchor: 0 };
+
+  // the citizens: strollers (some with hats, some walking Comet),
+  // scaled to the census and thinned after dark
+  var folks = [];
+  for (i = 0; i < 8; i++) {
+    folks.push({
+      active: false,
+      timer: 4 + rng6() * 22,
+      x: 0,
+      dir: 1,
+      v: 13 + rng6() * 9,
+      hat: rng6() < 0.55,
+      dog: rng6() < 0.25,
+      ph: rng6() * 6.283
+    });
+  }
+
+  // autumn leaves off the park trees, and the odd falling star
+  var leaves = [];
+  var shoot = { t: 0, x: 0, y: 0, dx: 0, dy: 0, timer: 50 + rng6() * 90 };
+
+  // KNAZ-TV: the telecast overlay (typed code on the console)
+  var telecast = false;
+  document.addEventListener('municitron:telecast', function () {
+    telecast = !telecast;
+    postBulletin(telecast ? 'KNAZ-TV TELECAST COMMENCING — ADJUST AERIAL'
+                          : 'TELECAST CONCLUDED — RETURN TO YOUR EVENING');
+    if (telecast) recordFirst('telecast', 'FIRST TELECAST TUNED');
+  });
   var regatta = { active: false, timer: 140 + rng6() * 220, dir: 1, balloons: [] };
   var ufo = { active: false, timer: 300 + rng6() * 600, x: 0, y: 90, dir: 1 };
   var rainbow = 0;                                // alpha of the after-rain arc
@@ -950,7 +989,17 @@
     'FAIRGROUND WHEEL INSPECTED — DECLARED "ROUND"',
     'SISTER CITY ' + SISTER_CITY + ' SENDS CORDIAL REGARDS',
     'CLICK THE CITY PLATE FOR THE MUNICIPAL ALMANAC — FORM CA-2',
-    'KITE SEASON OPEN — MIND THE WIRES'
+    'KITE SEASON OPEN — MIND THE WIRES',
+    'COURTHOUSE CLOCK STILL SAYS 3:47 — CORRECT TWICE DAILY',
+    'PIGEONS RELOCATE TO LIBRARY LEDGE — LIBRARIAN UNMOVED',
+    'MOOSE LODGE PANCAKE BREAKFAST DECLARED "ADEQUATE PLUS"',
+    'PAPERBOY SETS DISTANCE RECORD — WINDOW UNBROKEN',
+    'KNAZ-TV TEST BROADCAST TONIGHT — ADJUST YOUR AERIALS',
+    'SODA JERK PROMOTED TO SODA FOREMAN',
+    'ZONING BOARD DISCOVERS MAP WAS UPSIDE DOWN SINCE MARCH',
+    'CHESS IN THE PARK RESUMES — PIGEON TAKES QUEEN',
+    'STREET SWEEPER REQUESTS SECOND BROOM — UNDER REVIEW',
+    'COMET SEEN CHASING THE STREET SWEEPER — BOTH DELIGHTED'
   ];
   if (hill) {
     WIRE_LINES.push('FUNICULAR RUNNING SWEETLY — GREASE COMMENDED');
@@ -1125,11 +1174,13 @@
       if (spawnTimer <= 0) {
         if (buildQueue.length) {
           var next = buildQueue.shift();
+          queueUsed++;
           next.rising = true;
           if (reducedMotion.matches) { next.progress = 1; next.rising = false; }
           spawnTimer = SPAWN_INTERVAL[growthIndex] * next.jitter;
         } else if (denseQueue.length) {           // second act: densification
           var lot = denseQueue.shift();
+          denseUsed++;
           if (reducedMotion.matches) { applyNext(lot); lot.progress = 1; }
           else { lot.demolishing = true; lot.rising = false; }
           spawnTimer = SPAWN_INTERVAL[growthIndex] * DENSIFY_PACE * lot.jitter;
@@ -1400,6 +1451,76 @@
         if (ufo.timer <= 0) document.dispatchEvent(new CustomEvent('municitron:ufo'));
       }
 
+      // citizens stroll while the town is awake
+      var wantFolks = Math.max(1, Math.min(folks.length, 1 + Math.floor(lastEmitted / 6000)));
+      if (timeTo === 0 || timeTo === 6 || timeTo === 7) wantFolks = Math.min(wantFolks, 2);
+      var walking = 0;
+      for (i = 0; i < folks.length; i++) if (folks[i].active) walking++;
+      for (i = 0; i < folks.length; i++) {
+        p = folks[i];
+        if (p.active) {
+          p.x += p.v * dt * p.dir;
+          if (p.x > CAR_R + 14 || p.x < CAR_L - 14) {
+            p.active = false;
+            p.timer = 6 + rng6() * 26;
+            walking--;
+          }
+        } else if (walking < wantFolks) {
+          p.timer -= dt;
+          if (p.timer <= 0) {
+            p.active = true;
+            p.dir = rng6() < 0.5 ? -1 : 1;
+            p.x = p.dir === 1 ? CAR_L - 8 : CAR_R + 8;
+            walking++;
+          }
+        }
+      }
+
+      // autumn: leaves come off the park trees
+      var autumn = calendar.month >= 8 && calendar.month <= 10;
+      if (autumn && leaves.length < 26 && rng6() < dt * 1.4) {
+        var lt = park.trees[Math.floor(rng6() * park.trees.length)];
+        leaves.push({
+          x: lt.x + (rng6() * 2 - 1) * lt.r * 0.8,
+          y: GROUND_Y - 16 - lt.r * 0.8,
+          vy: 10 + rng6() * 10,
+          ph: rng6() * 6.283,
+          f: 1 + rng6() * 1.5,
+          amp: 8 + rng6() * 10,
+          settle: 0,
+          color: rng6() < 0.6 ? ORANGE : BRASS
+        });
+      }
+      for (i = leaves.length - 1; i >= 0; i--) {
+        p = leaves[i];
+        if (p.settle > 0) {
+          p.settle -= dt;
+          if (p.settle <= 0) leaves.splice(i, 1);
+        } else {
+          p.y += p.vy * dt;
+          if (p.y >= GROUND_Y - 2) {
+            p.x += Math.sin(effT * p.f + p.ph) * p.amp;   // freeze where it swayed
+            p.amp = 0;
+            p.y = GROUND_Y - 2;
+            p.settle = 2.2;
+          }
+        }
+      }
+
+      // once in a while, a falling star
+      if (shoot.t > 0) shoot.t -= dt;
+      else {
+        shoot.timer -= dt;
+        if (shoot.timer <= 0) {
+          shoot.timer = 60 + rng6() * 120;
+          shoot.t = 0.5;
+          shoot.x = 150 + rng6() * 1150;
+          shoot.y = 40 + rng6() * 120;
+          shoot.dx = (rng6() < 0.5 ? -1 : 1) * (200 + rng6() * 90);
+          shoot.dy = 70 + rng6() * 50;
+        }
+      }
+
       // a rainbow when rain hands the sky back to daylight
       if (prevRain > 0.55 && weatherLevel[1] <= 0.55 && weatherTo === 0 &&
           timeTo >= 1 && timeTo <= 5) {
@@ -1478,6 +1599,13 @@
 
     if (testPattern > 0) testPattern -= dt;
 
+    // file the growth ledger every so often
+    saveTimer -= dt;
+    if (saveTimer <= 0) {
+      saveTimer = 8;
+      saveCity();
+    }
+
     // the civic calendar turns on its own clock, DORMANT or not
     calendar.t += dt;
     if (calendar.t >= MONTH_LEN) {
@@ -1528,6 +1656,61 @@
       bulletin.until = bulletin.clock + 6.5;
     }
   }
+
+  /* ---------------- persistent growth (localStorage, per seed) --------- */
+  /* A returning commissioner finds their city as they left it: the same
+     plan (that's the seed's job) grown to where it was. Stored per seed
+     so shared links still start young for new visitors. */
+
+  var CITY_KEY = 'municitron-m58-city-' + seed;
+  var queueUsed = 0;
+  var denseUsed = 0;
+  var saveTimer = 8;
+
+  function saveCity() {
+    try {
+      localStorage.setItem(CITY_KEY, JSON.stringify({
+        q: queueUsed,
+        d: denseUsed,
+        ap: Math.round(ambientPop),
+        cm: calendar.month,
+        cy: calendar.year
+      }));
+    } catch (err) { /* storage may be unavailable; the toy shrugs */ }
+  }
+
+  var restoredCity = (function () {
+    try {
+      var s = JSON.parse(localStorage.getItem(CITY_KEY) || 'null');
+      if (!s || !s.q) return false;
+      var n = Math.min(s.q, buildQueue.length);
+      for (var i = 0; i < n; i++) buildQueue.shift().progress = 1;
+      queueUsed = n;
+      var d = Math.min(s.d || 0, denseQueue.length);
+      for (i = 0; i < d; i++) {
+        var lot = denseQueue.shift();
+        applyNext(lot);
+        lot.progress = 1;
+      }
+      denseUsed = d;
+      ambientPop = s.ap || 0;
+      if (s.cm != null) { calendar.month = s.cm; calendar.year = s.cy || 1958; }
+      // commission anything the restored census already earned — quietly
+      var t = builtMass() * DENSITY + ambientPop;
+      for (i = 0; i < landmarks.length; i++) {
+        if (t >= landmarks[i].threshold) {
+          landmarks[i].commissioned = true;
+          landmarks[i].progress = 1;
+        }
+      }
+      return true;
+    } catch (err) { return false; }
+  })();
+  if (restoredCity) postBulletin('CITY RECORDS RESTORED — GROWTH ON FILE');
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') saveCity();
+  });
 
   /* ---------------- canvas / dpr ---------------- */
 
@@ -2179,6 +2362,85 @@
     }
   }
 
+  // the citizens: little striding figures, hats raised to nobody in
+  // particular, one or two walking Comet on a leash
+  function drawFolks() {
+    if (reducedMotion.matches) return;
+    for (var i = 0; i < folks.length; i++) {
+      var p = folks[i];
+      if (!p.active) continue;
+      var stride = Math.sin(effT * 9 + p.ph);
+      var bob = Math.abs(stride) * 0.8;
+      var y = GROUND_Y - bob;
+
+      ctx.strokeStyle = TEAL_TRIM;                // legs mid-stride
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(p.x, y - 4);
+      ctx.lineTo(p.x + stride * 2.2, y);
+      ctx.moveTo(p.x, y - 4);
+      ctx.lineTo(p.x - stride * 2.2, y);
+      ctx.stroke();
+      ctx.fillStyle = TEAL_TRIM;                  // torso + head
+      ctx.fillRect(p.x - 1.6, y - 10, 3.2, 6.5);
+      ctx.beginPath(); ctx.arc(p.x, y - 12, 1.9, 0, Math.PI * 2); ctx.fill();
+      if (p.hat) {                                // a respectable brim
+        ctx.fillRect(p.x - 3, y - 13.6, 6, 1);
+        ctx.fillRect(p.x - 1.8, y - 16, 3.6, 2.6);
+      }
+      if (p.dog) {                                // Comet, at heel
+        var dx2 = p.x - p.dir * 8;
+        ctx.strokeStyle = TEAL_TRIM;
+        ctx.lineWidth = 0.8;
+        ctx.globalAlpha = 0.6;
+        ctx.beginPath();
+        ctx.moveTo(p.x + p.dir * 1, y - 6);
+        ctx.quadraticCurveTo((p.x + dx2) / 2, y - 2, dx2, y - 3.5);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = TEAL_TRIM;
+        ctx.fillRect(dx2 - 2.5, y - 3.5, 5, 2.2);
+        ctx.beginPath(); ctx.arc(dx2 + p.dir * 3, y - 3.6, 1.4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillRect(dx2 - p.dir * 3 - 0.5, y - 5.5 + Math.sin(effT * 12) * 0.7, 1, 2.5);
+      }
+    }
+  }
+
+  function drawLeaves() {
+    if (reducedMotion.matches || !leaves.length) return;
+    for (var i = 0; i < leaves.length; i++) {
+      var p = leaves[i];
+      var lx = p.x + (p.amp ? Math.sin(effT * p.f + p.ph) * p.amp : 0);
+      ctx.globalAlpha = p.settle > 0 ? Math.min(0.9, p.settle / 2.2) : 0.9;
+      ctx.fillStyle = p.color;
+      ctx.save();
+      ctx.translate(lx, p.y);
+      ctx.rotate(Math.sin(effT * p.f + p.ph) * 0.7);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 2.6, 1.4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawShootingStar(starLevel) {
+    if (shoot.t <= 0 || starLevel <= 0.4 || reducedMotion.matches) return;
+    var p = 1 - shoot.t / 0.5;
+    var hx = shoot.x + shoot.dx * p;
+    var hy = shoot.y + shoot.dy * p;
+    var len = Math.min(34, p * 90);
+    var norm = Math.sqrt(shoot.dx * shoot.dx + shoot.dy * shoot.dy);
+    ctx.strokeStyle = CREAM_HI;
+    ctx.lineWidth = 1.6;
+    ctx.globalAlpha = Math.min(1, shoot.t / 0.18) * starLevel * 0.9;
+    ctx.beginPath();
+    ctx.moveTo(hx, hy);
+    ctx.lineTo(hx - shoot.dx / norm * len, hy - shoot.dy / norm * len);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
   // a kite over the park in fair-weather months
   function drawKite() {
     if (!kite.active || reducedMotion.matches) return;
@@ -2269,6 +2531,38 @@
     ctx.fillRect(Math.min(px0, px0 + pd * 66), GROUND_Y - 3, 66, 4);
     for (i = 0; i < 3; i++) {
       ctx.fillRect(px0 + pd * (12 + i * 22) - 1.5, GROUND_Y, 3, 14);
+    }
+
+    // a fisherman works the end of the pier when the water is open
+    if (starLevel < 0.4 && icedLevel < 0.5) {
+      var fpx = px0 + pd * 58;
+      ctx.fillStyle = TEAL_TRIM;
+      ctx.fillRect(fpx - 1.6, GROUND_Y - 11.5, 3.2, 8);       // seated, patient
+      ctx.beginPath(); ctx.arc(fpx, GROUND_Y - 13.5, 1.9, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = TEAL_TRIM;                            // the rod
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(fpx + pd * 2, GROUND_Y - 9);
+      ctx.lineTo(fpx + pd * 16, GROUND_Y - 20);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(242, 233, 210, 0.4)';           // the line
+      ctx.beginPath();
+      ctx.moveTo(fpx + pd * 16, GROUND_Y - 20);
+      ctx.lineTo(fpx + pd * 16, GROUND_Y + 6);
+      ctx.stroke();
+      ctx.fillStyle = ORANGE;                                 // the float
+      ctx.beginPath();
+      ctx.arc(fpx + pd * 16, GROUND_Y + 6 +
+        (reducedMotion.matches ? 0 : Math.sin(effT * 2.1) * 1.2), 1.4, 0, Math.PI * 2);
+      ctx.fill();
+      if (!reducedMotion.matches && Math.sin(effT * 0.31) > 0.975) {   // a bite!
+        ctx.fillStyle = CREAM_HI;
+        ctx.beginPath();
+        dotPath(fpx + pd * 16 - 3, GROUND_Y + 4, 1.2);
+        dotPath(fpx + pd * 16 + 3, GROUND_Y + 3, 1);
+        dotPath(fpx + pd * 16, GROUND_Y + 1, 1.3);
+        ctx.fill();
+      }
     }
 
     // a moored sloop bobs by the pier
@@ -2673,6 +2967,15 @@
     ctx.fillRect(bex - 11, GROUND_Y - 8, 22, 2.5);
     ctx.fillRect(bex - 11, GROUND_Y - 15, 2.5, 7);
 
+    // somebody takes the bench most hours of the day
+    if (litLevel < 0.7 && Math.floor(effT / 45) % 3 !== 2) {
+      ctx.fillStyle = TEAL_TRIM;
+      ctx.fillRect(bex - 1.5, GROUND_Y - 14.5, 3.4, 7);
+      ctx.beginPath(); ctx.arc(bex, GROUND_Y - 16.5, 1.9, 0, Math.PI * 2); ctx.fill();
+      ctx.fillRect(bex + 1.2, GROUND_Y - 8, 1.2, 8);
+      ctx.fillRect(bex + 3.4, GROUND_Y - 8, 1.2, 8);
+    }
+
     // deep snow raises a snowman by the bench
     if (snowAmt > 0.6) {
       var sa = (snowAmt - 0.6) / 0.4;
@@ -2769,6 +3072,56 @@
       ctx.fillStyle = glowing ? CREAM_HI : '#235450';   // the bulb itself
       ctx.beginPath(); ctx.arc(x + 7, GROUND_Y - 24, 2, 0, Math.PI * 2); ctx.fill();
     }
+  }
+
+  // KNAZ-TV: scanlines, a rolling bar, corner vignette, dust on the
+  // tube, and the station bug — the whole city as an evening telecast
+  var scanPattern = null;
+  var vignette = null;
+
+  function drawTelecast() {
+    if (!telecast) return;
+    if (!scanPattern) {
+      var pc = document.createElement('canvas');
+      pc.width = 4;
+      pc.height = 4;
+      var p2 = pc.getContext('2d');
+      p2.fillStyle = 'rgba(13, 33, 30, 0.18)';
+      p2.fillRect(0, 3, 4, 1);
+      scanPattern = ctx.createPattern(pc, 'repeat');
+    }
+    if (!vignette) {
+      vignette = ctx.createRadialGradient(VIEW_W / 2, VIEW_H / 2, 260,
+                                          VIEW_W / 2, VIEW_H / 2, 950);
+      vignette.addColorStop(0, 'rgba(13, 33, 30, 0)');
+      vignette.addColorStop(1, 'rgba(13, 33, 30, 0.45)');
+    }
+    ctx.fillStyle = scanPattern;
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+    if (!reducedMotion.matches) {
+      var barY = ((effT * 42) % (VIEW_H + 140)) - 70;     // the rolling bar
+      ctx.fillStyle = 'rgba(242, 233, 210, 0.05)';
+      ctx.fillRect(0, barY, VIEW_W, 64);
+      var ns = ((effT * 997) | 0) >>> 0;                  // dust on the tube
+      ctx.fillStyle = 'rgba(242, 233, 210, 0.22)';
+      for (var k = 0; k < 10; k++) {
+        ns = (ns * 1664525 + 1013904223) >>> 0;
+        ctx.fillRect((ns >>> 16) % VIEW_W, ns % VIEW_H, 2, 2);
+      }
+    }
+
+    ctx.font = '600 14px Jost, Futura, sans-serif';
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '3px';
+    if (reducedMotion.matches || Math.sin(effT * 4) > -0.4) {
+      ctx.fillStyle = ORANGE;
+      ctx.beginPath(); ctx.arc(30, 32, 4, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = CREAM_HI;
+    ctx.fillText('KNAZ-TV · MUNICIPAL TELECAST', 44, 37);
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
   }
 
   // factory calibration card, straight from the Nazarban service manual
@@ -2925,6 +3278,23 @@
       if (b.chimney) {                            // rooftop stack
         ctx.fillStyle = TEAL_TRIM;
         ctx.fillRect(b.x + b.chimney * b.w - 4.5, top - 12, 9, 12);
+      }
+      if (b.clock) {                              // the stopped courthouse clock
+        var ccx = b.x + b.w / 2, ccy = top + 24;
+        ctx.fillStyle = CREAM_HI;
+        ctx.beginPath(); ctx.arc(ccx, ccy, 9.5, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = TEAL_TRIM;
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(ccx, ccy, 9.5, 0, Math.PI * 2); ctx.stroke();
+        ctx.lineWidth = 1.6;                      // 3:47, as it has been since 1949
+        ctx.beginPath();
+        ctx.moveTo(ccx, ccy);
+        ctx.lineTo(ccx + Math.cos(0.41) * 4.5, ccy + Math.sin(0.41) * 4.5);
+        ctx.moveTo(ccx, ccy);
+        ctx.lineTo(ccx + Math.cos(3.35) * 7, ccy + Math.sin(3.35) * 7);
+        ctx.stroke();
+        ctx.fillStyle = BRASS;
+        ctx.beginPath(); ctx.arc(ccx, ccy, 1.4, 0, Math.PI * 2); ctx.fill();
       }
       if (weatherLevel[2] > 0.05) {               // settled rooftop snow
         ctx.globalAlpha = weatherLevel[2] * 0.9;
@@ -3125,6 +3495,7 @@
 
     drawRainbow();
     drawSputnik(starLevel);
+    drawShootingStar(starLevel);
     drawClouds(cloudColor);
     ctx.restore();
 
@@ -3150,8 +3521,10 @@
     drawKite();
     drawDriveIn(litLevel);
     for (i = 0; i < city.length; i++) drawBuilding(city[i], litLevel);
+    drawLeaves();
     drawSmoke(smokeColor);
     drawStreetlamps(litLevel);
+    drawFolks();
     for (i = 0; i < city.length; i++) drawCrane(city[i]);
     drawStringLights(litLevel);
     drawDust();
@@ -3235,6 +3608,7 @@
       ctx.fillRect(0, 0, VIEW_W, VIEW_H);
     }
 
+    drawTelecast();                               // the tube, if we're on the air
     drawTestPattern();                            // calibration card covers all
   }
 
@@ -3272,7 +3646,7 @@
     ambient: {
       monorail: monorail, sputnik: sputnik, airship: airship, cars: cars,
       birds: birds, regatta: regatta, ufo: ufo, ferry: ferry, parade: parade,
-      funicular: funi, kite: kite
+      funicular: funi, kite: kite, folks: folks
     },
     reducedMotion: reducedMotion
   };

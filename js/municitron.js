@@ -305,7 +305,8 @@
     setTimeout(function () { powerLamp.classList.add('on'); }, 90 + Math.random() * 140);
   }, 8000);
 
-  // typed maintenance code: NAZARBAN summons the factory test pattern
+  // typed maintenance codes: NAZARBAN summons the factory test pattern,
+  // TELECAST switches KNAZ-TV on and off
   var codeBuffer = '';
   document.addEventListener('keydown', function (e) {
     if (e.target && e.target.isContentEditable) return;
@@ -315,6 +316,10 @@
       codeBuffer = '';
       flashLamp(xmitLamp, 'xmit', 1800);
       document.dispatchEvent(new CustomEvent('municitron:testpattern'));
+    } else if (codeBuffer.slice(-8) === 'TELECAST') {
+      codeBuffer = '';
+      flashLamp(coinLamp, 'coin', 1200);
+      document.dispatchEvent(new CustomEvent('municitron:telecast'));
     }
   });
 
