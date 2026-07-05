@@ -495,6 +495,61 @@
 
   var flickTimer = 0.8;                           // individual window lights
 
+  /* ---------------- wildlife & visitors (civic events stream) ---------- */
+
+  var birds = [];                                 // at most two flocks aloft
+  var birdTimer = 20 + rng6() * 40;
+  var regatta = { active: false, timer: 140 + rng6() * 220, dir: 1, balloons: [] };
+  var ufo = { active: false, timer: 300 + rng6() * 600, x: 0, y: 90, dir: 1 };
+  var rainbow = 0;                                // alpha of the after-rain arc
+  var prevRain = 0;
+
+  function spawnFlock(x, y, dir) {
+    if (birds.length >= 2 || reducedMotion.matches) return;
+    var count = 5 + Math.floor(rng6() * 5);
+    var members = [];
+    for (var i = 0; i < count; i++) {
+      members.push({
+        dx: -i * 13,                              // trailing V formation
+        dy: (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 7,
+        ph: rng6() * 6.283
+      });
+    }
+    birds.push({ x: x, y: y, dir: dir, v: 90 + rng6() * 40, members: members });
+  }
+
+  function launchRegatta() {
+    regatta.active = true;
+    regatta.dir = rng6() < 0.5 ? -1 : 1;
+    regatta.balloons = [];
+    var count = 3 + Math.floor(rng6() * 3);
+    var base = regatta.dir === 1 ? -80 : VIEW_W + 80;
+    var hues = ['#235450', ORANGE, BRASS];
+    for (var i = 0; i < count; i++) {
+      regatta.balloons.push({
+        x: base - regatta.dir * i * (70 + rng6() * 50),
+        y: 90 + rng6() * 160,
+        r: 16 + rng6() * 7,
+        drift: 10 + rng6() * 8,
+        ph: rng6() * 6.283,
+        amp: 6 + rng6() * 8,
+        f: 0.3 + rng6() * 0.4,
+        color: hues[i % 3]
+      });
+    }
+    postBulletin('BALLOON REGATTA PASSING — WAVE FROM THE ROOFTOPS');
+  }
+
+  // technicians know a knob sequence that summons this (see console)
+  document.addEventListener('municitron:ufo', function () {
+    if (ufo.active || reducedMotion.matches) return;
+    ufo.active = true;
+    ufo.dir = rng6() < 0.5 ? -1 : 1;
+    ufo.x = ufo.dir === 1 ? -60 : VIEW_W + 60;
+    ufo.y = 80 + rng6() * 60;
+    postBulletin('OBJECT REPORTED OVER NORTHERN DISTRICT — OFFICIALS DECLINE COMMENT');
+  });
+
   // demolition dust: flat cream puffs shaken loose by the wrecking crews
   var dust = [];
   var DUST_MAX = 80;
@@ -642,7 +697,14 @@
     if (!lastTime) {
       for (var i = 0; i < 4; i++) weatherLevel[i] = (i === weatherTo) ? 1 : 0;
     }
-    if (weatherBooted) postBulletin(WEATHER_NOTICES[weatherTo]);
+    if (weatherBooted) {
+      postBulletin(WEATHER_NOTICES[weatherTo]);
+      // a change in the sky startles a rooftop flock
+      var roost = city[Math.floor(rng6() * city.length)];
+      if (roost.progress === 1 && rng6() < 0.6) {
+        spawnFlock(roost.x + roost.w / 2, GROUND_Y - roost.h - 12, rng6() < 0.5 ? -1 : 1);
+      }
+    }
     weatherBooted = true;
   });
 
@@ -804,6 +866,58 @@
       }
 
       updateFireworks(dt);
+
+      // birds commute at dawn and dusk
+      birdTimer -= dt;
+      if (birdTimer <= 0) {
+        birdTimer = 26 + rng6() * 50;
+        if (timeLevel[1] > 0.5 || timeLevel[5] > 0.5) {
+          var bdir = rng6() < 0.5 ? -1 : 1;
+          spawnFlock(bdir === 1 ? -60 : VIEW_W + 60, 140 + rng6() * 120, bdir);
+        }
+      }
+      for (i = birds.length - 1; i >= 0; i--) {
+        p = birds[i];
+        p.x += p.v * dt * p.dir;
+        if (p.x < -220 || p.x > VIEW_W + 220) birds.splice(i, 1);
+      }
+
+      // the balloon regatta: a rare, slow procession
+      if (regatta.active) {
+        var allOut = true;
+        for (i = 0; i < regatta.balloons.length; i++) {
+          p = regatta.balloons[i];
+          p.x += p.drift * dt * regatta.dir;
+          if (p.x > -100 && p.x < VIEW_W + 100) allOut = false;
+        }
+        if (allOut) {
+          regatta.active = false;
+          regatta.timer = 200 + rng6() * 300;
+        }
+      } else {
+        regatta.timer -= dt;
+        if (regatta.timer <= 0) launchRegatta();
+      }
+
+      // the object officials decline to comment on
+      if (ufo.active) {
+        ufo.x += 260 * dt * ufo.dir;
+        if (ufo.x < -80 || ufo.x > VIEW_W + 80) {
+          ufo.active = false;
+          ufo.timer = 500 + rng6() * 700;
+        }
+      } else {
+        ufo.timer -= dt;
+        if (ufo.timer <= 0) document.dispatchEvent(new CustomEvent('municitron:ufo'));
+      }
+
+      // a rainbow when rain hands the sky back to daylight
+      if (prevRain > 0.55 && weatherLevel[1] <= 0.55 && weatherTo === 0 &&
+          timeTo >= 1 && timeTo <= 5) {
+        rainbow = 1;
+      }
+      prevRain = weatherLevel[1];
+      rainbow = Math.max(0, rainbow - dt / 26);
 
       // wrecking crews kick up dust at the shrinking roofline
       for (i = 0; i < city.length; i++) {
@@ -1264,6 +1378,84 @@
     ctx.globalAlpha = 1;
   }
 
+  // three flat bands of the console's own colors — a poster rainbow
+  function drawRainbow() {
+    if (rainbow <= 0.01) return;
+    var cx = VIEW_W * 0.62, cy = GROUND_Y + 170;
+    var colors = [ORANGE, BRASS, CREAM_HI];
+    ctx.lineWidth = 12;
+    for (var i = 0; i < 3; i++) {
+      ctx.strokeStyle = colors[i];
+      ctx.globalAlpha = 0.28 * Math.min(1, rainbow * 3);
+      ctx.beginPath();
+      ctx.arc(cx, cy, 448 - i * 14, Math.PI, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawBirds(skyLum) {
+    if (reducedMotion.matches || !birds.length) return;
+    ctx.strokeStyle = skyLum > 0.45 ? TEAL_TRIM : CREAM_HI;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (var i = 0; i < birds.length; i++) {
+      var f = birds[i];
+      for (var m = 0; m < f.members.length; m++) {
+        var bm = f.members[m];
+        var px = f.x + bm.dx * f.dir;
+        var py = f.y + bm.dy;
+        var wing = Math.sin(effT * 9 + bm.ph) * 3.5;
+        ctx.moveTo(px - 5, py + wing);
+        ctx.lineTo(px, py);
+        ctx.lineTo(px + 5, py + wing);
+      }
+    }
+    ctx.stroke();
+  }
+
+  function drawRegatta(litLevel) {
+    if (!regatta.active || reducedMotion.matches) return;
+    for (var i = 0; i < regatta.balloons.length; i++) {
+      var b = regatta.balloons[i];
+      if (b.x < -100 || b.x > VIEW_W + 100) continue;
+      var y = b.y + Math.sin(effT * b.f + b.ph) * b.amp;
+      var basketY = y + b.r + 14;
+      ctx.strokeStyle = TEAL_TRIM;                // rigging
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(b.x - b.r * 0.5, y + b.r * 0.8); ctx.lineTo(b.x - 4, basketY);
+      ctx.moveTo(b.x + b.r * 0.5, y + b.r * 0.8); ctx.lineTo(b.x + 4, basketY);
+      ctx.stroke();
+      ctx.fillStyle = b.color;                    // envelope
+      ctx.beginPath(); ctx.arc(b.x, y, b.r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = TEAL_TRIM;                  // center gore
+      ctx.fillRect(b.x - 1.5, y - b.r, 3, b.r * 2);
+      ctx.fillStyle = BRASS;                      // basket
+      ctx.fillRect(b.x - 5, basketY, 10, 7);
+      if (litLevel > 0.55) {                      // burner glow after dark
+        ctx.fillStyle = GLOW_ORANGE;
+        ctx.beginPath(); ctx.arc(b.x, y + b.r + 4, 5, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  }
+
+  function drawUfo() {
+    if (!ufo.active || reducedMotion.matches) return;
+    var x = ufo.x;
+    var y = ufo.y + Math.sin(effT * 6) * 12;
+    ctx.fillStyle = GLOW_BRASS;                   // under-glow
+    ctx.beginPath(); ctx.ellipse(x, y + 8, 30, 8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = CREAM_HI;                     // hull
+    ctx.beginPath(); ctx.ellipse(x, y, 26, 8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#235450';                    // dome
+    ctx.beginPath(); ctx.ellipse(x, y - 5, 11, 7, 0, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = BRASS;                        // running lights
+    ctx.beginPath();
+    dotPath(x - 12, y + 3, 2); dotPath(x, y + 4, 2); dotPath(x + 12, y + 3, 2);
+    ctx.fill();
+  }
+
   // the municipal park: bandstand, trees, seasonal dress — snow caps in
   // winter weather, orange blossoms while the calendar reads spring
   function drawPark(litLevel) {
@@ -1592,8 +1784,12 @@
       }, (moonW / wSum) * celDim, sky);
     }
 
+    drawRainbow();
     drawSputnik(starLevel);
     drawAirship(litLevel);
+    drawRegatta(litLevel);
+    drawUfo();
+    drawBirds(skyLum);
     drawSearchlights(starLevel);
 
     for (i = 0; i < bgCity.length; i++) drawBuilding(bgCity[i], litLevel);
@@ -1669,7 +1865,10 @@
     landmarks: landmarks,
     calendar: calendar,
     park: park,
-    ambient: { monorail: monorail, sputnik: sputnik, airship: airship, cars: cars },
+    ambient: {
+      monorail: monorail, sputnik: sputnik, airship: airship, cars: cars,
+      birds: birds, regatta: regatta, ufo: ufo
+    },
     reducedMotion: reducedMotion
   };
   postBulletin('MUNICIPAL SIMULATION IN PROGRESS — MODEL M-58');
