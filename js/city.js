@@ -681,6 +681,7 @@
   var airship = { x: 0, y: 0, dir: 1, active: false, timer: 45 + rng4() * 80 };
   var ferry = { x: 0, dir: 1, active: false, timer: 16 + rng4() * 30 };
   var funi = { p: 0, dir: 1, moving: false, timer: 6 + rng4() * 10 };
+  var milk = { x: 0, dir: 1, active: false, timer: 20 + rng4() * 40 };
   var icedLevel = 0;                              // eased harbor-freeze blend
 
   // harbor towns keep their traffic on the land side of the quay
@@ -999,7 +1000,10 @@
     'ZONING BOARD DISCOVERS MAP WAS UPSIDE DOWN SINCE MARCH',
     'CHESS IN THE PARK RESUMES — PIGEON TAKES QUEEN',
     'STREET SWEEPER REQUESTS SECOND BROOM — UNDER REVIEW',
-    'COMET SEEN CHASING THE STREET SWEEPER — BOTH DELIGHTED'
+    'COMET SEEN CHASING THE STREET SWEEPER — BOTH DELIGHTED',
+    'ARROW KEYS NOW OPERATE THE DIALS — THE FUTURE ARRIVES',
+    'FORM MR-1 IN EFFECT — THE TOWN MAY ASK SMALL FAVORS',
+    'MILK ROUND EXPANDS TO THE NEW DISTRICT — HORSE CONSULTED'
   ];
   if (hill) {
     WIRE_LINES.push('FUNICULAR RUNNING SWEETLY — GREASE COMMENDED');
@@ -1007,6 +1011,60 @@
   }
   if (harbor) {
     WIRE_LINES.push('TIDE TABLES POSTED AT THE PIER — ARGUE ELSEWHERE');
+  }
+
+  /* ---------------- municipal requests (Form MR-1) --------------------- */
+  /* Every so often the town asks a favor of whoever is at the console.
+     Honoring one earns thanks in character; every third favor gets a
+     key to the city and a salute in the sky. Ignoring one is fine —
+     the request is withdrawn with no hard feelings. */
+
+  var REQUESTS = [
+    { text: 'GARDEN AUXILIARY PETITIONS FOR RAIN — DIAL RAIN',
+      done: 'RAIN DELIVERED — TULIPS JUBILANT',
+      ok: function () { return weatherTo === 1; } },
+    { text: 'LAUNDRY DAY PROCLAIMED — CLEAR SKIES REQUESTED',
+      done: 'SKIES CLEARED — LINENS FLYING',
+      ok: function () { return weatherTo === 0; } },
+    { text: 'CHILDREN PETITION FOR SNOW — SLEDS OILED AND READY',
+      done: 'SNOW DELIVERED — SCHOOL CANCELS ITSELF',
+      ok: function () { return weatherTo === 2; } },
+    { text: 'ASTRONOMY CLUB REQUESTS AURORA — BLANKETS DEPLOYED',
+      done: 'AURORA ARRANGED — GASPS REPORTED',
+      ok: function () { return weatherTo === 3; } },
+    { text: 'OBSERVATORY REQUESTS DARKNESS — DIAL TOWARD NIGHT',
+      done: 'DARKNESS PROVIDED — SATURN LOCATED',
+      ok: function () { return timeTo === 0 || timeTo === 7; } },
+    { text: 'NIGHT SHIFT ENDS — MORNING RESPECTFULLY DEMANDED',
+      done: 'MORNING SUPPLIED — COFFEE VICTORIOUS',
+      ok: function () { return timeTo >= 1 && timeTo <= 3; } },
+    { text: 'PHOTOGRAPHY CLUB REQUESTS A GOOD SUNSET — DIAL DUSK',
+      done: 'SUNSET STAGED — FILM SPENT',
+      ok: function () { return timeTo === 5; } },
+    { text: 'COUNCIL DEMANDS PROGRESS — LEVER TO BOOM, PLEASE',
+      done: 'BOOM ENACTED — HAMMERS SINGING',
+      ok: function () { return growthIndex === 2; } },
+    { text: 'QUIET HOURS PETITION — A MOMENT OF DORMANT, PLEASE',
+      done: 'QUIET OBSERVED — THE TOWN EXHALES',
+      ok: function () { return growthIndex === 0; } }
+  ];
+
+  var request = { def: null, until: 0, timer: 70 + rng5() * 60 };
+
+  function bumpGratitude() {
+    var n = 1;
+    if (memory) {
+      memory.gratitude = (memory.gratitude || 0) + 1;
+      n = memory.gratitude;
+      try { localStorage.setItem('municitron-m58', JSON.stringify(memory)); } catch (err) {}
+    }
+    recordFirst('request', 'FIRST CIVIC REQUEST HONORED');
+    if (n % 3 === 0) {
+      postBulletin(n === 3 ? 'KEY TO THE CITY ORDERED — ENGRAVER NOTIFIED'
+                 : n === 6 ? 'SECOND KEY ORDERED — FIRST KEY MISLAID'
+                 : 'ANOTHER KEY TO THE CITY — START A DRAWER');
+      startShow(4);
+    }
   }
 
   var wireDeck = [];
@@ -1451,7 +1509,25 @@
         if (ufo.timer <= 0) document.dispatchEvent(new CustomEvent('municitron:ufo'));
       }
 
-      // citizens stroll while the town is awake
+      // the milk truck makes its rounds at first light
+      if (milk.active) {
+        milk.x += 46 * dt * milk.dir;
+        if (milk.x > CAR_R + 20 || milk.x < CAR_L - 40) {
+          milk.active = false;
+          milk.timer = 60 + rng4() * 90;
+        }
+      } else if (timeLevel[1] + timeLevel[2] > 0.5) {
+        milk.timer -= dt;
+        if (milk.timer <= 0) {
+          milk.active = true;
+          milk.dir = rng4() < 0.5 ? -1 : 1;
+          milk.x = milk.dir === 1 ? CAR_L - 30 : CAR_R + 4;
+          document.dispatchEvent(new CustomEvent('municitron:milk'));
+        }
+      }
+
+      // citizens stroll while the town is awake — and stop for fireworks
+      var gawking = fw.show > 0 || fw.sparks.length > 0;
       var wantFolks = Math.max(1, Math.min(folks.length, 1 + Math.floor(lastEmitted / 6000)));
       if (timeTo === 0 || timeTo === 6 || timeTo === 7) wantFolks = Math.min(wantFolks, 2);
       var walking = 0;
@@ -1459,7 +1535,7 @@
       for (i = 0; i < folks.length; i++) {
         p = folks[i];
         if (p.active) {
-          p.x += p.v * dt * p.dir;
+          if (!gawking) p.x += p.v * dt * p.dir;
           if (p.x > CAR_R + 14 || p.x < CAR_L - 14) {
             p.active = false;
             p.timer = 6 + rng6() * 26;
@@ -1633,11 +1709,45 @@
       } else if (calendar.month === 2) {
         postBulletin('PARK BLOSSOMS REPORTED — BRING A CAMERA');
         if (harbor) postBulletin('THAW REPORTED — FERRY SERVICE RESUMES');
+      } else if (calendar.month === 8) {
+        postBulletin('SCHOOL RESUMES — STREETS QUIET UNTIL THREE O’CLOCK');
+      } else if (calendar.month === 10) {
+        postBulletin('ELECTION DAY — WEMBLY vs. WEMBLY (UNOPPOSED)');
+        postBulletin('WEMBLY RE-ELECTED — MANDATE: “CONTINUE”');
       }
     }
     if (foundersTimer >= 0) {
       foundersTimer -= dt;
       if (foundersTimer < 0) startShow(10);
+    }
+
+    // the town's open request, if any, watched on the wire's clock
+    if (request.def) {
+      if (request.def.ok()) {
+        postBulletin(request.def.done);
+        bumpGratitude();
+        request.def = null;
+        request.timer = 90 + rng5() * 90;
+      } else if (bulletin.clock > request.until) {
+        postBulletin('REQUEST WITHDRAWN — NO HARD FEELINGS');
+        request.def = null;
+        request.timer = 80 + rng5() * 80;
+      }
+    } else if (weatherBooted) {
+      request.timer -= dt;
+      if (request.timer <= 0) {
+        var open = [];
+        for (i = 0; i < REQUESTS.length; i++) {
+          if (!REQUESTS[i].ok()) open.push(REQUESTS[i]);
+        }
+        if (open.length) {
+          request.def = open[Math.floor(rng5() * open.length)];
+          request.until = bulletin.clock + 55;
+          postBulletin('REQUEST: ' + request.def.text);
+        } else {
+          request.timer = 40;
+        }
+      }
     }
 
     // the town wire files a story when the board is quiet
@@ -2366,10 +2476,11 @@
   // particular, one or two walking Comet on a leash
   function drawFolks() {
     if (reducedMotion.matches) return;
+    var gawk = fw.show > 0 || fw.sparks.length > 0;   // stopped for the show
     for (var i = 0; i < folks.length; i++) {
       var p = folks[i];
       if (!p.active) continue;
-      var stride = Math.sin(effT * 9 + p.ph);
+      var stride = gawk ? 0 : Math.sin(effT * 9 + p.ph);
       var bob = Math.abs(stride) * 0.8;
       var y = GROUND_Y - bob;
 
@@ -2636,6 +2747,28 @@
       ctx.beginPath();
       dotPath(ferry.x - 6, fy - 2, 1.3); dotPath(ferry.x, fy - 2, 1.3); dotPath(ferry.x + 6, fy - 2, 1.3);
       ctx.fill();
+    }
+  }
+
+  // the milk truck: a cream panel van on the dawn round
+  function drawMilk(litLevel) {
+    if (!milk.active || reducedMotion.matches) return;
+    var y = GROUND_Y - 12;
+    var nose = milk.dir === 1 ? milk.x + 26 : milk.x;
+    ctx.fillStyle = CREAM_HI;                     // box body
+    ctx.fillRect(milk.x, y, 26, 9);
+    ctx.fillStyle = '#235450';                    // roof band + windshield
+    ctx.fillRect(milk.x, y - 1.5, 26, 2);
+    ctx.fillRect(milk.dir === 1 ? milk.x + 20 : milk.x + 2, y + 1.5, 4, 3.5);
+    ctx.fillStyle = ORANGE;                       // dairy livery stripe
+    ctx.fillRect(milk.x + 2, y + 5.5, 22, 1.5);
+    ctx.fillStyle = TEAL_TRIM;                    // wheels
+    ctx.beginPath();
+    dotPath(milk.x + 5, GROUND_Y - 2, 2.2); dotPath(milk.x + 21, GROUND_Y - 2, 2.2);
+    ctx.fill();
+    if (litLevel > 0.55) {                        // headlight in the half-dark
+      ctx.fillStyle = CREAM_HI;
+      ctx.beginPath(); ctx.arc(nose, y + 6, 1.6, 0, Math.PI * 2); ctx.fill();
     }
   }
 
@@ -3530,6 +3663,7 @@
     drawDust();
 
     drawCars(litLevel);
+    drawMilk(litLevel);
     drawParade();
     drawMonorail(litLevel);
     drawFireworks();
@@ -3646,8 +3780,9 @@
     ambient: {
       monorail: monorail, sputnik: sputnik, airship: airship, cars: cars,
       birds: birds, regatta: regatta, ufo: ufo, ferry: ferry, parade: parade,
-      funicular: funi, kite: kite, folks: folks
+      funicular: funi, kite: kite, folks: folks, milk: milk
     },
+    request: request,
     reducedMotion: reducedMotion
   };
   postBulletin('MUNICIPAL SIMULATION IN PROGRESS — MODEL M-58');

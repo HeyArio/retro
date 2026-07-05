@@ -28,6 +28,10 @@ the address bar always holds a shareable link to the current scene.
 
 ## Controls
 
+Everything below also works from the keyboard: **←/→** turn the TIME
+dial, **↑/↓** work the GROWTH lever, **1–4** dial the WEATHER, **P**
+transmits a postcard, **M** works the speaker switch.
+
 - **WEATHER** knob — CLEAR / RAIN / SNOW / AURORA (the needle can't hold
   steady in rain; a change startles the rooftop flocks)
 - **TIME OF DAY** dial — sky palettes, sun/moon, stars, window schedules
@@ -95,6 +99,17 @@ through on rare occasions, rain ends in a poster rainbow — and once in a
 long while an object officials decline to comment on crosses the
 northern district. Civic firsts are entered in a municipal ledger
 (localStorage) and returning commissioners are welcomed back.
+
+The town also asks favors (Form MR-1): every few minutes the wire may
+petition you to operate the console — rain for the garden auxiliary,
+darkness for the observatory, a moment of DORMANT for the quiet-hours
+petition. Honoring one earns thanks in character; every third favor
+orders a key to the city with a salute in the sky. Ignored requests
+are withdrawn with no hard feelings. A milk truck makes its rounds at
+first light (bottle clinks on the valve audio), citizens stop walking
+to watch fireworks, the parade brings its own drum line, the broadcast
+service switches to a minor key in winter and settles lower in autumn,
+and every November Wembly defeats Wembly at the polls.
 
 Your city also remembers you: growth persists per seed in localStorage,
 so a returning commissioner finds the skyline where they left it —

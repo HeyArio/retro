@@ -141,24 +141,56 @@
     growthReadout.textContent = GROWTH_NAMES[state.growth];
   }
 
-  weatherKnob.addEventListener('click', function () {
-    state.weather = (state.weather + 1) % 4;
+  function setWeather(i) {
+    state.weather = ((i % 4) + 4) % 4;
     renderWeather();
     announce('weather', state.weather, WEATHER[state.weather]);
-  });
+  }
 
-  timeDial.addEventListener('click', function () {
-    state.time = (state.time + 1) % 8;
+  function setTime(i) {
+    state.time = ((i % 8) + 8) % 8;
     renderTime();
     announce('time', state.time, TIME_NAMES[state.time]);
+  }
+
+  function setGrowth(i) {
+    state.growth = Math.max(0, Math.min(2, i));
+    renderGrowth();
+    announce('growth', state.growth, GROWTH_NAMES[state.growth]);
+  }
+
+  weatherKnob.addEventListener('click', function () { setWeather(state.weather + 1); });
+  timeDial.addEventListener('click', function () { setTime(state.time + 1); });
+  document.querySelectorAll('.lever-label').forEach(function (label) {
+    label.addEventListener('click', function () { setGrowth(Number(label.dataset.growth)); });
   });
 
-  document.querySelectorAll('.lever-label').forEach(function (label) {
-    label.addEventListener('click', function () {
-      state.growth = Number(label.dataset.growth);
-      renderGrowth();
-      announce('growth', state.growth, GROWTH_NAMES[state.growth]);
-    });
+  // modern convenience: the whole console from the keyboard.
+  // arrows drive TIME and GROWTH, 1-4 dial the WEATHER, P transmits a
+  // postcard, M works the speaker switch — none of which collide with
+  // the typed maintenance codes.
+  document.addEventListener('keydown', function (e) {
+    if (e.target && e.target.isContentEditable) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    switch (e.key) {
+      case 'ArrowRight': setTime(state.time + 1); e.preventDefault(); break;
+      case 'ArrowLeft':  setTime(state.time - 1); e.preventDefault(); break;
+      case 'ArrowUp':    setGrowth(state.growth + 1); e.preventDefault(); break;
+      case 'ArrowDown':  setGrowth(state.growth - 1); e.preventDefault(); break;
+      case '1': case '2': case '3': case '4':
+        setWeather(Number(e.key) - 1);
+        break;
+      case 'p': case 'P':
+        if (overlay.hidden) transmit.click();
+        break;
+      case 'm': case 'M':
+        var powerUnit = document.getElementById('power-lamp');
+        if (powerUnit && powerUnit.closest) {
+          var unit = powerUnit.closest('.lamp-unit');
+          if (unit) unit.click();
+        }
+        break;
+    }
   });
 
   /* ---------------- census register (population from the city) --------- */

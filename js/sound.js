@@ -68,6 +68,7 @@
   function tone()   { blip(1000, 0.6, 0.18, 'sine'); }
   function rumble() { blip(46, 0.9, 0.5, 'triangle'); blip(38, 1.3, 0.35, 'triangle', 0.18); }
   function horn()   { blip(164, 0.7, 0.35, 'triangle'); blip(123, 0.9, 0.3, 'triangle', 0.1); }
+  function clink()  { blip(1800, 0.05, 0.14, 'sine'); blip(2400, 0.06, 0.1, 'sine', 0.08); }
   function tick()   {
     var now = Date.now();
     if (now - lastTick < 70) return;
@@ -79,12 +80,27 @@
 
   /* ---------------- the broadcast service ---------------- */
   /* A short pentatonic phrase now and then, quiet enough to live under
-     the mains hum. Runs only while the speaker is on. */
+     the mains hum. Runs only while the speaker is on — and it reads
+     the civic calendar: major in the bright months, minor for winter,
+     a lower autumn mode when the leaves come down. */
 
-  var NOTES = [220, 246.9, 277.2, 329.6, 370];    // A-major pentatonic
+  var SCALES = {
+    bright: [220, 246.9, 277.2, 329.6, 370],      // A-major pentatonic
+    winter: [220, 261.6, 293.7, 329.6, 392],      // A-minor pentatonic
+    autumn: [174.6, 196, 220, 261.6, 293.7]       // the same, settled lower
+  };
+
+  function seasonScale() {
+    var M = window.MUNICITRON_CITY;
+    var mo = M && M.calendar ? M.calendar.month : 4;
+    if (mo === 11 || mo <= 1) return SCALES.winter;
+    if (mo >= 8 && mo <= 10) return SCALES.autumn;
+    return SCALES.bright;
+  }
 
   function phrase() {
     if (!enabled || !ac) return;
+    var NOTES = seasonScale();
     var t = 0;
     var len = 3 + Math.floor(Math.random() * 4);
     for (var i = 0; i < len; i++) {
@@ -118,6 +134,7 @@
   document.addEventListener('municitron:lightning', function () { rumble(); });
   document.addEventListener('municitron:ferry', function () { horn(); });
   document.addEventListener('municitron:almanac', function () { chime(); });
+  document.addEventListener('municitron:milk', function () { clink(); });
 
   // Sputnik telemetry: watch the ambient state for a pass starting
   var wasUp = false;
@@ -128,6 +145,20 @@
     if (up && !wasUp) { beep(); setTimeout(beep, 1400); setTimeout(beep, 2800); }
     wasUp = up;
   }, 400);
+
+  // the parade brings its own drum line while it marches
+  setInterval(function () {
+    var M = window.MUNICITRON_CITY;
+    if (!enabled || !M || !M.ambient || !M.ambient.parade || !M.ambient.parade.active) return;
+    blip(78, 0.1, 0.4, 'triangle', 0);            // boom
+    blip(78, 0.1, 0.4, 'triangle', 0.42);         // boom
+    blip(196, 0.05, 0.12, 'square', 0.63);        // rim
+    blip(78, 0.1, 0.45, 'triangle', 0.84);        // boom
+    if (Math.random() < 0.35) {                   // piccolo aside
+      blip(1046, 0.09, 0.08, 'sine', 1.05);
+      blip(1174, 0.09, 0.08, 'sine', 1.18);
+    }
+  }, 1260);
 
   /* ---------------- the POWER lamp is the speaker switch -------------- */
 
