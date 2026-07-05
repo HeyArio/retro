@@ -14,6 +14,7 @@ Static frontend — no build step, no dependencies. Vanilla JS + Canvas 2D.
 - `js/postcard.js` — composes and downloads the postcard PNG
 - `js/certificate.js` — composes and downloads the certificate of incorporation
 - `js/almanac.js` — composes and downloads the municipal almanac (Form CA-2)
+- `js/record.js` — composes and downloads the commissioner's record (Form CR-5)
 - `js/newsreel.js` — records a six-second WebM of the living canvas
 - `js/sound.js` — optional valve audio (muted by default; POWER lamp toggles)
 
@@ -113,7 +114,15 @@ and every November Wembly defeats Wembly at the polls.
 
 Your city also remembers you: growth persists per seed in localStorage,
 so a returning commissioner finds the skyline where they left it —
-while a shared `?seed=` link still starts young for new visitors.
+while a shared `?seed=` link still starts young for new visitors. A
+first-time visitor gets a short demonstration: the machine works its
+own dials with captions on the wire, then hands the city over (any
+touch cancels it). Now and then mail arrives from the sister city — a
+little postcard of *their* skyline slides onto the glass, postmarked
+with their transmission number. And typing `LEDGER` (or clicking the
+census odometer) downloads the COMMISSIONER'S RECORD (Form CR-5):
+commission date, inspections logged, cities governed, requests
+honored, keys to the city, and your civic firsts with their dates.
 
 For technicians: typing `NAZARBAN` summons the factory test pattern,
 typing `TELECAST` switches the whole scene to a KNAZ-TV evening

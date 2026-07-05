@@ -352,7 +352,20 @@
       codeBuffer = '';
       flashLamp(coinLamp, 'coin', 1200);
       document.dispatchEvent(new CustomEvent('municitron:telecast'));
+    } else if (codeBuffer.slice(-6) === 'LEDGER') {
+      codeBuffer = '';
+      flashLamp(xmitLamp, 'xmit', 1400);
+      document.dispatchEvent(new CustomEvent('municitron:record'));
     }
+  });
+
+  // the odometer window is the records desk: click for Form CR-5
+  odometer.title = 'ISSUE COMMISSIONER’S RECORD (FORM CR-5)';
+  odometer.style.cursor = 'pointer';
+  odometer.addEventListener('click', function (e) {
+    e.stopPropagation();                  // the gauge behind issues certificates
+    flashLamp(xmitLamp, 'xmit', 1400);
+    document.dispatchEvent(new CustomEvent('municitron:record'));
   });
 
   /* ---------------- attract mode ---------------- */
@@ -368,15 +381,46 @@
   document.addEventListener('keydown', wake);
 
   setInterval(function () {
-    var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduced || !overlay.hidden || document.visibilityState !== 'visible') return;
+    if (reduced.matches || !overlay.hidden || document.visibilityState !== 'visible') return;
     var now = Date.now();
     if (now - lastInteraction < 90000 || now - lastAttractStep < 12000) return;
     lastAttractStep = now;
-    state.time = (state.time + 1) % 8;
-    renderTime();
-    announce('time', state.time, TIME_NAMES[state.time]);
+    setTime(state.time + 1);
+    // idle skies wander too, once in a while
+    if (Math.random() < 0.25) setWeather(state.weather + 1);
   }, 1000);
+
+  /* ---------------- first-visit demonstration ---------------- */
+  /* A brand-new commissioner gets a short show: the machine works its
+     own dials with captions on the wire, then hands the city over.
+     Any touch of the console or keyboard cancels it immediately. */
+
+  (function () {
+    var M = window.MUNICITRON_CITY;
+    if (!M || !M.ledger || M.ledger.visits !== 1) return;
+    if (reduced.matches) return;
+    var canceled = false;
+    function cancel() { canceled = true; }
+    machine.addEventListener('pointerdown', cancel, { once: true });
+    document.addEventListener('keydown', cancel, { once: true });
+    function cap(text) {
+      document.dispatchEvent(new CustomEvent('municitron:caption', { detail: text }));
+    }
+    [
+      [5000,  function () { cap('A DEMONSTRATION, COMMISSIONER — ONE MOMENT'); }],
+      [7500,  function () { cap('THE KNOB COMMANDS THE SKY'); setWeather(1); }],
+      [10000, function () { setWeather(2); }],
+      [12500, function () { setWeather(0); }],
+      [14000, function () { cap('THE DIAL COMMANDS THE SUN'); setTime(5); }],
+      [16500, function () { setTime(7); }],
+      [19000, function () { setTime(2); }],
+      [20500, function () { cap('THE LEVER COMMANDS PROGRESS'); setGrowth(2); }],
+      [25000, function () { setGrowth(1); cap('THE REGISTER COUNTS EVERY SOUL'); }],
+      [28500, function () { cap('THE CITY IS YOURS — CARRY ON'); }]
+    ].forEach(function (step) {
+      setTimeout(function () { if (!canceled) step[1](); }, step[0]);
+    });
+  })();
 
   /* ---------------- scale machine to viewport ---------------- */
 

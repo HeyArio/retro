@@ -593,6 +593,7 @@
     try {
       var m = JSON.parse(localStorage.getItem('municitron-m58') || '{}');
       if (!m.records) m.records = {};
+      if (!m.firstVisit) m.firstVisit = Date.now();
       m.visits = (m.visits || 0) + 1;
       m.prevVisit = m.lastVisit || 0;
       m.lastVisit = Date.now();
@@ -728,6 +729,21 @@
   // autumn leaves off the park trees, and the odd falling star
   var leaves = [];
   var shoot = { t: 0, x: 0, y: 0, dx: 0, dy: 0, timer: 50 + rng6() * 90 };
+
+  // mail from the sister city: a little postcard of THEIR skyline,
+  // sketched from the sister seed, slides in now and then
+  var mailArt = (function () {
+    var r = mulberry32(SISTER_SEED ^ 0xDEADBEE1);
+    var bars = [];
+    var x = 6;
+    while (x < 150) {
+      var w = 10 + r() * 16;
+      bars.push({ x: x, w: w, h: 14 + r() * 40, c: Math.floor(r() * 3) });
+      x += w + 3;
+    }
+    return { bars: bars, sunX: 30 + r() * 100 };
+  })();
+  var mail = { phase: 0, t: 0, timer: 110 + rng6() * 140 };   // 0 idle → in → hold → out
 
   // KNAZ-TV: the telecast overlay (typed code on the console)
   var telecast = false;
@@ -1003,7 +1019,9 @@
     'COMET SEEN CHASING THE STREET SWEEPER — BOTH DELIGHTED',
     'ARROW KEYS NOW OPERATE THE DIALS — THE FUTURE ARRIVES',
     'FORM MR-1 IN EFFECT — THE TOWN MAY ASK SMALL FAVORS',
-    'MILK ROUND EXPANDS TO THE NEW DISTRICT — HORSE CONSULTED'
+    'MILK ROUND EXPANDS TO THE NEW DISTRICT — HORSE CONSULTED',
+    'TYPE LEDGER FOR YOUR COMMISSIONER’S RECORD — FORM CR-5',
+    'POSTMASTER REPORTS MAIL FROM ABROAD — HOW EXOTIC'
   ];
   if (hill) {
     WIRE_LINES.push('FUNICULAR RUNNING SWEETLY — GREASE COMMENDED');
@@ -1046,10 +1064,13 @@
       ok: function () { return growthIndex === 2; } },
     { text: 'QUIET HOURS PETITION — A MOMENT OF DORMANT, PLEASE',
       done: 'QUIET OBSERVED — THE TOWN EXHALES',
-      ok: function () { return growthIndex === 0; } }
+      ok: function () { return growthIndex === 0; } },
+    { text: 'POSTMASTER REQUESTS A POSTCARD — TRANSMIT ONE, PLEASE',
+      done: 'POSTCARD FILED — POSTMASTER WEEPS WITH JOY',
+      ok: function () { return lastTransmit >= request.openedAt; } }
   ];
 
-  var request = { def: null, until: 0, timer: 70 + rng5() * 60 };
+  var request = { def: null, until: 0, openedAt: 0, timer: 70 + rng5() * 60 };
 
   function bumpGratitude() {
     var n = 1;
@@ -1133,8 +1154,10 @@
     weatherBooted = true;
   });
 
+  var lastTransmit = -1;
   document.addEventListener('municitron:transmit', function () {
     postBulletin('POSTCARD TRANSMITTED — FORM PC-1 FILED');
+    lastTransmit = bulletin.clock;
   });
 
   // technicians' knob ritual: RAIN, SNOW, RAIN, AURORA summons the object
@@ -1146,6 +1169,19 @@
       weatherHist.length = 0;
       document.dispatchEvent(new CustomEvent('municitron:ufo'));
     }
+  });
+
+  // demonstration captions preempt whatever the wire was saying
+  document.addEventListener('municitron:caption', function (e) {
+    bulletin.current = String(e.detail || '');
+    bulletin.started = bulletin.clock;
+    bulletin.until = bulletin.clock + 4.5;
+  });
+
+  // the commissioner's record desk (see js/record.js)
+  document.addEventListener('municitron:record', function () {
+    postBulletin('COMMISSIONER’S RECORD ISSUED — FORM CR-5');
+    recordFirst('record', 'FIRST SELF-AUDIT REQUESTED');
   });
 
   // the factory test pattern (typed maintenance code on the console)
@@ -1583,6 +1619,26 @@
         }
       }
 
+      // mail call: the sister city writes
+      if (mail.phase === 0) {
+        mail.timer -= dt;
+        if (mail.timer <= 0) {
+          mail.phase = 1;
+          mail.t = 0;
+          postBulletin('MAIL FROM ' + SISTER_CITY + ' — POSTMARKED Nº ' +
+                       SISTER_SEED.toString(16).toUpperCase());
+          document.dispatchEvent(new CustomEvent('municitron:mail'));
+        }
+      } else {
+        mail.t += dt;
+        if (mail.phase === 1 && mail.t >= 0.8) { mail.phase = 2; mail.t = 0; }
+        else if (mail.phase === 2 && mail.t >= 8) { mail.phase = 3; mail.t = 0; }
+        else if (mail.phase === 3 && mail.t >= 0.8) {
+          mail.phase = 0;
+          mail.timer = 260 + rng6() * 240;
+        }
+      }
+
       // once in a while, a falling star
       if (shoot.t > 0) shoot.t -= dt;
       else {
@@ -1736,6 +1792,7 @@
     } else if (weatherBooted) {
       request.timer -= dt;
       if (request.timer <= 0) {
+        request.openedAt = bulletin.clock;        // before the eligibility scan
         var open = [];
         for (i = 0; i < REQUESTS.length; i++) {
           if (!REQUESTS[i].ok()) open.push(REQUESTS[i]);
@@ -3207,6 +3264,69 @@
     }
   }
 
+  // the sister city's postcard, sliding in at the corner of the glass
+  function drawMail() {
+    if (!mail.phase || reducedMotion.matches) return;
+    var p = mail.phase === 1 ? easeOutCubic(Math.min(1, mail.t / 0.8))
+          : mail.phase === 3 ? 1 - Math.min(1, mail.t / 0.8)
+          : 1;
+    var CW = 216, CH = 132;
+    var cx0 = VIEW_W - 250;
+    var cy0 = VIEW_H + 14 - p * (CH + 40);
+
+    ctx.save();
+    ctx.translate(cx0 + CW / 2, cy0 + CH / 2);
+    ctx.rotate(-0.045);
+    ctx.translate(-CW / 2, -CH / 2);
+
+    ctx.fillStyle = TEAL_TRIM;                    // drop shadow slab
+    ctx.fillRect(4, 5, CW, CH);
+    ctx.fillStyle = CREAM_HI;                     // the card
+    ctx.fillRect(0, 0, CW, CH);
+    ctx.strokeStyle = '#1E4744';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(3, 3, CW - 6, CH - 6);
+
+    // their little skyline under their sun
+    ctx.fillStyle = BRASS;
+    ctx.beginPath(); ctx.arc(12 + mailArt.sunX, 38, 9, 0, Math.PI * 2); ctx.fill();
+    for (var i = 0; i < mailArt.bars.length; i++) {
+      var b = mailArt.bars[i];
+      ctx.fillStyle = TEALS[b.c];
+      ctx.fillRect(12 + b.x, 86 - b.h, b.w, b.h);
+    }
+    ctx.fillStyle = TEAL_TRIM;                    // their ground line
+    ctx.fillRect(10, 86, CW - 52, 2.5);
+
+    ctx.fillStyle = ORANGE;                       // the stamp, cancelled
+    ctx.fillRect(CW - 34, 10, 24, 28);
+    ctx.fillStyle = CREAM_HI;
+    ctx.fillRect(CW - 31, 13, 18, 22);
+    ctx.fillStyle = ORANGE;
+    ctx.beginPath(); ctx.arc(CW - 22, 24, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = TEAL_TRIM;
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.6;
+    ctx.beginPath();
+    ctx.arc(CW - 26, 22, 13, 0, Math.PI * 2);
+    ctx.moveTo(CW - 44, 30); ctx.lineTo(CW - 6, 26);
+    ctx.moveTo(CW - 44, 34); ctx.lineTo(CW - 6, 30);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = '#1E4744';
+    ctx.font = '600 11px Jost, Futura, sans-serif';
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '2px';
+    ctx.fillText('GREETINGS FROM', 12, 104);
+    ctx.fillStyle = ORANGE;
+    ctx.font = '700 14px Jost, Futura, sans-serif';
+    var sn = SISTER_CITY;
+    while (ctx.measureText(sn).width > CW - 24 && sn.length > 4) sn = sn.slice(0, -2);
+    ctx.fillText(sn, 12, 121);
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+    ctx.restore();
+  }
+
   // KNAZ-TV: scanlines, a rolling bar, corner vignette, dust on the
   // tube, and the station bug — the whole city as an evening telecast
   var scanPattern = null;
@@ -3742,6 +3862,7 @@
       ctx.fillRect(0, 0, VIEW_W, VIEW_H);
     }
 
+    drawMail();                                   // the sister city's postcard
     drawTelecast();                               // the tube, if we're on the air
     drawTestPattern();                            // calibration card covers all
   }
@@ -3780,7 +3901,7 @@
     ambient: {
       monorail: monorail, sputnik: sputnik, airship: airship, cars: cars,
       birds: birds, regatta: regatta, ufo: ufo, ferry: ferry, parade: parade,
-      funicular: funi, kite: kite, folks: folks, milk: milk
+      funicular: funi, kite: kite, folks: folks, milk: milk, mail: mail
     },
     request: request,
     reducedMotion: reducedMotion
