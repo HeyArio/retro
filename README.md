@@ -27,6 +27,20 @@ Open `index.html` in any browser, or serve the folder:
 Every visitor gets a seeded city; `?seed=N` reproduces one exactly, and
 the address bar always holds a shareable link to the current scene.
 
+## Deploy
+
+Static files only — any host works (GitHub Pages, Netlify, Cloudflare
+Pages). Two things to do before going public:
+
+1. Replace the placeholder Ko-fi URL in `js/municitron.js` (`KOFI_URL`)
+   with your real page.
+2. In `index.html`, make the `og:image` / `twitter:image` URLs absolute
+   by prepending your domain (scrapers don't resolve relative paths).
+
+Share assets live in `assets/`: `favicon.svg` (the atomic starburst),
+`apple-touch-icon.png`, and `og-card.png` (1200×630, rendered from a
+real evening city by the machine itself).
+
 ## Controls
 
 Everything below also works from the keyboard: **←/→** turn the TIME
