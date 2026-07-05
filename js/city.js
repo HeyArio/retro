@@ -220,6 +220,27 @@
     var landR = harbor && harbor.side === 1 ? harbor.shore - 24 : VIEW_W;
     var span = landR - landL;
 
+    // ---- hillside towns: the inland alternative to a bay ----
+    // a big lifted-teal hill climbs out of one end of the scene behind
+    // the back row, dotted with cottages and served by a funicular
+    var hill = null;
+    if (!harbor && rng() < 0.4) {
+      hill = {
+        side: rng() < 0.5 ? -1 : 1,
+        h: 170 + rng() * 90,
+        w: 420 + rng() * 220,
+        houses: []
+      };
+      var houseCount = 5 + Math.floor(rng() * 4);
+      for (i = 0; i < houseCount; i++) {
+        hill.houses.push({
+          t: 0.22 + rng() * 0.66,                 // fraction up the slope
+          w: 10 + rng() * 6,
+          lit: rng()                              // window schedule threshold
+        });
+      }
+    }
+
     // ---- landmark plazas, chosen before the street is parceled ----
     // three civic zones stay clear of front-row lots so commissioned
     // landmarks stand in the open instead of hiding behind towers; each
@@ -446,7 +467,7 @@
       }
     }
 
-    return { lots: lots, bg: bg, queue: queue, densify: densify, stars: stars, landmarks: landmarks, park: park, driveIn: driveIn, harbor: harbor, landL: landL, landR: landR };
+    return { lots: lots, bg: bg, queue: queue, densify: densify, stars: stars, landmarks: landmarks, park: park, driveIn: driveIn, harbor: harbor, hill: hill, landL: landL, landR: landR };
   }
 
   var plan = generatePlan();
@@ -455,6 +476,7 @@
   var park = plan.park;
   var driveIn = plan.driveIn;
   var harbor = plan.harbor;
+  var hill = plan.hill;
   var LAND_L = plan.landL;
   var LAND_R = plan.landR;
   var allBuildings = city.concat(bgCity);
@@ -648,6 +670,8 @@
   var sputnik = { p: 0, active: false, timer: 18 + rng4() * 30 };
   var airship = { x: 0, y: 0, dir: 1, active: false, timer: 45 + rng4() * 80 };
   var ferry = { x: 0, dir: 1, active: false, timer: 16 + rng4() * 30 };
+  var funi = { p: 0, dir: 1, moving: false, timer: 6 + rng4() * 10 };
+  var icedLevel = 0;                              // eased harbor-freeze blend
 
   // harbor towns keep their traffic on the land side of the quay
   var CAR_L = harbor && harbor.side === -1 ? harbor.shore + 10 : -30;
@@ -672,6 +696,7 @@
   var birds = [];                                 // at most two flocks aloft
   var birdTimer = 20 + rng6() * 40;
   var parade = { active: false, x: 0, dir: 1 };   // Founders' Day procession
+  var kite = { active: false, timer: 24 + rng6() * 40, until: 0, ph: 0, anchor: 0 };
   var regatta = { active: false, timer: 140 + rng6() * 220, dir: 1, balloons: [] };
   var ufo = { active: false, timer: 300 + rng6() * 600, x: 0, y: 90, dir: 1 };
   var rainbow = 0;                                // alpha of the after-rain arc
@@ -924,8 +949,16 @@
     'DRIVE-IN DOUBLE FEATURE FRIDAY — SOUND VIA WINDOW SPEAKER',
     'FAIRGROUND WHEEL INSPECTED — DECLARED "ROUND"',
     'SISTER CITY ' + SISTER_CITY + ' SENDS CORDIAL REGARDS',
-    'CLICK THE CITY PLATE FOR THE MUNICIPAL ALMANAC — FORM CA-2'
+    'CLICK THE CITY PLATE FOR THE MUNICIPAL ALMANAC — FORM CA-2',
+    'KITE SEASON OPEN — MIND THE WIRES'
   ];
+  if (hill) {
+    WIRE_LINES.push('FUNICULAR RUNNING SWEETLY — GREASE COMMENDED');
+    WIRE_LINES.push('HILLSIDE RESIDENTS REPORT SPLENDID VIEWS, MILD SMUGNESS');
+  }
+  if (harbor) {
+    WIRE_LINES.push('TIDE TABLES POSTED AT THE PIER — ARGUE ELSEWHERE');
+  }
 
   var wireDeck = [];
   var wireTimer = 18 + rng5() * 20;
@@ -1194,8 +1227,11 @@
         }
       }
 
-      // the harbor ferry crosses the bay on its own schedule
+      // the harbor ferry crosses the bay on its own schedule — except in
+      // the iced months, when it stays tied up until the thaw
       if (harbor) {
+        var iced = calendar.month === 11 || calendar.month <= 1;
+        icedLevel += ((iced ? 1 : 0) - icedLevel) * Math.min(1, dt / 2);
         var waterL = harbor.side === 1 ? harbor.shore + 30 : -50;
         var waterR = harbor.side === 1 ? VIEW_W + 50 : harbor.shore - 30;
         if (ferry.active) {
@@ -1205,13 +1241,48 @@
             ferry.dir = -ferry.dir;
             ferry.timer = 40 + rng4() * 60;
           }
-        } else {
+        } else if (!iced) {
           ferry.timer -= dt;
           if (ferry.timer <= 0) {
             ferry.active = true;
             ferry.x = ferry.dir === 1 ? waterL - 20 : waterR + 20;
             document.dispatchEvent(new CustomEvent('municitron:ferry'));
             if (rng4() < 0.4) postBulletin('FERRY DEPARTING — HOLD YOUR HAT ON DECK');
+          }
+        }
+      }
+
+      // the funicular: two counterbalanced cars, trips and pauses
+      if (hill) {
+        if (funi.moving) {
+          funi.p += dt / 14 * funi.dir;
+          if (funi.p >= 1 || funi.p <= 0) {
+            funi.p = Math.max(0, Math.min(1, funi.p));
+            funi.moving = false;
+            funi.dir = -funi.dir;
+            funi.timer = 10 + rng4() * 24;
+          }
+        } else {
+          funi.timer -= dt;
+          if (funi.timer <= 0) funi.moving = true;
+        }
+      }
+
+      // a kite over the park in fair-weather months
+      if (kite.active) {
+        if (effT > kite.until) kite.active = false;
+      } else {
+        kite.timer -= dt;
+        if (kite.timer <= 0) {
+          kite.timer = 40 + rng6() * 70;
+          var fair = calendar.month >= 2 && calendar.month <= 8 &&
+                     weatherLevel[1] < 0.3 && weatherLevel[2] < 0.3 &&
+                     (timeLevel[2] + timeLevel[3] + timeLevel[4]) > 0.5;
+          if (fair) {
+            kite.active = true;
+            kite.until = effT + 26 + rng6() * 18;
+            kite.ph = rng6() * 6.283;
+            kite.anchor = park.x + (rng6() < 0.5 ? -34 : 34);
           }
         }
       }
@@ -1430,8 +1501,10 @@
         }
       } else if (calendar.month === 11) {
         postBulletin('MUNICIPAL LIGHT-UP — CREWS STRINGING THE STREET');
+        if (harbor) postBulletin('HARBOR ICED — FERRY SUSPENDED UNTIL THAW');
       } else if (calendar.month === 2) {
         postBulletin('PARK BLOSSOMS REPORTED — BRING A CAMERA');
+        if (harbor) postBulletin('THAW REPORTED — FERRY SERVICE RESUMES');
       }
     }
     if (foundersTimer >= 0) {
@@ -2006,6 +2079,143 @@
     ctx.stroke();
   }
 
+  /* the hillside: a lifted-teal slope behind the back row, cottages
+     with scheduled windows, and a counterbalanced funicular */
+
+  var HILL_FILL = hill ? rgbStr(mixRgb(hexToRgb(TEALS[1]), CREAM_RGB, 0.42)) : null;
+  var HILL_TRACK = hill ? rgbStr(mixRgb(TRIM_RGB, CREAM_RGB, 0.3)) : null;
+
+  function hillXY(u) {
+    var x = hill.side === 1 ? VIEW_W - hill.w + u * hill.w : hill.w - u * hill.w;
+    var s = u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u);
+    return [x, GROUND_Y - hill.h * s];
+  }
+
+  function drawHill(litLevel) {
+    if (!hill) return;
+    var i, u, pt;
+
+    ctx.fillStyle = HILL_FILL;                    // the slope itself
+    ctx.beginPath();
+    pt = hillXY(0);
+    ctx.moveTo(pt[0], GROUND_Y + 40);
+    for (u = 0; u <= 1.001; u += 0.05) {
+      pt = hillXY(u);
+      ctx.lineTo(pt[0], pt[1]);
+    }
+    ctx.lineTo(hill.side === 1 ? VIEW_W + 90 : -90, pt[1]);
+    ctx.lineTo(hill.side === 1 ? VIEW_W + 90 : -90, GROUND_Y + 40);
+    ctx.closePath();
+    ctx.fill();
+    if (weatherLevel[2] > 0.05) {                 // snow pales the slope
+      ctx.globalAlpha = weatherLevel[2] * 0.45;
+      ctx.fillStyle = CREAM_HI;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.strokeStyle = HILL_TRACK;                 // funicular right-of-way
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    for (u = 0.08; u <= 0.92; u += 0.06) {
+      pt = hillXY(u);
+      if (u < 0.09) ctx.moveTo(pt[0], pt[1] - 2); else ctx.lineTo(pt[0], pt[1] - 2);
+    }
+    ctx.stroke();
+
+    // two counterbalanced cars, one up while the other comes down
+    var cars2 = [0.08 + funi.p * 0.84, 0.92 - funi.p * 0.84];
+    for (i = 0; i < 2; i++) {
+      var a = hillXY(cars2[i]);
+      var b = hillXY(cars2[i] + 0.03);
+      var ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
+      ctx.save();
+      ctx.translate(a[0], a[1] - 4);
+      ctx.rotate(ang);
+      ctx.fillStyle = CREAM_HI;                   // stepped little cabin
+      ctx.fillRect(-8, -7, 16, 7);
+      ctx.fillStyle = '#235450';
+      ctx.fillRect(-8, -2.5, 16, 2.5);
+      ctx.fillStyle = BRASS;
+      ctx.beginPath();
+      dotPath(-4, -4.5, 1.3); dotPath(0, -4.5, 1.3); dotPath(4, -4.5, 1.3);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // summit station and its beacon
+    var top = hillXY(0.95);
+    ctx.fillStyle = HILL_TRACK;
+    ctx.fillRect(top[0] - 9, top[1] - 9, 18, 8);
+    ctx.fillStyle = CREAM_HI;
+    ctx.fillRect(top[0] - 11, top[1] - 12, 22, 3);
+    ctx.fillStyle = BRASS;
+    ctx.fillRect(top[0] - 1, top[1] - 26, 2, 14);
+    if (litLevel > 0.55 && Math.sin(effT * 3) > 0) {
+      ctx.fillStyle = GLOW_BRASS;
+      ctx.beginPath(); ctx.arc(top[0], top[1] - 28, 6, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = ORANGE;
+    ctx.beginPath(); ctx.arc(top[0], top[1] - 28, 2.2, 0, Math.PI * 2); ctx.fill();
+
+    // cottages along the slope, windows on their own schedules
+    for (i = 0; i < hill.houses.length; i++) {
+      var hh = hill.houses[i];
+      pt = hillXY(hh.t);
+      var hw = hh.w;
+      ctx.fillStyle = BG_TEALS[i % BG_TEALS.length];
+      ctx.fillRect(pt[0] - hw / 2, pt[1] - 9, hw, 9);
+      ctx.beginPath();                            // gable
+      ctx.moveTo(pt[0] - hw / 2 - 1.5, pt[1] - 9);
+      ctx.lineTo(pt[0], pt[1] - 15);
+      ctx.lineTo(pt[0] + hw / 2 + 1.5, pt[1] - 9);
+      ctx.closePath(); ctx.fill();
+      if (hh.lit < litLevel) {                    // someone is home
+        ctx.fillStyle = GLOW_BRASS;
+        ctx.beginPath(); ctx.arc(pt[0], pt[1] - 4.5, 4, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = BRASS;
+      ctx.beginPath(); ctx.arc(pt[0], pt[1] - 4.5, 1.6, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // a kite over the park in fair-weather months
+  function drawKite() {
+    if (!kite.active || reducedMotion.matches) return;
+    var kx = kite.anchor + Math.sin(effT * 0.5 + kite.ph) * 32;
+    var ky = GROUND_Y - 92 - Math.sin(effT * 0.34 + kite.ph) * 18;
+
+    ctx.strokeStyle = TEAL_TRIM;                  // the string, sagging
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.6;
+    ctx.beginPath();
+    ctx.moveTo(kite.anchor, GROUND_Y - 4);
+    ctx.quadraticCurveTo(kite.anchor + (kx - kite.anchor) * 0.3, ky + 60, kx, ky);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    ctx.save();                                   // the diamond
+    ctx.translate(kx, ky);
+    ctx.rotate(Math.sin(effT * 0.9 + kite.ph) * 0.2);
+    ctx.fillStyle = ORANGE;
+    ctx.beginPath();
+    ctx.moveTo(0, -9); ctx.lineTo(6.5, 0); ctx.lineTo(0, 11); ctx.lineTo(-6.5, 0);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = TEAL_TRIM;                  // spars
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, -9); ctx.lineTo(0, 11);
+    ctx.moveTo(-6.5, 0); ctx.lineTo(6.5, 0);
+    ctx.stroke();
+    ctx.fillStyle = CREAM_HI;                     // tail bows
+    ctx.beginPath();
+    for (var tb = 1; tb <= 3; tb++) {
+      dotPath(Math.sin(effT * 2.4 + tb) * 3.5, 11 + tb * 7, 1.8);
+    }
+    ctx.fill();
+    ctx.restore();
+  }
+
   // the bay: water in the ground band, a pier, a moored sloop, the
   // lighthouse on its rock, and the ferry when it runs
   function drawHarbor(skyRgb, starLevel) {
@@ -2015,6 +2225,7 @@
     var i, wx;
 
     var waterRgb = mixRgb(hexToRgb('#235450'), skyRgb, 0.28);
+    waterRgb = mixRgb(waterRgb, CREAMHI_RGB, icedLevel * 0.3);   // winter pallor
     ctx.fillStyle = rgbStr(waterRgb);
     ctx.fillRect(wL, GROUND_Y, wR - wL, VIEW_H - GROUND_Y);
 
@@ -2024,6 +2235,7 @@
     ctx.clip();
     ctx.strokeStyle = 'rgba(242, 233, 210, 0.28)';
     ctx.lineWidth = 1.5;
+    ctx.globalAlpha = 1 - icedLevel;              // waves fade as the ice takes
     ctx.beginPath();
     var rows = [10, 22, 34];
     for (i = 0; i < rows.length; i++) {
@@ -2034,6 +2246,20 @@
       }
     }
     ctx.stroke();
+    ctx.globalAlpha = 1;
+    if (icedLevel > 0.02) {                       // pack ice in the iced months
+      ctx.fillStyle = CREAM_HI;
+      ctx.globalAlpha = icedLevel * 0.85;
+      ctx.beginPath();
+      for (i = 0; i < 7; i++) {
+        var fx3 = wL + 30 + i * ((wR - wL - 60) / 6) +
+                  (reducedMotion.matches ? 0 : Math.sin(effT * 0.1 + i * 1.7) * 5);
+        var fw3 = 24 + ((i * 37) % 26);
+        ctx.rect(fx3 - fw3 / 2, GROUND_Y + 8 + (i % 3) * 11, fw3, 5);
+      }
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
     ctx.restore();
 
     // the pier reaches out from the quay
@@ -2446,6 +2672,24 @@
     ctx.fillStyle = BRASS;
     ctx.fillRect(bex - 11, GROUND_Y - 8, 22, 2.5);
     ctx.fillRect(bex - 11, GROUND_Y - 15, 2.5, 7);
+
+    // deep snow raises a snowman by the bench
+    if (snowAmt > 0.6) {
+      var sa = (snowAmt - 0.6) / 0.4;
+      var smx = bex + 22;
+      ctx.globalAlpha = sa;
+      ctx.fillStyle = CREAM_HI;
+      ctx.beginPath();
+      dotPath(smx, GROUND_Y - 5, 5);
+      dotPath(smx, GROUND_Y - 12.5, 3.6);
+      ctx.fill();
+      ctx.fillStyle = TEAL_TRIM;                  // a proper top hat
+      ctx.fillRect(smx - 4, GROUND_Y - 16, 8, 1.5);
+      ctx.fillRect(smx - 2.5, GROUND_Y - 21, 5, 5);
+      ctx.fillStyle = ORANGE;                     // the carrot
+      ctx.beginPath(); ctx.arc(smx + 3, GROUND_Y - 12.5, 1.3, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
   }
 
   // December: festive strings sag between neighboring rooftops with
@@ -2886,6 +3130,7 @@
 
     ctx.save();                                   // ---- high traffic ----
     ctx.translate(parX * 0.4, 0);
+    drawHill(litLevel);
     drawAirship(litLevel);
     drawRegatta(litLevel);
     drawUfo();
@@ -2902,6 +3147,7 @@
     drawSearchlights(starLevel);
     for (i = 0; i < landmarks.length; i++) drawLandmark(landmarks[i], litLevel);
     drawPark(litLevel);
+    drawKite();
     drawDriveIn(litLevel);
     for (i = 0; i < city.length; i++) drawBuilding(city[i], litLevel);
     drawSmoke(smokeColor);
@@ -3014,6 +3260,7 @@
     motto: CITY_MOTTO,
     almanac: ALMANAC,
     harbor: harbor,
+    hill: hill,
     ledger: memory,
     population: 0,
     city: city,
@@ -3024,7 +3271,8 @@
     driveIn: driveIn,
     ambient: {
       monorail: monorail, sputnik: sputnik, airship: airship, cars: cars,
-      birds: birds, regatta: regatta, ufo: ufo, ferry: ferry, parade: parade
+      birds: birds, regatta: regatta, ufo: ufo, ferry: ferry, parade: parade,
+      funicular: funi, kite: kite
     },
     reducedMotion: reducedMotion
   };

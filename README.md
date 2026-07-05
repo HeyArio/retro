@@ -44,7 +44,9 @@ the address bar always holds a shareable link to the current scene.
 - **City plate on the canvas** — click "CITY OF …" for the municipal
   almanac (Form CA-2): founding year, chief exports, disputed rainfall,
   and the sister city with a real `?seed=` address you can visit
-- **POWER lamp** — click to toggle the valve audio unit
+- **POWER lamp** — click to toggle the valve audio unit, which also
+  carries the MUNICITRON BROADCAST SERVICE: sparse generative celesta
+  phrases in A-major pentatonic, every half minute or so
 
 ## Atmosphere
 
@@ -56,15 +58,19 @@ smoke leans with the wind, lightning cracks over full rain (with thunder
 on the valve audio), wet streets reflect the lamps and doorways, and
 snow settles on every rooftop and the monorail beam.
 
-## Harbor towns
+## Terrain
 
-About a third of seeds face the water: one end of the street becomes a
-bay with drifting waves, a pier and a moored sloop, a striped
-lighthouse whose beam sweeps the night sky, and a ferry that crosses on
-its own schedule (with a horn on the valve audio). Traffic keeps to the
-land side of the quay; the monorail rides out over the water. On
+Three kinds of town share the seed space. **Harbor towns** (about a
+third of seeds) face the water: a bay with drifting waves, a pier and a
+moored sloop, a striped lighthouse whose beam sweeps the night sky, and
+a ferry with a horn on the valve audio — in the iced months the bay
+freezes into pack ice and the ferry is suspended until the thaw.
+**Hillside towns** (a share of the inland seeds) climb a lifted-teal
+hill behind the back row, dotted with cottages whose windows keep their
+own evening schedules, served by a counterbalanced funicular, and
+crowned by a summit beacon. The rest are honest prairie flats. On
 Founders' Day a parade — flag bearer, marching band, starburst float —
-forms at the quay and marches the length of Main Street.
+marches the length of Main Street in every one of them.
 
 ## Civic life
 
@@ -76,7 +82,9 @@ picture after dark — until 36,000 souls recommission the lot as the
 permanent fairground and the Ferris wheel goes up. The park keeps a
 bandstand, a fountain, a bench and lobed poster trees; vacant civic
 plazas hold survey billboards until their landmark is commissioned.
-The bulletin wire carries
+Kites fly over the park in fair-weather
+months, and deep snow raises a snowman by the bench. The bulletin wire
+carries
 Mayor Wembly's campaigns, the Grebbsville rivalry and the courthouse
 clock saga. Birds commute at dawn and dusk, a balloon regatta drifts
 through on rare occasions, rain ends in a poster rainbow — and once in a

@@ -8,7 +8,9 @@
 
    Voices: mains hum bed · knob clunks on control changes · geiger-style
    census ticks · a two-tone chime when a landmark is commissioned ·
-   Sputnik's beep-beep while it crosses.
+   Sputnik's beep-beep while it crosses · and the MUNICITRON BROADCAST
+   SERVICE: sparse generative celesta phrases, every half minute or so,
+   in A-major pentatonic — the sound of a municipal evening.
    ========================================================================== */
 
 (function () {
@@ -75,6 +77,31 @@
   function chime()  { blip(660, 0.22, 0.4, 'sine'); blip(880, 0.34, 0.35, 'sine', 0.16); }
   function beep()   { blip(800, 0.09, 0.3, 'sine'); blip(800, 0.09, 0.3, 'sine', 0.35); }
 
+  /* ---------------- the broadcast service ---------------- */
+  /* A short pentatonic phrase now and then, quiet enough to live under
+     the mains hum. Runs only while the speaker is on. */
+
+  var NOTES = [220, 246.9, 277.2, 329.6, 370];    // A-major pentatonic
+
+  function phrase() {
+    if (!enabled || !ac) return;
+    var t = 0;
+    var len = 3 + Math.floor(Math.random() * 4);
+    for (var i = 0; i < len; i++) {
+      var note = NOTES[Math.floor(Math.random() * NOTES.length)];
+      if (Math.random() < 0.3) note *= 2;         // an octave lift
+      blip(note, 0.55, 0.07, 'sine', t);
+      if (i === len - 1 && Math.random() < 0.6) { // close on a fifth
+        blip(note * 1.5, 0.7, 0.045, 'sine', t + 0.05);
+      }
+      t += 0.3 + Math.random() * 0.32;
+    }
+  }
+
+  setInterval(function () {
+    if (enabled && Math.random() < 0.55) phrase();
+  }, 26000);
+
   /* ---------------- console events → voices ---------------- */
 
   ['municitron:weather', 'municitron:time', 'municitron:growth'].forEach(function (ev) {
@@ -116,6 +143,7 @@
         if (ac && ac.state === 'suspended') ac.resume();
         if (master) master.gain.value = 0.12;
         clunk();
+        setTimeout(function () { if (enabled) phrase(); }, 2500);   // sign-on
       } else if (master) {
         master.gain.value = 0;
       }
