@@ -13,6 +13,8 @@ Static frontend — no build step, no dependencies. Vanilla JS + Canvas 2D.
   machine personality)
 - `js/postcard.js` — composes and downloads the postcard PNG
 - `js/certificate.js` — composes and downloads the certificate of incorporation
+- `js/almanac.js` — composes and downloads the municipal almanac (Form CA-2)
+- `js/newsreel.js` — records a six-second WebM of the living canvas
 - `js/sound.js` — optional valve audio (muted by default; POWER lamp toggles)
 
 ## Run
@@ -38,6 +40,10 @@ the address bar always holds a shareable link to the current scene.
   overprints (NIGHT AIRMAIL, WINTER CARNIVAL EDITION, AURORA SPECIAL)
 - **Coin slot** — opens the tip jar; the first coin funds the town's
   streetlamps, every coin after gets a fireworks salute
+- **XMIT lamp** — click to record a six-second newsreel (WebM download)
+- **City plate on the canvas** — click "CITY OF …" for the municipal
+  almanac (Form CA-2): founding year, chief exports, disputed rainfall,
+  and the sister city with a real `?seed=` address you can visit
 - **POWER lamp** — click to toggle the valve audio unit
 
 ## Atmosphere
@@ -49,6 +55,16 @@ away. Poster clouds cross every sky and darken into storm cells, chimney
 smoke leans with the wind, lightning cracks over full rain (with thunder
 on the valve audio), wet streets reflect the lamps and doorways, and
 snow settles on every rooftop and the monorail beam.
+
+## Harbor towns
+
+About a third of seeds face the water: one end of the street becomes a
+bay with drifting waves, a pier and a moored sloop, a striped
+lighthouse whose beam sweeps the night sky, and a ferry that crosses on
+its own schedule (with a horn on the valve audio). Traffic keeps to the
+land side of the quay; the monorail rides out over the water. On
+Founders' Day a parade — flag bearer, marching band, starburst float —
+forms at the quay and marches the length of Main Street.
 
 ## Civic life
 

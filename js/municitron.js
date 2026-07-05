@@ -245,6 +245,20 @@
     window.open(KOFI_URL, '_blank', 'noopener');
   });
 
+  /* ---------------- newsreel camera ---------------- */
+  /* The XMIT lamp doubles as the camera trigger: click it to record a
+     six-second newsreel of the living city (js/newsreel.js). */
+
+  var xmitUnit = xmitLamp && xmitLamp.closest ? xmitLamp.closest('.lamp-unit') : null;
+  if (xmitUnit) {
+    xmitUnit.title = 'RECORD A 6-SECOND NEWSREEL';
+    xmitUnit.style.cursor = 'pointer';
+    xmitUnit.addEventListener('click', function () {
+      flashLamp(xmitLamp, 'xmit', 6200);
+      document.dispatchEvent(new CustomEvent('municitron:newsreel'));
+    });
+  }
+
   /* ---------------- machine personality ---------------- */
   /* The M-58 is a 1958 unit and acts like one: a power-on self test
      sweeps the dials, the census needle quivers in a storm, and once

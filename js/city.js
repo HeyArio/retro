@@ -207,14 +207,27 @@
       return panes;
     }
 
+    // ---- harbor towns: about a third of seeds face the water ----
+    // one end of the street becomes a bay: quay, pier, lighthouse, and
+    // a ferry — everything civic parcels itself onto the land side
+    var harbor = null;
+    if (rng() < 0.35) {
+      harbor = { side: rng() < 0.5 ? 1 : -1 };    // 1 = water on the right
+      harbor.shore = harbor.side === 1 ? 1140 + rng() * 140 : 320 + rng() * 140;
+      harbor.lightX = harbor.side === 1 ? VIEW_W - 70 - rng() * 40 : 70 + rng() * 40;
+    }
+    var landL = harbor && harbor.side === -1 ? harbor.shore + 24 : 0;
+    var landR = harbor && harbor.side === 1 ? harbor.shore - 24 : VIEW_W;
+    var span = landR - landL;
+
     // ---- landmark plazas, chosen before the street is parceled ----
     // three civic zones stay clear of front-row lots so commissioned
     // landmarks stand in the open instead of hiding behind towers; each
     // reserves only what its landmark actually needs at ground level
     var zones = [
-      230 + Math.floor(rng() * 140),
-      760 + Math.floor(rng() * 120),
-      1290 + Math.floor(rng() * 140)
+      landL + span * (0.14 + rng() * 0.09),
+      landL + span * (0.46 + rng() * 0.08),
+      landL + span * (0.80 + rng() * 0.09)
     ];
     var ZONE_HALVES = [62, 76, 80];               // saucer / rocket / atom footprints
     for (i = zones.length - 1; i > 0; i--) {
@@ -225,14 +238,14 @@
     var DRIVEIN_HALF = 80;                        // the future fairground
 
     // ---- the municipal park: one green gap the street builds around ----
-    var parkX = 320 + rng() * 960;
+    var parkX = landL + span * (0.2 + rng() * 0.6);
     for (i = 0; i < 20; i++) {
       var pOK = true;
       for (var pz = 0; pz < zones.length; pz++) {
         if (Math.abs(parkX - zones[pz]) < ZONE_HALVES[pz] + PARK_HALF + 10) pOK = false;
       }
       if (pOK) break;
-      parkX = 320 + rng() * 960;
+      parkX = landL + span * (0.2 + rng() * 0.6);
     }
     var park = { x: parkX, trees: [], shrubs: [] };
     var treeCount = 4 + Math.floor(rng() * 3);
@@ -258,9 +271,9 @@
 
     // ---- the drive-in: every town has one; at 36,000 souls the lot is
     // recommissioned as the permanent fairground and the wheel goes up
-    var driveIn = { x: 800 };
+    var driveIn = { x: landL + span * 0.5 };
     for (i = 0; i < 24; i++) {
-      var dx = 360 + rng() * 880;
+      var dx = landL + span * (0.22 + rng() * 0.55);
       var dOK = Math.abs(dx - parkX) > PARK_HALF + DRIVEIN_HALF + 10;
       for (var dz = 0; dz < zones.length && dOK; dz++) {
         if (Math.abs(dx - zones[dz]) < ZONE_HALVES[dz] + DRIVEIN_HALF + 10) dOK = false;
@@ -285,7 +298,7 @@
 
     // room from px to the nearest reservation ahead of it
     function gapAt(px) {
-      var g = VIEW_W - 40 - px;
+      var g = landR - 20 - px;
       for (var z = 0; z < obstacles.length; z++) {
         var start = obstacles[z].x - obstacles[z].half;
         if (start >= px && start - px < g) g = start - px;
@@ -294,7 +307,7 @@
     }
 
     // ---- front row ----
-    x = 30 + Math.floor(rng() * 40);
+    x = landL + 30 + Math.floor(rng() * 40);
     while (true) {
       var w = 70 + Math.floor(rng() * 65);        // 70–134
       // if a full lot won't fit before the next civic reservation, put a
@@ -305,7 +318,7 @@
         if (avail >= 50) w = Math.floor(Math.min(avail, 54 + rng() * 18));
         else x = pushed;
       }
-      if (x + w > VIEW_W - 40) break;
+      if (x + w > landR - 20) break;
       b = {
         x: x,
         w: w,
@@ -329,10 +342,10 @@
     for (i = 0; i < lots.length; i++) lots[i].windows = makeWindows(lots[i].x, lots[i].w, lots[i].h);
 
     // ---- back row: shorter, narrower, lifted-teal silhouettes ----
-    x = 0;
+    x = landL;
     while (true) {
       var w2 = 55 + Math.floor(rng() * 60);       // 55–114
-      if (x + w2 > VIEW_W - 40) break;
+      if (x + w2 > landR - 20) break;
       bg.push({
         x: x,
         w: w2,
@@ -348,7 +361,7 @@
       });
       x += w2 + 8 + Math.floor(rng() * 18);
     }
-    var shift = Math.round((VIEW_W - x + 8) / 2) + 20;
+    var shift = Math.round((landR - x + 8) / 2) + 20;
     for (i = 0; i < bg.length; i++) bg[i].x += shift;
 
     // ---- densification: the city's second act ----
@@ -433,7 +446,7 @@
       }
     }
 
-    return { lots: lots, bg: bg, queue: queue, densify: densify, stars: stars, landmarks: landmarks, park: park, driveIn: driveIn };
+    return { lots: lots, bg: bg, queue: queue, densify: densify, stars: stars, landmarks: landmarks, park: park, driveIn: driveIn, harbor: harbor, landL: landL, landR: landR };
   }
 
   var plan = generatePlan();
@@ -441,6 +454,9 @@
   var bgCity = plan.bg;
   var park = plan.park;
   var driveIn = plan.driveIn;
+  var harbor = plan.harbor;
+  var LAND_L = plan.landL;
+  var LAND_R = plan.landR;
   var allBuildings = city.concat(bgCity);
   var stars = plan.stars;
   var landmarks = plan.landmarks;
@@ -474,7 +490,8 @@
 
   var rng3 = mulberry32(seed ^ 0x85EBCA6B);
 
-  var CITY_NAME = (function () {
+  // shared with the sister-city lookup: same generator, different stream
+  function generateName(r) {
     var ONSETS = ['KER', 'MAR', 'BEL', 'NOR', 'VAL', 'HAR', 'WIN', 'ASH',
                   'THORN', 'CRES', 'DUN', 'FAIR', 'GLEN', 'HOL', 'LOR',
                   'MER', 'OAK', 'PEN', 'ROY', 'SIL'];
@@ -483,11 +500,13 @@
                   'MOOR', 'DALE', 'BROOK', 'VALE', 'GATE', 'CREST', 'VIEW'];
     var SUFFIXES = ['FALLS', 'HEIGHTS', 'JUNCTION', 'MESA', 'SPRINGS',
                     'POINT', 'PARK', 'GROVE', 'TERRACE', 'FLATS'];
-    function pick(a) { return a[Math.floor(rng3() * a.length)]; }
+    function pick(a) { return a[Math.floor(r() * a.length)]; }
     var name = pick(ONSETS) + pick(MIDS) + pick(ENDS);
-    if (rng3() < 0.5) name += ' ' + pick(SUFFIXES);
+    if (r() < 0.5) name += ' ' + pick(SUFFIXES);
     return name;
-  })();
+  }
+
+  var CITY_NAME = generateName(rng3);
 
   // every municipality needs a motto in confident schoolhouse Latin;
   // drawn from the naming stream AFTER the name so names are unchanged
@@ -498,6 +517,38 @@
     var b = VIRTUES[Math.floor(rng3() * VIRTUES.length)];
     while (b === a) b = VIRTUES[Math.floor(rng3() * VIRTUES.length)];
     return a + ' ET ' + b;
+  })();
+
+  /* ---------------- the municipal almanac (Form CA-2) ------------------ */
+  /* Facts continue on the naming stream, AFTER name and motto, so both
+     stay exactly what they were. The sister city is whoever lives at
+     the next transmission number — a real, visitable seed. */
+
+  var SISTER_SEED = (seed + 1) >>> 0;
+  var SISTER_CITY = generateName(mulberry32(SISTER_SEED ^ 0x85EBCA6B));
+
+  var ALMANAC = (function () {
+    var EXPORTS = ['VACUUM TUBES', 'CIVIC PRIDE', 'CANNED PEACHES',
+                   'DIRIGIBLE FITTINGS', 'GRAMOPHONE NEEDLES',
+                   'DECORATIVE GRAVEL', 'PRECISION KNOBS', 'RHUBARB',
+                   'POSTCARDS', 'MEASURED OPTIMISM'];
+    var BIRDS  = ['CRESTED TEAL', 'BRASS FINCH', 'CIVIC PIGEON',
+                  'LESSER STARLING', 'MARSH WREN', 'CLOCKTOWER SWIFT'];
+    var DISHES = ['RHUBARB PIE', 'PEACH FRITTERS', 'WALLEYE SUPREME',
+                  'CORN FRITTER STACK', 'ICEBOX CAKE', 'TOMATO ASPIC (AVOID)'];
+    function pick(a) { return a[Math.floor(rng3() * a.length)]; }
+    var e1 = pick(EXPORTS);
+    var e2 = pick(EXPORTS);
+    while (e2 === e1) e2 = pick(EXPORTS);
+    return {
+      founded: 1871 + Math.floor(rng3() * 70),
+      exports: e1 + ' AND ' + e2,
+      bird: pick(BIRDS),
+      dish: pick(DISHES),
+      rainfall: (22 + rng3() * 20).toFixed(1) + ' INCHES (DISPUTED)',
+      sister: SISTER_CITY,
+      sisterSeed: SISTER_SEED
+    };
   })();
 
   /* ---------------- the municipal ledger (localStorage) ---------------- */
@@ -596,6 +647,11 @@
   var monorail = { x: 0, dir: 1, active: false, timer: 5 + rng4() * 8 };
   var sputnik = { p: 0, active: false, timer: 18 + rng4() * 30 };
   var airship = { x: 0, y: 0, dir: 1, active: false, timer: 45 + rng4() * 80 };
+  var ferry = { x: 0, dir: 1, active: false, timer: 16 + rng4() * 30 };
+
+  // harbor towns keep their traffic on the land side of the quay
+  var CAR_L = harbor && harbor.side === -1 ? harbor.shore + 10 : -30;
+  var CAR_R = harbor && harbor.side === 1 ? harbor.shore - 10 : VIEW_W + 30;
 
   var cars = [];
   for (i = 0; i < 14; i++) {
@@ -615,6 +671,7 @@
 
   var birds = [];                                 // at most two flocks aloft
   var birdTimer = 20 + rng6() * 40;
+  var parade = { active: false, x: 0, dir: 1 };   // Founders' Day procession
   var regatta = { active: false, timer: 140 + rng6() * 220, dir: 1, balloons: [] };
   var ufo = { active: false, timer: 300 + rng6() * 600, x: 0, y: 90, dir: 1 };
   var rainbow = 0;                                // alpha of the after-rain arc
@@ -865,7 +922,9 @@
     'DINER PIE OF THE WEEK: RHUBARB, REGRETTABLY',
     'STAMP CLUB DECLARES POSTCARD RENAISSANCE UNDERWAY',
     'DRIVE-IN DOUBLE FEATURE FRIDAY — SOUND VIA WINDOW SPEAKER',
-    'FAIRGROUND WHEEL INSPECTED — DECLARED "ROUND"'
+    'FAIRGROUND WHEEL INSPECTED — DECLARED "ROUND"',
+    'SISTER CITY ' + SISTER_CITY + ' SENDS CORDIAL REGARDS',
+    'CLICK THE CITY PLATE FOR THE MUNICIPAL ALMANAC — FORM CA-2'
   ];
 
   var wireDeck = [];
@@ -968,6 +1027,19 @@
     }
     recordFirst('benefaction', 'FIRST BENEFACTION ENTERED');
     startShow(3);
+  });
+
+  // the almanac desk and the newsreel camera acknowledge their orders
+  document.addEventListener('municitron:almanac', function () {
+    postBulletin('MUNICIPAL ALMANAC ISSUED — FORM CA-2');
+    recordFirst('almanac', 'FIRST ALMANAC CONSULTED');
+  });
+  document.addEventListener('municitron:newsreel', function () {
+    postBulletin('NEWSREEL CAMERA ROLLING — LOOK CIVIC');
+  });
+  document.addEventListener('municitron:newsreel-done', function () {
+    postBulletin('NEWSREEL DEVELOPED — SCREENING IN THE LOBBY');
+    recordFirst('newsreel', 'FIRST NEWSREEL FILMED');
   });
 
   // the census gauge issues incorporation papers (see js/certificate.js)
@@ -1106,7 +1178,7 @@
         p = cars[i];
         if (p.active) {
           p.x += p.v * dt * p.dir;
-          if (p.x > VIEW_W + 40 || p.x < -40 - p.len) {
+          if (p.x > CAR_R + 10 || p.x + p.len < CAR_L - 10) {
             p.active = false;
             p.timer = 1 + rng4() * 7;
             runningCars--;
@@ -1116,8 +1188,30 @@
           if (p.timer <= 0) {
             p.active = true;
             p.dir = rng4() < 0.5 ? -1 : 1;
-            p.x = p.dir === 1 ? -30 - p.len : VIEW_W + 30;
+            p.x = p.dir === 1 ? CAR_L - p.len : CAR_R;
             runningCars++;
+          }
+        }
+      }
+
+      // the harbor ferry crosses the bay on its own schedule
+      if (harbor) {
+        var waterL = harbor.side === 1 ? harbor.shore + 30 : -50;
+        var waterR = harbor.side === 1 ? VIEW_W + 50 : harbor.shore - 30;
+        if (ferry.active) {
+          ferry.x += 34 * dt * ferry.dir;
+          if (ferry.x > waterR + 30 || ferry.x < waterL - 30) {
+            ferry.active = false;
+            ferry.dir = -ferry.dir;
+            ferry.timer = 40 + rng4() * 60;
+          }
+        } else {
+          ferry.timer -= dt;
+          if (ferry.timer <= 0) {
+            ferry.active = true;
+            ferry.x = ferry.dir === 1 ? waterL - 20 : waterR + 20;
+            document.dispatchEvent(new CustomEvent('municitron:ferry'));
+            if (rng4() < 0.4) postBulletin('FERRY DEPARTING — HOLD YOUR HAT ON DECK');
           }
         }
       }
@@ -1181,6 +1275,15 @@
       // wanders on its own so the scene breathes untouched
       if (effT - lastPointer > 6) parTarget = Math.sin(effT * 0.06) * 7;
       parX += (parTarget - parX) * Math.min(1, dt * 2.5);
+
+      // the parade marches until its tail clears the far edge
+      if (parade.active) {
+        parade.x += 34 * dt * parade.dir;
+        if (parade.dir === 1 ? parade.x - 170 > VIEW_W + 20
+                             : parade.x + 170 < -20) {
+          parade.active = false;
+        }
+      }
 
       // birds commute at dawn and dusk
       birdTimer -= dt;
@@ -1316,6 +1419,15 @@
       } else if (calendar.month === 6) {
         postBulletin('FOUNDERS’ DAY JULY 4 — FIREWORKS ORDERED');
         foundersTimer = MONTH_LEN * 0.2;
+        if (!reducedMotion.matches && !parade.active) {
+          parade.active = true;
+          parade.dir = harbor ? (harbor.side === 1 ? -1 : 1) : 1;
+          // harbor parades form at the quay; inland ones enter off-screen
+          parade.x = parade.dir === 1
+            ? (LAND_L > 0 ? LAND_L + 20 : -170)
+            : (LAND_R < VIEW_W ? LAND_R - 20 : VIEW_W + 170);
+          postBulletin('FOUNDERS’ DAY PARADE ON MAIN STREET — WAVE');
+        }
       } else if (calendar.month === 11) {
         postBulletin('MUNICIPAL LIGHT-UP — CREWS STRINGING THE STREET');
       } else if (calendar.month === 2) {
@@ -1348,6 +1460,22 @@
 
   var canvas = document.getElementById('sim-canvas');
   var ctx = canvas.getContext('2d');
+
+  // the engraved city plate is the almanac desk: click it for Form CA-2
+  function plateHit(e) {
+    var rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return false;
+    var lx = (e.clientX - rect.left) / rect.width * VIEW_W;
+    var ly = (e.clientY - rect.top) / rect.height * VIEW_H;
+    var px = LAND_L > 0 ? LAND_L + 22 : 22;
+    return ly > GROUND_Y - 8 && lx > px - 12 && lx < px + 330;
+  }
+  canvas.addEventListener('click', function (e) {
+    if (plateHit(e)) document.dispatchEvent(new CustomEvent('municitron:almanac'));
+  });
+  canvas.addEventListener('mousemove', function (e) {
+    canvas.style.cursor = plateHit(e) ? 'pointer' : '';
+  });
 
   // the canvas lives inside the CSS transform-scaled machine, so the
   // on-screen size is rect × dpr; measuring forces a layout read, so we
@@ -1818,6 +1946,179 @@
     }
   }
 
+  // the Founders' Day procession: flag bearer, marching band, a float
+  function drawParade() {
+    if (!parade.active || reducedMotion.matches) return;
+    var d = parade.dir;
+    var hx = parade.x;
+    var i, mx, bob;
+
+    // flag bearer leads
+    bob = Math.abs(Math.sin(effT * 9)) * 1.2;
+    ctx.fillStyle = TEAL_TRIM;
+    ctx.fillRect(hx - 2, GROUND_Y - 13 - bob, 4, 13);
+    ctx.beginPath(); ctx.arc(hx, GROUND_Y - 16 - bob, 2.4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillRect(hx + d * 3 - 0.75, GROUND_Y - 30 - bob, 1.5, 18);
+    ctx.fillStyle = ORANGE;                       // swallow-tail banner
+    ctx.beginPath();
+    ctx.moveTo(hx + d * 3, GROUND_Y - 30 - bob);
+    ctx.lineTo(hx + d * 3 + d * 13, GROUND_Y - 27.5 - bob);
+    ctx.lineTo(hx + d * 3 + d * 8, GROUND_Y - 25 - bob);
+    ctx.lineTo(hx + d * 3 + d * 13, GROUND_Y - 22.5 - bob);
+    ctx.lineTo(hx + d * 3, GROUND_Y - 22 - bob);
+    ctx.closePath(); ctx.fill();
+
+    // eight bandsmen in two ranks, brass in hand
+    for (i = 0; i < 8; i++) {
+      mx = hx - d * (20 + i * 11);
+      bob = Math.abs(Math.sin(effT * 9 + i * 1.1)) * 1.2;
+      ctx.fillStyle = TEAL_TRIM;
+      ctx.fillRect(mx - 1.75, GROUND_Y - 11 - bob, 3.5, 11);
+      ctx.beginPath(); ctx.arc(mx, GROUND_Y - 13.5 - bob, 2.2, 0, Math.PI * 2); ctx.fill();
+      if (i % 2) {                                // every other man plays
+        ctx.fillStyle = BRASS;
+        ctx.beginPath(); ctx.arc(mx + d * 3, GROUND_Y - 9 - bob, 1.7, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+
+    // the float brings up the rear: orange platform, starburst standard
+    var fx2 = hx - d * 130;
+    ctx.fillStyle = TEAL_TRIM;                    // wheels
+    ctx.beginPath();
+    dotPath(fx2 - 10, GROUND_Y - 3, 3); dotPath(fx2 + 10, GROUND_Y - 3, 3);
+    ctx.fill();
+    ctx.fillStyle = ORANGE;                       // platform
+    ctx.fillRect(fx2 - 17, GROUND_Y - 10, 34, 6);
+    ctx.fillStyle = CREAM_HI;                     // bunting scallops
+    ctx.beginPath();
+    dotPath(fx2 - 10, GROUND_Y - 4, 3); dotPath(fx2, GROUND_Y - 4, 3); dotPath(fx2 + 10, GROUND_Y - 4, 3);
+    ctx.fill();
+    ctx.fillStyle = BRASS;                        // starburst standard
+    ctx.fillRect(fx2 - 1, GROUND_Y - 26, 2, 16);
+    ctx.strokeStyle = BRASS;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (i = 0; i < 8; i++) {
+      var pa = i * Math.PI / 4;
+      ctx.moveTo(fx2 + Math.cos(pa) * 2.5, GROUND_Y - 28 + Math.sin(pa) * 2.5);
+      ctx.lineTo(fx2 + Math.cos(pa) * 7, GROUND_Y - 28 + Math.sin(pa) * 7);
+    }
+    ctx.stroke();
+  }
+
+  // the bay: water in the ground band, a pier, a moored sloop, the
+  // lighthouse on its rock, and the ferry when it runs
+  function drawHarbor(skyRgb, starLevel) {
+    if (!harbor) return;
+    var wL = harbor.side === 1 ? harbor.shore : -80;
+    var wR = harbor.side === 1 ? VIEW_W + 80 : harbor.shore;
+    var i, wx;
+
+    var waterRgb = mixRgb(hexToRgb('#235450'), skyRgb, 0.28);
+    ctx.fillStyle = rgbStr(waterRgb);
+    ctx.fillRect(wL, GROUND_Y, wR - wL, VIEW_H - GROUND_Y);
+
+    ctx.save();                                   // drifting wave dashes
+    ctx.beginPath();
+    ctx.rect(wL, GROUND_Y, wR - wL, VIEW_H - GROUND_Y);
+    ctx.clip();
+    ctx.strokeStyle = 'rgba(242, 233, 210, 0.28)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    var rows = [10, 22, 34];
+    for (i = 0; i < rows.length; i++) {
+      var drift = reducedMotion.matches ? 0 : (effT * (6 + i * 3)) % 46;
+      for (wx = wL - 46 + drift + i * 15; wx < wR; wx += 46) {
+        ctx.moveTo(wx, GROUND_Y + rows[i]);
+        ctx.lineTo(wx + 14, GROUND_Y + rows[i]);
+      }
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // the pier reaches out from the quay
+    var pd = harbor.side;                         // 1: pier points right
+    var px0 = harbor.shore - pd * 4;
+    ctx.fillStyle = TEAL_TRIM;
+    ctx.fillRect(Math.min(px0, px0 + pd * 66), GROUND_Y - 3, 66, 4);
+    for (i = 0; i < 3; i++) {
+      ctx.fillRect(px0 + pd * (12 + i * 22) - 1.5, GROUND_Y, 3, 14);
+    }
+
+    // a moored sloop bobs by the pier
+    var mbx = harbor.shore + pd * 92;
+    var mby = reducedMotion.matches ? 0 : Math.sin(effT * 1.4) * 1.5;
+    ctx.fillStyle = TEAL_TRIM;                    // hull
+    ctx.beginPath();
+    ctx.moveTo(mbx - 14, GROUND_Y + 2 + mby);
+    ctx.lineTo(mbx + 14, GROUND_Y + 2 + mby);
+    ctx.lineTo(mbx + 9, GROUND_Y + 8 + mby);
+    ctx.lineTo(mbx - 9, GROUND_Y + 8 + mby);
+    ctx.closePath(); ctx.fill();
+    ctx.fillRect(mbx - 0.75, GROUND_Y - 22 + mby, 1.5, 24);   // mast
+    ctx.fillStyle = CREAM_HI;                     // furled sail
+    ctx.beginPath();
+    ctx.moveTo(mbx + 1, GROUND_Y - 20 + mby);
+    ctx.lineTo(mbx + 9, GROUND_Y - 2 + mby);
+    ctx.lineTo(mbx + 1, GROUND_Y - 2 + mby);
+    ctx.closePath(); ctx.fill();
+
+    // the lighthouse on its rock
+    var lx = harbor.lightX;
+    ctx.fillStyle = TEAL_TRIM;                    // the rock
+    ctx.beginPath(); ctx.arc(lx, GROUND_Y + 12, 20, Math.PI, Math.PI * 2); ctx.fill();
+    if (starLevel > 0.35 && !reducedMotion.matches) {   // sweeping beam
+      var ba = -Math.PI / 2 + Math.sin(effT * 0.45) * 0.9;  // swings across the sky
+      ctx.fillStyle = 'rgba(242, 233, 210, 0.10)';
+      ctx.beginPath();
+      ctx.moveTo(lx, GROUND_Y - 44);
+      ctx.lineTo(lx + Math.cos(ba - 0.04) * 320, GROUND_Y - 44 + Math.sin(ba - 0.04) * 320);
+      ctx.lineTo(lx + Math.cos(ba + 0.04) * 320, GROUND_Y - 44 + Math.sin(ba + 0.04) * 320);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = CREAM_HI;                     // the tower
+    ctx.fillRect(lx - 7, GROUND_Y - 40, 14, 42);
+    ctx.fillStyle = ORANGE;                       // two service bands
+    ctx.fillRect(lx - 7, GROUND_Y - 34, 14, 6);
+    ctx.fillRect(lx - 7, GROUND_Y - 18, 14, 6);
+    ctx.fillStyle = TEAL_TRIM;                    // gallery + cap
+    ctx.fillRect(lx - 9, GROUND_Y - 44, 18, 4);
+    ctx.beginPath();
+    ctx.moveTo(lx - 6, GROUND_Y - 47);
+    ctx.lineTo(lx, GROUND_Y - 53);
+    ctx.lineTo(lx + 6, GROUND_Y - 47);
+    ctx.closePath(); ctx.fill();
+    var lampOn = reducedMotion.matches || Math.sin(effT * 2.4) > -0.3;
+    ctx.fillStyle = lampOn ? BRASS : '#4A3510';   // the light itself
+    ctx.fillRect(lx - 4, GROUND_Y - 47, 8, 3);
+
+    // the ferry, when it runs
+    if (ferry.active && !reducedMotion.matches) {
+      var fy = GROUND_Y + Math.sin(effT * 1.8) * 1;
+      ctx.strokeStyle = 'rgba(242, 233, 210, 0.35)';    // wake
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(ferry.x - ferry.dir * 26, fy + 8);
+      ctx.lineTo(ferry.x - ferry.dir * 44, fy + 8);
+      ctx.stroke();
+      ctx.fillStyle = TEAL_TRIM;                  // hull
+      ctx.beginPath();
+      ctx.moveTo(ferry.x - 22, fy + 2);
+      ctx.lineTo(ferry.x + 22, fy + 2);
+      ctx.lineTo(ferry.x + 16, fy + 10);
+      ctx.lineTo(ferry.x - 16, fy + 10);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = CREAM_HI;                   // cabin
+      ctx.fillRect(ferry.x - 12, fy - 6, 24, 8);
+      ctx.fillStyle = ORANGE;                     // funnel
+      ctx.fillRect(ferry.x + ferry.dir * 5 - 2, fy - 11, 4, 5);
+      ctx.fillStyle = TEAL_TRIM;                  // portholes
+      ctx.beginPath();
+      dotPath(ferry.x - 6, fy - 2, 1.3); dotPath(ferry.x, fy - 2, 1.3); dotPath(ferry.x + 6, fy - 2, 1.3);
+      ctx.fill();
+    }
+  }
+
   function drawAirship(litLevel) {
     if (!airship.active || reducedMotion.matches) return;
     var x = airship.x, y = airship.y;
@@ -2192,6 +2493,7 @@
       ctx.fillStyle = 'rgba(242, 233, 210, 0.09)';
       ctx.beginPath();
       for (x = 85; x < VIEW_W; x += 170) {
+        if (x < LAND_L + 12 || x > LAND_R - 20) continue;
         ctx.moveTo(x + 6, GROUND_Y - 26);
         ctx.lineTo(x - 6, GROUND_Y);
         ctx.lineTo(x + 18, GROUND_Y);
@@ -2199,6 +2501,7 @@
       ctx.fill();
     }
     for (x = 85; x < VIEW_W; x += 170) {
+      if (x < LAND_L + 12 || x > LAND_R - 20) continue;
       ctx.strokeStyle = TEAL_TRIM;                // post with a curved arm
       ctx.lineWidth = 3;
       ctx.beginPath();
@@ -2608,6 +2911,7 @@
     drawDust();
 
     drawCars(litLevel);
+    drawParade();
     drawMonorail(litLevel);
     drawFireworks();
 
@@ -2621,8 +2925,13 @@
     bandRgb = mixRgb(bandRgb, DEEP_RGB, weatherLevel[1] * 0.4);
     ctx.fillStyle = rgbStr(bandRgb);
     ctx.fillRect(-80, GROUND_Y, VIEW_W + 160, VIEW_H - GROUND_Y);
-    ctx.fillStyle = BRASS;
-    ctx.fillRect(-80, GROUND_Y, VIEW_W + 160, 3);
+
+    drawHarbor(skyRgb, starLevel);                // the bay claims its side
+
+    ctx.fillStyle = BRASS;                        // brass trim on land only
+    var brassL = harbor && harbor.side === -1 ? harbor.shore : -80;
+    var brassR = harbor && harbor.side === 1 ? harbor.shore : VIEW_W + 80;
+    ctx.fillRect(brassL, GROUND_Y, brassR - brassL, 3);
 
     // wet-street reflections: lamps and doorways smear into the asphalt
     var wet = weatherLevel[1];
@@ -2631,6 +2940,7 @@
       if (streetlamps) {
         ctx.fillStyle = BRASS;
         for (var lx = 85; lx < VIEW_W; lx += 170) {
+          if (lx < LAND_L + 12 || lx > LAND_R - 20) continue;
           ctx.fillRect(lx + 6, GROUND_Y + 5, 2, 24);
         }
       }
@@ -2647,11 +2957,12 @@
     // pales the band so it always reads)
     var plateColor = rgbStr(mixRgb(hexToRgb(BRASS), TRIM_RGB, weatherLevel[2] * 0.7));
     var bandMid = GROUND_Y + (VIEW_H - GROUND_Y) / 2 + 2;
+    var plateX = LAND_L > 0 ? LAND_L + 22 : 22;
     ctx.font = '600 15px Jost, Futura, sans-serif';
     if ('letterSpacing' in ctx) ctx.letterSpacing = '3px';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = plateColor;
-    ctx.fillText('CITY OF ' + CITY_NAME, 22, bandMid);
+    ctx.fillText('CITY OF ' + CITY_NAME, plateX, bandMid);
 
     // the municipal bulletin wire, right-aligned, fading in and out
     if (bulletin.current) {
@@ -2662,7 +2973,7 @@
       ctx.font = '600 13px Jost, Futura, sans-serif';
       ctx.textAlign = 'right';
       ctx.fillStyle = plateColor;
-      ctx.fillText('☆ ' + bulletin.current, VIEW_W - 22, bandMid);
+      ctx.fillText('☆ ' + bulletin.current, LAND_R < VIEW_W ? LAND_R - 22 : VIEW_W - 22, bandMid);
       ctx.textAlign = 'left';
       ctx.globalAlpha = 1;
     }
@@ -2701,6 +3012,8 @@
     seed: seed,
     name: CITY_NAME,
     motto: CITY_MOTTO,
+    almanac: ALMANAC,
+    harbor: harbor,
     ledger: memory,
     population: 0,
     city: city,
@@ -2711,7 +3024,7 @@
     driveIn: driveIn,
     ambient: {
       monorail: monorail, sputnik: sputnik, airship: airship, cars: cars,
-      birds: birds, regatta: regatta, ufo: ufo
+      birds: birds, regatta: regatta, ufo: ufo, ferry: ferry, parade: parade
     },
     reducedMotion: reducedMotion
   };

@@ -65,6 +65,7 @@
   function wobble() { blip(980, 0.18, 0.2, 'sine'); blip(760, 0.18, 0.2, 'sine', 0.14); blip(540, 0.26, 0.2, 'sine', 0.28); }
   function tone()   { blip(1000, 0.6, 0.18, 'sine'); }
   function rumble() { blip(46, 0.9, 0.5, 'triangle'); blip(38, 1.3, 0.35, 'triangle', 0.18); }
+  function horn()   { blip(164, 0.7, 0.35, 'triangle'); blip(123, 0.9, 0.3, 'triangle', 0.1); }
   function tick()   {
     var now = Date.now();
     if (now - lastTick < 70) return;
@@ -88,6 +89,8 @@
   document.addEventListener('municitron:ufo', function () { wobble(); });
   document.addEventListener('municitron:testpattern', function () { tone(); });
   document.addEventListener('municitron:lightning', function () { rumble(); });
+  document.addEventListener('municitron:ferry', function () { horn(); });
+  document.addEventListener('municitron:almanac', function () { chime(); });
 
   // Sputnik telemetry: watch the ambient state for a pass starting
   var wasUp = false;
