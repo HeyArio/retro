@@ -206,11 +206,41 @@
       var zt = zones[i]; zones[i] = zones[zj]; zones[zj] = zt;
     }
     var PLAZA_HALF = 88;
+    var PARK_HALF = 74;
+
+    // ---- the municipal park: one green gap the street builds around ----
+    var parkX = 320 + rng() * 960;
+    for (i = 0; i < 20; i++) {
+      var pOK = true;
+      for (var pz = 0; pz < zones.length; pz++) {
+        if (Math.abs(parkX - zones[pz]) < PLAZA_HALF + PARK_HALF + 10) pOK = false;
+      }
+      if (pOK) break;
+      parkX = 320 + rng() * 960;
+    }
+    var park = { x: parkX, trees: [] };
+    var treeCount = 4 + Math.floor(rng() * 3);
+    for (i = 0; i < treeCount; i++) {
+      var tr = 9 + rng() * 7;
+      var blossoms = [];
+      for (var bl = 0; bl < 3; bl++) {
+        blossoms.push([(rng() * 2 - 1) * tr * 0.6, -(rng() * tr * 0.6)]);
+      }
+      park.trees.push({
+        x: parkX - 52 + i * (104 / (treeCount - 1)) + (rng() * 10 - 5),
+        r: tr,
+        blossoms: blossoms
+      });
+    }
+
+    var obstacles = [];
+    for (i = 0; i < zones.length; i++) obstacles.push({ x: zones[i], half: PLAZA_HALF });
+    obstacles.push({ x: parkX, half: PARK_HALF });
 
     function clearOfPlazas(px, pw) {
-      for (var z = 0; z < zones.length; z++) {
-        if (px < zones[z] + PLAZA_HALF && px + pw > zones[z] - PLAZA_HALF) {
-          px = zones[z] + PLAZA_HALF + 8;
+      for (var z = 0; z < obstacles.length; z++) {
+        if (px < obstacles[z].x + obstacles[z].half && px + pw > obstacles[z].x - obstacles[z].half) {
+          px = obstacles[z].x + obstacles[z].half + 8;
           z = -1;                                 // recheck all zones from the new x
         }
       }
@@ -346,12 +376,13 @@
       }
     }
 
-    return { lots: lots, bg: bg, queue: queue, densify: densify, stars: stars, landmarks: landmarks };
+    return { lots: lots, bg: bg, queue: queue, densify: densify, stars: stars, landmarks: landmarks, park: park };
   }
 
   var plan = generatePlan();
   var city = plan.lots;
   var bgCity = plan.bg;
+  var park = plan.park;
   var allBuildings = city.concat(bgCity);
   var stars = plan.stars;
   var landmarks = plan.landmarks;
@@ -478,6 +509,79 @@
       vr: 9 + rng6() * 7,
       life: 0
     });
+  }
+
+  /* ---------------- civic calendar ---------------- */
+  /* Sixteen real seconds to a civic month; the seasons turn even while
+     the lever is DORMANT — time passes in a paused city too. December
+     strings lights between the rooftops, October warms every window,
+     July throws the Founders' Day fireworks, January rings in the year. */
+
+  var MONTH_LEN = 16;
+  var MONTHS = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
+                'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
+  var calendar = { month: 3, year: 1958, t: 0 };   // every city opens in April 1958
+  var foundersTimer = -1;                          // countdown to the July show
+
+  /* ---------------- fireworks ---------------- */
+  /* Brass, burnt-orange and cream bursts over the skyline. Shows are
+     started by civic occasions (Founders' Day, new year, landmarks,
+     census milestones, a generous coin). */
+
+  var fw = { shells: [], sparks: [], show: 0, launchTimer: 0 };
+  var FW_COLORS = [BRASS, ORANGE, CREAM_HI];
+
+  function startShow(sec) {
+    if (reducedMotion.matches) return;
+    if (fw.show <= 0) document.dispatchEvent(new CustomEvent('municitron:fireworks'));
+    fw.show = Math.max(fw.show, sec);
+  }
+
+  function updateFireworks(dt) {
+    var i, p;
+    if (fw.show > 0) {
+      fw.show -= dt;
+      fw.launchTimer -= dt;
+      if (fw.launchTimer <= 0 && fw.shells.length < 6) {
+        fw.launchTimer = 0.35 + rng6() * 0.55;
+        fw.shells.push({
+          x: 240 + rng6() * 1120,
+          y: GROUND_Y,
+          vy: -(300 + rng6() * 130),
+          burstY: 100 + rng6() * 180,
+          color: FW_COLORS[Math.floor(rng6() * 3)]
+        });
+      }
+    }
+    for (i = fw.shells.length - 1; i >= 0; i--) {
+      p = fw.shells[i];
+      p.y += p.vy * dt;
+      p.vy += 60 * dt;
+      if (p.y <= p.burstY || p.vy > -50) {
+        var n = 20 + Math.floor(rng6() * 10);
+        for (var s = 0; s < n && fw.sparks.length < 240; s++) {
+          var ang = (s / n) * Math.PI * 2 + rng6() * 0.2;
+          var spd = 60 + rng6() * 110;
+          fw.sparks.push({
+            x: p.x, y: p.y,
+            vx: Math.cos(ang) * spd,
+            vy: Math.sin(ang) * spd,
+            life: 0,
+            max: 1.0 + rng6() * 0.5,
+            color: p.color
+          });
+        }
+        fw.shells.splice(i, 1);
+      }
+    }
+    for (i = fw.sparks.length - 1; i >= 0; i--) {
+      p = fw.sparks[i];
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += 70 * dt;
+      p.life += dt;
+      if (p.life > p.max) fw.sparks.splice(i, 1);
+    }
   }
 
   /* ---------------- municipal bulletin ---------------- */
@@ -699,6 +803,8 @@
         }
       }
 
+      updateFireworks(dt);
+
       // wrecking crews kick up dust at the shrinking roofline
       for (i = 0; i < city.length; i++) {
         var dz = city[i];
@@ -740,6 +846,7 @@
       if (!L.commissioned && growthIndex > 0 && target >= L.threshold) {
         L.commissioned = true;
         postBulletin(L.title + ' COMMISSIONED — FORM 7-B FILED');
+        startShow(5);
         document.dispatchEvent(new CustomEvent('municitron:landmark', {
           detail: { kind: L.kind, title: L.title }
         }));
@@ -760,7 +867,31 @@
       if (whole >= nextCensusNotice) {
         postBulletin('CENSUS MILESTONE — POP. ' + nextCensusNotice.toLocaleString('en-US'));
         nextCensusNotice += 10000;
+        startShow(4);
       }
+    }
+
+    // the civic calendar turns on its own clock, DORMANT or not
+    calendar.t += dt;
+    if (calendar.t >= MONTH_LEN) {
+      calendar.t -= MONTH_LEN;
+      calendar.month = (calendar.month + 1) % 12;
+      if (calendar.month === 0) {
+        calendar.year++;
+        postBulletin('A HAPPY NEW YEAR — A.D. ' + calendar.year);
+        startShow(6);
+      } else if (calendar.month === 6) {
+        postBulletin('FOUNDERS’ DAY JULY 4 — FIREWORKS ORDERED');
+        foundersTimer = MONTH_LEN * 0.2;
+      } else if (calendar.month === 11) {
+        postBulletin('MUNICIPAL LIGHT-UP — CREWS STRINGING THE STREET');
+      } else if (calendar.month === 2) {
+        postBulletin('PARK BLOSSOMS REPORTED — BRING A CAMERA');
+      }
+    }
+    if (foundersTimer >= 0) {
+      foundersTimer -= dt;
+      if (foundersTimer < 0) startShow(10);
     }
 
     // rotate the bulletin wire (its own clock — runs even in DORMANT)
@@ -1133,6 +1264,105 @@
     ctx.globalAlpha = 1;
   }
 
+  // the municipal park: bandstand, trees, seasonal dress — snow caps in
+  // winter weather, orange blossoms while the calendar reads spring
+  function drawPark(litLevel) {
+    var i, t;
+    var spring = calendar.month >= 2 && calendar.month <= 4;
+    var snowAmt = weatherLevel[2];
+    var bx = park.x;
+
+    ctx.fillStyle = TEAL_TRIM;                    // bandstand plinth
+    ctx.fillRect(bx - 24, GROUND_Y - 6, 48, 6);
+    if (litLevel > 0.55) {                        // warm lamp under the roof
+      ctx.fillStyle = GLOW_BRASS;
+      ctx.beginPath(); ctx.arc(bx, GROUND_Y - 18, 13, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = BRASS;                        // posts
+    ctx.fillRect(bx - 17, GROUND_Y - 26, 3, 20);
+    ctx.fillRect(bx + 14, GROUND_Y - 26, 3, 20);
+    ctx.fillStyle = CREAM_HI;                     // conical roof
+    ctx.beginPath();
+    ctx.moveTo(bx - 26, GROUND_Y - 26);
+    ctx.lineTo(bx, GROUND_Y - 44);
+    ctx.lineTo(bx + 26, GROUND_Y - 26);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = BRASS;                        // finial
+    ctx.beginPath(); ctx.arc(bx, GROUND_Y - 46, 2.5, 0, Math.PI * 2); ctx.fill();
+
+    for (i = 0; i < park.trees.length; i++) {
+      t = park.trees[i];
+      if (Math.abs(t.x - bx) < 32) continue;      // keep the bandstand clear
+      var cy = GROUND_Y - 14 - t.r * 0.7;
+      ctx.fillStyle = TEAL_TRIM;
+      ctx.fillRect(t.x - 2, GROUND_Y - 15, 4, 15);
+      ctx.fillStyle = '#235450';
+      ctx.beginPath(); ctx.arc(t.x, cy, t.r, 0, Math.PI * 2); ctx.fill();
+      if (snowAmt > 0.05) {                       // settled snow cap
+        ctx.globalAlpha = snowAmt;
+        ctx.fillStyle = CREAM_HI;
+        ctx.beginPath(); ctx.arc(t.x, cy, t.r, Math.PI, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      if (spring) {                               // blossom season
+        ctx.fillStyle = ORANGE;
+        ctx.beginPath();
+        for (var bl = 0; bl < t.blossoms.length; bl++) {
+          dotPath(t.x + t.blossoms[bl][0], cy + t.blossoms[bl][1], 2);
+        }
+        ctx.fill();
+      }
+    }
+  }
+
+  // December: festive strings sag between neighboring rooftops
+  function drawStringLights(litLevel) {
+    if (calendar.month !== 11) return;
+    var dots = [];
+    ctx.strokeStyle = TEAL_TRIM;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    for (var i = 0; i < city.length - 1; i++) {
+      var a = city[i], b = city[i + 1];
+      if (a.progress !== 1 || b.progress !== 1) continue;
+      var gap = b.x - (a.x + a.w);
+      if (gap < 6 || gap > 90) continue;          // never across a plaza or the park
+      var ax = a.x + a.w - 3, ay = GROUND_Y - a.h + 4;
+      var bx = b.x + 3, by = GROUND_Y - b.h + 4;
+      var sagY = Math.max(ay, by) + 18;
+      var cx = (ax + bx) / 2, cyq = 2 * sagY - (ay + by) / 2;
+      ctx.moveTo(ax, ay);
+      ctx.quadraticCurveTo(cx, cyq, bx, by);
+      for (var tq = 0.2; tq <= 0.81; tq += 0.15) {
+        var mt = 1 - tq;
+        dots.push([
+          mt * mt * ax + 2 * mt * tq * cx + tq * tq * bx,
+          mt * mt * ay + 2 * mt * tq * cyq + tq * tq * by + 3
+        ]);
+      }
+    }
+    ctx.stroke();
+    brassDots(dots, 2, Math.max(litLevel, 0.6));  // festive bulbs always glow a touch
+  }
+
+  function drawFireworks() {
+    if (reducedMotion.matches) return;
+    var i, p;
+    ctx.fillStyle = CREAM_HI;                     // shells climbing
+    ctx.globalAlpha = 0.8;
+    for (i = 0; i < fw.shells.length; i++) {
+      p = fw.shells[i];
+      ctx.fillRect(p.x - 1, p.y, 2, 8);
+    }
+    for (i = 0; i < fw.sparks.length; i++) {
+      p = fw.sparks[i];
+      ctx.globalAlpha = Math.max(0, 0.95 * (1 - p.life / p.max));
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3);
+    }
+    ctx.globalAlpha = 1;
+  }
+
   // a tower crane serves every front-row lot that is rising or coming
   // down — the lever's drama made visible. The hook carries a girder on
   // the way up and swings a wrecking ball on the way down.
@@ -1238,8 +1468,9 @@
     // four batched passes: flat halo glows for scheduled-lit panes first,
     // then every pane's dot on top (brass, plus rare orange accents).
     // A pane whose flicker override is running shows the opposite of its
-    // schedule — someone in there just hit the switch.
-    ctx.fillStyle = GLOW_BRASS;
+    // schedule — someone in there just hit the switch. October swaps the
+    // whole city's halos to burnt orange (harvest festival custom).
+    ctx.fillStyle = calendar.month === 9 ? GLOW_ORANGE : GLOW_BRASS;
     ctx.beginPath();
     for (i = 0; i < b.windows.length; i++) {
       wd = b.windows[i];
@@ -1367,12 +1598,15 @@
 
     for (i = 0; i < bgCity.length; i++) drawBuilding(bgCity[i], litLevel);
     for (i = 0; i < landmarks.length; i++) drawLandmark(landmarks[i], litLevel);
+    drawPark(litLevel);
     for (i = 0; i < city.length; i++) drawBuilding(city[i], litLevel);
     for (i = 0; i < city.length; i++) drawCrane(city[i]);
+    drawStringLights(litLevel);
     drawDust();
 
     drawCars(litLevel);
     drawMonorail(litLevel);
+    drawFireworks();
 
     drawRain(weatherLevel[1], skyLum);
     drawSnow(weatherLevel[2]);
@@ -1433,6 +1667,8 @@
     city: city,
     bg: bgCity,
     landmarks: landmarks,
+    calendar: calendar,
+    park: park,
     ambient: { monorail: monorail, sputnik: sputnik, airship: airship, cars: cars },
     reducedMotion: reducedMotion
   };
