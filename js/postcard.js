@@ -129,14 +129,17 @@
       c.restore();
     }
 
-    // fine print, with the seed as the transmission number
-    setFont(c, '600', 9.5, 'Jost, Futura, sans-serif', 2.5);
-    c.fillStyle = 'rgba(74, 53, 16, 0.55)';
-    c.fillText(
+    // fine print, with the seed as the transmission number and the
+    // works' present-day address for whoever the card reaches
+    var finePrint =
       'NAZARBAN INSTRUMENT WORKS · MODEL M-58 OUTPUT · FORM PC-1 · TRANSMISSION Nº ' +
-      seed.toString(16).toUpperCase(),
-      FACE_L * S, (CARD_H - 51) * S
-    );
+      seed.toString(16).toUpperCase() + ' · NAZARBANAI.COM';
+    setFont(c, '600', 9.5, 'Jost, Futura, sans-serif', 2.5);
+    if (c.measureText(finePrint).width > (FACE_R - FACE_L) * S) {
+      setFont(c, '600', 9.5, 'Jost, Futura, sans-serif', 1.5);
+    }
+    c.fillStyle = 'rgba(74, 53, 16, 0.55)';
+    c.fillText(finePrint, FACE_L * S, (CARD_H - 51) * S);
     if ('letterSpacing' in c) c.letterSpacing = '0px';
 
     pc.toBlob(function (blob) {

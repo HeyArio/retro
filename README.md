@@ -3,6 +3,11 @@
 A 1958 municipal simulation console by Nazarban Instrument Works.
 Static frontend — no build step, no dependencies. Vanilla JS + Canvas 2D.
 
+Nazarban Instrument Works survives to this day: it builds thinking
+machines now, as [Nazarban AI](https://nazarbanai.com). The nameplate
+on the console footer, the fine print on every transmitted postcard,
+and the WORKS TODAY line in the maintenance hatch all point home.
+
 ## Files
 
 - `index.html` — page markup (console + postcard overlay)

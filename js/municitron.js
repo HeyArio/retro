@@ -692,6 +692,26 @@
         row.appendChild(dd);
         rows.appendChild(row);
       }
+      // the works' registry plate: the manufacturer survives to this day,
+      // building thinking machines — the one live wire in the whole hatch
+      var reg = document.createElement('dl');
+      reg.className = 'hatch-row';
+      var regT = document.createElement('dt');
+      regT.textContent = 'THE WORKS TODAY';
+      var regD = document.createElement('dd');
+      var regA = document.createElement('a');
+      regA.href = 'https://nazarbanai.com';
+      regA.target = '_blank';
+      regA.rel = 'noopener';
+      regA.textContent = 'NAZARBANAI.COM';
+      regA.title = 'Nazarban Instrument Works builds thinking machines now — Nazarban AI';
+      regA.style.color = 'inherit';
+      regA.style.textDecoration = 'underline dotted';
+      regA.style.textUnderlineOffset = '3px';
+      regD.appendChild(regA);
+      reg.appendChild(regT);
+      reg.appendChild(regD);
+      rows.appendChild(reg);
     }
 
     key.addEventListener('click', function () {
@@ -719,6 +739,23 @@
       speakerKey.setAttribute('aria-pressed', on ? 'false' : 'true');
     });
     speakerKey.addEventListener('click', function () { speakerUnit.click(); });
+  })();
+
+  // the manufacturer's nameplate on the console footer links to the
+  // works' present-day address — same face, same type, just live wire
+  (function () {
+    var foot = document.querySelector('.console-footer');
+    if (!foot) return;
+    var a = document.createElement('a');
+    a.href = 'https://nazarbanai.com';
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.title = 'Nazarban Instrument Works, est. 1958 — today Nazarban AI (nazarbanai.com)';
+    a.textContent = foot.textContent;
+    a.style.color = 'inherit';
+    a.style.textDecoration = 'none';
+    foot.textContent = '';
+    foot.appendChild(a);
   })();
 
   /* ---------------- scale machine to viewport ---------------- */
