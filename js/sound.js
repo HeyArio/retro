@@ -82,6 +82,30 @@
   function chime()  { blip(660, 0.22, 0.4, 'sine'); blip(880, 0.34, 0.35, 'sine', 0.16); }
   function beep()   { blip(800, 0.09, 0.3, 'sine'); blip(800, 0.09, 0.3, 'sine', 0.35); }
 
+  // the fire station's steam whistle: two reeds a third apart, a hard
+  // rise, a long held cry, and a sag as the steam runs out
+  function steamWhistle() {
+    if (!enabled || !ac) return;
+    var t = ac.currentTime;
+    [523, 659].forEach(function (f, i) {
+      var o = ac.createOscillator();
+      var g = ac.createGain();
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(f * 0.9, t);
+      o.frequency.exponentialRampToValueAtTime(f, t + 0.12);
+      o.frequency.setValueAtTime(f, t + 0.9);
+      o.frequency.exponentialRampToValueAtTime(f * 0.94, t + 1.35);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.22 - i * 0.09, t + 0.08);
+      g.gain.setValueAtTime(0.22 - i * 0.09, t + 0.95);
+      g.gain.exponentialRampToValueAtTime(0.0005, t + 1.4);
+      o.connect(g);
+      g.connect(master);
+      o.start(t);
+      o.stop(t + 1.5);
+    });
+  }
+
   /* ---------------- the broadcast service ---------------- */
   /* A short pentatonic phrase now and then, quiet enough to live under
      the mains hum. Runs only while the speaker is on — and it reads
@@ -143,6 +167,9 @@
   document.addEventListener('municitron:record', function () { chime(); });
   document.addEventListener('municitron:concert', function () { phrase(); });
   document.addEventListener('municitron:daylog', function () { chime(); });
+  document.addEventListener('municitron:wirephoto', function () { chime(); });
+  document.addEventListener('municitron:whistle', function () { steamWhistle(); });
+  document.addEventListener('municitron:season', function () { clunk(); });
 
   // the VOLUME knob on the auxiliary rail (detail: 0 / 1 / 2); the
   // clunk confirms the change at the new level

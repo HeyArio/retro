@@ -793,16 +793,29 @@ html, body {
    ========================================================================== */
 
 .auxiliary {
-  height: 46px;
+  height: 84px;
   flex: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 18px;
   padding: 0 30px;
   background: linear-gradient(180deg, var(--teal-lo) 0%, #142e2a 100%);
   border-top: 3px solid var(--teal-trim);
   box-shadow: inset 0 1px 0 rgba(232, 220, 192, 0.10), inset 0 -8px 16px rgba(0, 0, 0, 0.35);
+}
+
+.aux-bank {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.aux-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
 }
 
 .aux-legend {
@@ -929,4 +942,124 @@ html, body {
   min-width: 122px;
   text-align: center;
   box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(232, 220, 192, 0.08);
+}
+
+/* the calendar window is a dial as well: a click turns the month */
+button.aux-window { cursor: pointer; }
+button.aux-window:hover { color: var(--cream-hi); }
+
+/* ==========================================================================
+   Maintenance hatch — field diagnostics behind a screwed-down plate
+   ========================================================================== */
+
+.hatch-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(13, 26, 24, 0.6);
+}
+
+.hatch-overlay[hidden] { display: none; }
+
+.hatch-plate {
+  position: relative;
+  width: min(430px, calc(100vw - 40px));
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  padding: 26px 30px 22px;
+  background: linear-gradient(165deg, var(--teal-hi) 0%, var(--teal) 30%, var(--teal-lo) 100%);
+  border: 2px solid var(--teal-trim);
+  border-radius: 8px;
+  box-shadow:
+    inset 0 1px 0 rgba(232, 220, 192, 0.15),
+    inset 0 -12px 24px rgba(0, 0, 0, 0.35),
+    0 24px 60px rgba(0, 0, 0, 0.6);
+}
+
+.hatch-title {
+  font-family: var(--display);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  text-align: center;
+  color: var(--brass-light);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+}
+
+.hatch-sub {
+  font-family: var(--display);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-align: center;
+  color: rgba(232, 220, 192, 0.5);
+  margin: 6px 0 16px;
+}
+
+.hatch-rows {
+  border-top: 1px solid rgba(232, 220, 192, 0.15);
+}
+
+.hatch-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding: 7px 2px 6px;
+  border-bottom: 1px solid rgba(232, 220, 192, 0.15);
+}
+
+.hatch-row dt {
+  font-family: var(--display);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--label);
+  margin: 0;
+}
+
+.hatch-row dd {
+  font-family: var(--display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  color: var(--cream-hi);
+  margin: 0;
+  text-align: right;
+}
+
+.hatch-foot {
+  font-family: var(--display);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-align: center;
+  color: var(--olive);
+  margin: 14px 0 16px;
+}
+
+.hatch-close {
+  display: block;
+  margin: 0 auto;
+  font-family: var(--display);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 2.5px;
+  color: var(--label);
+  background: linear-gradient(180deg, var(--teal-hi) 0%, var(--teal) 55%, var(--teal-lo) 100%);
+  border: 1px solid var(--teal-trim);
+  border-radius: 4px;
+  padding: 8px 18px 7px;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(232, 220, 192, 0.18), 0 2px 0 #0d1f1c, 0 3px 6px rgba(0, 0, 0, 0.4);
+}
+
+.hatch-close:hover { color: var(--cream-hi); }
+
+.hatch-close:active {
+  transform: translateY(2px);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 0 #0d1f1c;
 }

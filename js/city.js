@@ -669,6 +669,7 @@
     try {
       var m = JSON.parse(localStorage.getItem('municitron-m58') || '{}');
       if (!m.records) m.records = {};
+      if (!m.tally) m.tally = {};                 // running counts for the hatch
       if (!m.firstVisit) m.firstVisit = Date.now();
       m.visits = (m.visits || 0) + 1;
       m.prevVisit = m.lastVisit || 0;
@@ -683,6 +684,13 @@
     memory.records[key] = new Date().toISOString();
     try { localStorage.setItem('municitron-m58', JSON.stringify(memory)); } catch (err) {}
     postBulletin('MUNICIPAL LEDGER — ' + notice);
+  }
+
+  // lifetime counters, read back through the maintenance hatch
+  function tally(key) {
+    if (!memory) return;
+    memory.tally[key] = (memory.tally[key] || 0) + 1;
+    try { localStorage.setItem('municitron-m58', JSON.stringify(memory)); } catch (err) {}
   }
 
   /* ---------------- weather particles (separate rng stream) ------------ */
@@ -840,6 +848,7 @@
   // reel selector, and a throttle for aimed fireworks
   var notes = [];
   var reelShift = 0;
+  var whistleT = 0;                               // noon whistle: folks stand still
 
   // KNAZ-TV: the telecast overlay (typed code on the console)
   var telecast = false;
@@ -962,6 +971,33 @@
                 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
   var calendar = { month: 3, year: 1958, t: 0 };   // every city opens in April 1958
   var foundersTimer = -1;                          // countdown to the July show
+
+  // one turn of the civic calendar, with all the customs the new month
+  // brings — the simulation clock calls this every 16 real seconds, and
+  // a click on the rail's calendar window calls it early
+  function advanceMonth() {
+    calendar.month = (calendar.month + 1) % 12;
+    if (calendar.month === 0) {
+      calendar.year++;
+      postBulletin('A HAPPY NEW YEAR — A.D. ' + calendar.year);
+      startShow(6);
+    } else if (calendar.month === 6) {
+      postBulletin('FOUNDERS’ DAY JULY 4 — FIREWORKS ORDERED');
+      foundersTimer = MONTH_LEN * 0.2;
+      startParade('FOUNDERS’ DAY PARADE ON MAIN STREET — WAVE');
+    } else if (calendar.month === 11) {
+      postBulletin('MUNICIPAL LIGHT-UP — CREWS STRINGING THE STREET');
+      if (harbor) postBulletin('HARBOR ICED — FERRY SUSPENDED UNTIL THAW');
+    } else if (calendar.month === 2) {
+      postBulletin('PARK BLOSSOMS REPORTED — BRING A CAMERA');
+      if (harbor) postBulletin('THAW REPORTED — FERRY SERVICE RESUMES');
+    } else if (calendar.month === 8) {
+      postBulletin('SCHOOL RESUMES — STREETS QUIET UNTIL THREE O’CLOCK');
+    } else if (calendar.month === 10) {
+      postBulletin('ELECTION DAY — WEMBLY vs. WEMBLY (UNOPPOSED)');
+      postBulletin('WEMBLY RE-ELECTED — MANDATE: “CONTINUE”');
+    }
+  }
 
   /* ---------------- fireworks ---------------- */
   /* Brass, burnt-orange and cream bursts over the skyline. Shows are
@@ -1257,6 +1293,7 @@
   document.addEventListener('municitron:transmit', function () {
     postBulletin('POSTCARD TRANSMITTED — FORM PC-1 FILED');
     lastTransmit = bulletin.clock;
+    tally('postcards');
   });
 
   // technicians' knob ritual: RAIN, SNOW, RAIN, AURORA summons the object
@@ -1301,6 +1338,7 @@
       postBulletin('ANOTHER KIND CITIZEN — THE TOWN SALUTES YOU');
     }
     recordFirst('benefaction', 'FIRST BENEFACTION ENTERED');
+    tally('coins');
     startShow(3);
   });
 
@@ -1315,6 +1353,7 @@
   document.addEventListener('municitron:newsreel-done', function () {
     postBulletin('NEWSREEL DEVELOPED — SCREENING IN THE LOBBY');
     recordFirst('newsreel', 'FIRST NEWSREEL FILMED');
+    tally('newsreels');
   });
 
   // the census gauge issues incorporation papers (see js/certificate.js)
@@ -1404,6 +1443,7 @@
 
     if (!reducedMotion.matches) {
       effT += dt;
+      whistleT = Math.max(0, whistleT - dt);
 
       // monorail: departs on its own clock, alternating direction
       if (monorail.active) {
@@ -1665,7 +1705,8 @@
       }
 
       // citizens stroll while the town is awake — and stop for fireworks
-      var gawking = fw.show > 0 || fw.sparks.length > 0;
+      // (or wherever they stand when the noon whistle blows)
+      var gawking = fw.show > 0 || fw.sparks.length > 0 || whistleT > 0;
       var wantFolks = Math.max(1, Math.min(folks.length, 1 + Math.floor(lastEmitted / 6000)));
       if (timeTo === 0 || timeTo === 6 || timeTo === 7) wantFolks = Math.min(wantFolks, 2);
       var walking = 0;
@@ -1852,27 +1893,7 @@
     calendar.t += dt;
     if (calendar.t >= MONTH_LEN) {
       calendar.t -= MONTH_LEN;
-      calendar.month = (calendar.month + 1) % 12;
-      if (calendar.month === 0) {
-        calendar.year++;
-        postBulletin('A HAPPY NEW YEAR — A.D. ' + calendar.year);
-        startShow(6);
-      } else if (calendar.month === 6) {
-        postBulletin('FOUNDERS’ DAY JULY 4 — FIREWORKS ORDERED');
-        foundersTimer = MONTH_LEN * 0.2;
-        startParade('FOUNDERS’ DAY PARADE ON MAIN STREET — WAVE');
-      } else if (calendar.month === 11) {
-        postBulletin('MUNICIPAL LIGHT-UP — CREWS STRINGING THE STREET');
-        if (harbor) postBulletin('HARBOR ICED — FERRY SUSPENDED UNTIL THAW');
-      } else if (calendar.month === 2) {
-        postBulletin('PARK BLOSSOMS REPORTED — BRING A CAMERA');
-        if (harbor) postBulletin('THAW REPORTED — FERRY SERVICE RESUMES');
-      } else if (calendar.month === 8) {
-        postBulletin('SCHOOL RESUMES — STREETS QUIET UNTIL THREE O’CLOCK');
-      } else if (calendar.month === 10) {
-        postBulletin('ELECTION DAY — WEMBLY vs. WEMBLY (UNOPPOSED)');
-        postBulletin('WEMBLY RE-ELECTED — MANDATE: “CONTINUE”');
-      }
+      advanceMonth();
     }
     if (foundersTimer >= 0) {
       foundersTimer -= dt;
@@ -2029,12 +2050,53 @@
   // the PARADE key: the band doesn't wait for July
   document.addEventListener('municitron:parade', function () {
     startParade('PARADE ORDERED — THE BAND FORMS UP ON MAIN STREET');
+    tally('parades');
   });
 
   // the DAY LOG key prints the wire's recent traffic (js/daylog.js
   // composes Form DL-7); the printing itself makes the wire, of course
   document.addEventListener('municitron:daylog', function () {
     postBulletin('DAY LOG PRINTED — FORM DL-7');
+  });
+
+  // the calendar window doubles as a dial: a click turns the month
+  // early, customs and all
+  document.addEventListener('municitron:season', function () {
+    calendar.t = 0;
+    advanceMonth();
+  });
+
+  // the WHISTLE key: the fire station marks noon whenever the
+  // commissioner says it's noon — folks stop mid-stride, a rooftop
+  // flock objects, and every boiler in town lets off steam
+  document.addEventListener('municitron:whistle', function () {
+    postBulletin('NOON WHISTLE — LUNCH PAILS OPEN ACROSS TOWN');
+    if (reducedMotion.matches) return;
+    whistleT = 3;
+    var roost = city[Math.floor(rng6() * city.length)];
+    if (roost.progress === 1) {
+      spawnFlock(roost.x + roost.w / 2, GROUND_Y - roost.h - 12, rng6() < 0.5 ? -1 : 1);
+    }
+    for (var s = 0; s < city.length; s++) {
+      var sb = city[s];
+      if (!sb.chimney || sb.progress !== 1) continue;
+      for (var n = 0; n < 3 && smoke.length < SMOKE_MAX; n++) {
+        smoke.push({
+          x: sb.x + sb.chimney * sb.w,
+          y: GROUND_Y - sb.h - 14 - n * 8,
+          r: 4 + rng6() * 3,
+          vy: -(16 + rng6() * 10),
+          vx: -4 - 5 * weatherLevel[1],
+          life: 0,
+          max: 2 + rng6() * 1.5
+        });
+      }
+    }
+  });
+
+  // the WIRE PHOTO desk acknowledges its order (js/wirephoto.js prints)
+  document.addEventListener('municitron:wirephoto', function () {
+    postBulletin('WIRE PHOTO DISPATCHED — HOLD FOR THE EVENING EDITION');
   });
 
   // the canvas lives inside the CSS transform-scaled machine, so the
@@ -2690,7 +2752,8 @@
   // particular, one or two walking Comet on a leash
   function drawFolks() {
     if (reducedMotion.matches) return;
-    var gawk = fw.show > 0 || fw.sparks.length > 0;   // stopped for the show
+    var gawk = fw.show > 0 || fw.sparks.length > 0 ||  // stopped for the show
+               whistleT > 0;                           // or for the whistle
     for (var i = 0; i < folks.length; i++) {
       var p = folks[i];
       if (!p.active) continue;

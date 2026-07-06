@@ -157,24 +157,50 @@
       <div class="console-footer">NAZARBAN INSTRUMENT WORKS · EST. 1958</div>
     </div>
 
-    <!-- ============ AUXILIARY SERVICES RAIL ============ -->
+    <!-- ============ AUXILIARY SERVICES RAIL (two banks of keys) ============ -->
     <div class="auxiliary">
       <div class="aux-legend">AUXILIARY<br>SERVICES</div>
-      <button class="aux-key" id="aux-almanac" title="Issue the municipal almanac (Form CA-2)">ALMANAC</button>
-      <button class="aux-key" id="aux-daylog" title="Print the municipal wire's day log (Form DL-7)">DAY LOG</button>
-      <button class="aux-key" id="aux-concert" title="Strike up the bandstand">CONCERT</button>
-      <button class="aux-key" id="aux-parade" title="Order a parade down Main Street">PARADE</button>
-      <button class="aux-key" id="aux-salute" title="Commission a fireworks salute">SALUTE</button>
-      <button class="aux-key" id="aux-reel" title="Change the drive-in's picture">REEL</button>
-      <button class="aux-key" id="aux-newsreel" title="Record a 6-second newsreel">NEWSREEL</button>
-      <button class="aux-key" id="aux-telecast" title="Switch KNAZ-TV on or off">TELECAST</button>
-      <button class="aux-key" id="aux-testcard" title="Factory calibration card">TEST CARD</button>
-      <button class="aux-key aux-danger" id="aux-newtown" title="Survey a brand-new town (leaves this one)">NEW TOWN</button>
-      <button class="aux-key aux-toggle" id="aux-speaker" title="Toggle the valve speaker" aria-pressed="false">SPEAKER</button>
-      <div class="aux-volume" id="aux-volume" role="button" tabindex="0" aria-label="Speaker volume">
-        <div class="aux-volume-rotor" id="aux-volume-rotor"></div>
+      <div class="aux-bank">
+        <div class="aux-row">
+          <button class="aux-key" id="aux-concert" title="Strike up the bandstand">CONCERT</button>
+          <button class="aux-key" id="aux-parade" title="Order a parade down Main Street">PARADE</button>
+          <button class="aux-key" id="aux-salute" title="Commission a fireworks salute">SALUTE</button>
+          <button class="aux-key" id="aux-whistle" title="Blow the noon whistle">WHISTLE</button>
+          <button class="aux-key" id="aux-reel" title="Change the drive-in's picture">REEL</button>
+          <button class="aux-key" id="aux-newsreel" title="Record a 6-second newsreel">NEWSREEL</button>
+          <button class="aux-key" id="aux-telecast" title="Switch KNAZ-TV on or off">TELECAST</button>
+          <button class="aux-key" id="aux-testcard" title="Factory calibration card">TEST CARD</button>
+          <button class="aux-key aux-toggle" id="aux-attract" title="Let the machine stroll through the day on its own" aria-pressed="false">ATTRACT</button>
+        </div>
+        <div class="aux-row">
+          <button class="aux-key" id="aux-almanac" title="Issue the municipal almanac (Form CA-2)">ALMANAC</button>
+          <button class="aux-key" id="aux-daylog" title="Print the municipal wire's day log (Form DL-7)">DAY LOG</button>
+          <button class="aux-key" id="aux-wirephoto" title="Dispatch a duotone press photograph of the city">WIRE PHOTO</button>
+          <button class="aux-key" id="aux-hatch" title="Open the maintenance hatch — field diagnostics">HATCH</button>
+          <button class="aux-key aux-danger" id="aux-sister" title="Tune the machine to the sister city (leaves this one)">SISTER CITY</button>
+          <button class="aux-key aux-danger" id="aux-newtown" title="Survey a brand-new town (leaves this one)">NEW TOWN</button>
+          <button class="aux-key aux-toggle" id="aux-speaker" title="Toggle the valve speaker" aria-pressed="false">SPEAKER</button>
+          <div class="aux-volume" id="aux-volume" role="button" tabindex="0" aria-label="Speaker volume">
+            <div class="aux-volume-rotor" id="aux-volume-rotor"></div>
+          </div>
+          <button class="aux-window" id="aux-season" title="Civic calendar — click to turn the month">&nbsp;</button>
+        </div>
       </div>
-      <div class="aux-window" id="aux-season" title="Civic calendar">&nbsp;</div>
+    </div>
+  </div>
+
+  <!-- ============ MAINTENANCE HATCH (field diagnostics) ============ -->
+  <div class="hatch-overlay" id="hatch-overlay" hidden>
+    <div class="hatch-plate">
+      <div class="screw screw-tl"><i></i></div>
+      <div class="screw screw-tr"><i></i></div>
+      <div class="screw screw-bl"><i></i></div>
+      <div class="screw screw-br"><i></i></div>
+      <div class="hatch-title">MAINTENANCE HATCH</div>
+      <div class="hatch-sub">MODEL M-58 · FIELD DIAGNOSTICS · DO NOT ADJUST THE VALVES</div>
+      <div class="hatch-rows" id="hatch-rows"></div>
+      <div class="hatch-foot">VALVES: ALL GLOWING · GREASE: ADEQUATE · MORALE: CIVIC</div>
+      <button class="hatch-close" id="hatch-close">CLOSE HATCH</button>
     </div>
   </div>
 
@@ -214,6 +240,7 @@
 <script src="js/newsreel.js"></script>
 <script src="js/record.js"></script>
 <script src="js/daylog.js"></script>
+<script src="js/wirephoto.js"></script>
 <script src="js/sound.js"></script>
 <script src="js/municitron.js"></script>
 </body>

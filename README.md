@@ -53,18 +53,30 @@ transmits a postcard, **M** works the speaker switch. The GROWTH lever
 also really slides — grab it and drag; it snaps to the nearest detent.
 
 The city itself sits behind glass — look, don't touch. Everything
-civic runs from the **AUXILIARY SERVICES** rail under the console:
-**ALMANAC** (Form CA-2), **DAY LOG** (Form DL-7: a ticker-tape PNG of
-everything the municipal wire carried, stamped with civic dates),
-**CONCERT** (the bandstand strikes up, notes and all), **PARADE** (the
-band doesn't wait for July), **SALUTE** (a commissioned fireworks show
-with a ripple of window lights), **REEL** (change the drive-in's
-picture), **NEWSREEL**, **TELECAST** (KNAZ-TV), **TEST CARD**,
-**NEW TOWN** (arms in orange, asks "SURE?", then surveys a fresh seed
-with your dial settings carried along), a **SPEAKER** toggle with its
-own jewel lamp, a miniature bakelite **VOLUME** knob (LOW / STANDARD /
-FULL), and a **civic-calendar window** showing the city's own month
-and year ticking by.
+civic runs from the two-row **AUXILIARY SERVICES** rail under the
+console.
+
+Civic actions: **CONCERT** (the bandstand strikes up, notes and all),
+**PARADE** (the band doesn't wait for July), **SALUTE** (a
+commissioned fireworks show with a ripple of window lights),
+**WHISTLE** (the fire station marks noon: folks stop mid-stride, a
+flock objects, every boiler lets off steam), **REEL** (change the
+drive-in's picture), **NEWSREEL**, **TELECAST** (KNAZ-TV), **TEST
+CARD**, and an **ATTRACT** toggle that puts the machine on its arcade
+stroll without waiting out the idle timer.
+
+Paperwork and travel: **ALMANAC** (Form CA-2), **DAY LOG** (Form DL-7:
+a ticker-tape PNG of everything the municipal wire carried, stamped
+with civic dates), **WIRE PHOTO** (the living canvas re-shot as a
+duotone press photograph with scanlines, crop marks and a typeset
+caption), **HATCH** (a screwed-down diagnostics plate: serial number,
+commission date, postcards transmitted, coins received, uptime this
+shift), **SISTER CITY** (tune the machine to the almanac's sister
+seed) and **NEW TOWN** (survey a fresh seed) — both travel keys arm
+in orange and ask "SURE?" first — plus a **SPEAKER** toggle, a
+miniature bakelite **VOLUME** knob (LOW / STANDARD / FULL), and the
+**civic-calendar window**, which is a dial too: click it to turn the
+month early, customs and all.
 
 - **WEATHER** knob — CLEAR / RAIN / SNOW / AURORA (the needle can't hold
   steady in rain; a change startles the rooftop flocks)

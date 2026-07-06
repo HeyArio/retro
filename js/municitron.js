@@ -419,6 +419,7 @@
 
   var lastInteraction = Date.now();
   var lastAttractStep = 0;
+  var attractOn = false;                 // the ATTRACT key skips the idle wait
 
   function wake() { lastInteraction = Date.now(); }
   machine.addEventListener('pointerdown', wake);
@@ -427,7 +428,8 @@
   setInterval(function () {
     if (reduced.matches || !overlay.hidden || document.visibilityState !== 'visible') return;
     var now = Date.now();
-    if (now - lastInteraction < 90000 || now - lastAttractStep < 12000) return;
+    if (!attractOn && now - lastInteraction < 90000) return;
+    if (now - lastAttractStep < 12000) return;
     lastAttractStep = now;
     setTime(state.time + 1);
     // idle skies wander too, once in a while
@@ -482,19 +484,21 @@
 
   auxWire('aux-almanac', 'almanac', xmitLamp);
   auxWire('aux-daylog', 'daylog', xmitLamp);
+  auxWire('aux-wirephoto', 'wirephoto', xmitLamp, 1800);
   auxWire('aux-concert', 'concert');
   auxWire('aux-parade', 'parade');
   auxWire('aux-salute', 'salute', xmitLamp, 1800);
+  auxWire('aux-whistle', 'whistle');
   auxWire('aux-reel', 'reel');
   auxWire('aux-newsreel', 'newsreel', xmitLamp, 6200);
   auxWire('aux-telecast', 'telecast', coinLamp, 1200);
   auxWire('aux-testcard', 'testpattern', xmitLamp, 1800);
 
-  // the NEW TOWN key surveys a fresh seed — but it leaves this city
-  // behind, so it asks twice: first press arms it, second (within 3s)
-  // departs with the current dial settings carried along
-  (function () {
-    var key = $('aux-newtown');
+  // travel keys leave this city behind, so they ask twice: first press
+  // arms the key in burnt orange, a second within 3s actually departs
+  // (with the current dial settings carried along in the URL)
+  function armTwice(id, label, go) {
+    var key = $(id);
     if (!key) return;
     var armed = false;
     var timer = null;
@@ -506,17 +510,30 @@
         timer = setTimeout(function () {
           armed = false;
           key.classList.remove('armed');
-          key.textContent = 'NEW TOWN';
+          key.textContent = label;
         }, 3000);
         return;
       }
       clearTimeout(timer);
-      key.textContent = 'SURVEYING…';
-      var seed = (Math.random() * 0x100000000) >>> 0;
-      window.location.href = '?seed=' + seed +
-        '&t=' + state.time + '&w=' + state.weather + '&g=' + state.growth;
+      go(key);
     });
-  })();
+  }
+
+  function departTo(seed, key, verb) {
+    key.textContent = verb;
+    window.location.href = '?seed=' + seed +
+      '&t=' + state.time + '&w=' + state.weather + '&g=' + state.growth;
+  }
+
+  armTwice('aux-newtown', 'NEW TOWN', function (key) {
+    departTo((Math.random() * 0x100000000) >>> 0, key, 'SURVEYING…');
+  });
+
+  armTwice('aux-sister', 'SISTER CITY', function (key) {
+    var M = window.MUNICITRON_CITY;
+    if (!M || !M.almanac || typeof M.almanac.sisterSeed !== 'number') return;
+    departTo(M.almanac.sisterSeed, key, 'TUNING…');
+  });
 
   // the VOLUME knob steps LOW / STANDARD / FULL (js/sound.js listens);
   // the pointer swings between three detents like the console knobs
@@ -544,7 +561,8 @@
   })();
 
   // the civic-calendar window reads the city's own months (16 real
-  // seconds each); a light poll is plenty
+  // seconds each; a light poll is plenty) — and it's a dial too:
+  // clicking it turns the month early, customs and all
   (function () {
     var win = $('aux-season');
     if (!win) return;
@@ -554,8 +572,96 @@
       var text = M.months[M.calendar.month] + ' ' + M.calendar.year;
       if (win.textContent !== text) win.textContent = text;
     }
+    win.addEventListener('click', function () {
+      document.dispatchEvent(new CustomEvent('municitron:season'));
+      refresh();
+    });
     refresh();
     setInterval(refresh, 1000);
+  })();
+
+  // the ATTRACT toggle puts the machine on its arcade stroll right now,
+  // instead of waiting out the 90-second idle timer; the jewel shows it
+  (function () {
+    var key = $('aux-attract');
+    if (!key) return;
+    key.addEventListener('click', function () {
+      attractOn = !attractOn;
+      key.setAttribute('aria-pressed', attractOn ? 'true' : 'false');
+      if (attractOn) lastAttractStep = 0;          // first step within a second
+    });
+  })();
+
+  // the maintenance hatch: the machine's own diagnostics, read straight
+  // off the municipal ledger — a plate you unscrew, not a menu
+  (function () {
+    var hatch = $('hatch-overlay');
+    var rows = $('hatch-rows');
+    var key = $('aux-hatch');
+    var close = $('hatch-close');
+    if (!hatch || !rows || !key || !close) return;
+    var shiftStart = Date.now();
+
+    function fmtDate(ms) {
+      try {
+        return new Date(ms).toLocaleDateString('en-US',
+          { year: 'numeric', month: 'short', day: 'numeric' }).toUpperCase();
+      } catch (err) { return '—'; }
+    }
+
+    function citiesGoverned() {
+      var n = 0;
+      try {
+        for (var i = 0; i < localStorage.length; i++) {
+          if (localStorage.key(i).indexOf('municitron-m58-city-') === 0) n++;
+        }
+      } catch (err) {}
+      return Math.max(1, n);
+    }
+
+    function fill() {
+      var M = window.MUNICITRON_CITY || {};
+      var L = M.ledger || {};
+      var t = L.tally || {};
+      var up = Math.floor((Date.now() - shiftStart) / 1000);
+      var pairs = [
+        ['SERIAL Nº', typeof M.seed === 'number' ? String(M.seed) : '—'],
+        ['CURRENT POST', 'CITY OF ' + (M.name || 'UNKNOWN')],
+        ['COMMISSIONED', L.firstVisit ? fmtDate(L.firstVisit) : '—'],
+        ['INSPECTIONS LOGGED', String(L.visits || 1)],
+        ['CITIES GOVERNED', String(citiesGoverned())],
+        ['POSTCARDS TRANSMITTED', String(t.postcards || 0)],
+        ['COINS RECEIVED', String(t.coins || 0)],
+        ['NEWSREELS FILMED', String(t.newsreels || 0)],
+        ['PARADES ORDERED', String(t.parades || 0)],
+        ['REQUESTS HONORED', String(L.gratitude || 0)],
+        ['UPTIME THIS SHIFT', Math.floor(up / 60) + 'M ' + (up % 60) + 'S']
+      ];
+      rows.innerHTML = '';
+      for (var i = 0; i < pairs.length; i++) {
+        var row = document.createElement('dl');
+        row.className = 'hatch-row';
+        var dt = document.createElement('dt');
+        dt.textContent = pairs[i][0];
+        var dd = document.createElement('dd');
+        dd.textContent = pairs[i][1];
+        row.appendChild(dt);
+        row.appendChild(dd);
+        rows.appendChild(row);
+      }
+    }
+
+    key.addEventListener('click', function () {
+      fill();
+      hatch.hidden = false;
+    });
+    close.addEventListener('click', function () { hatch.hidden = true; });
+    hatch.addEventListener('click', function (e) {
+      if (e.target === hatch) hatch.hidden = true;
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') hatch.hidden = true;
+    });
   })();
 
   // the SPEAKER key works the same switch as the POWER lamp (js/sound.js
@@ -579,7 +685,7 @@
      console block itself never changes shape. The city renderer is told
      the new logical sim height via 'municitron:viewport'. */
 
-  var PANEL_H = 346;                             // console 300 + auxiliary rail 46
+  var PANEL_H = 384;                             // console 300 + auxiliary rail 84
   var simEl = document.querySelector('.sim');
   var lastSimH = 600;
 
