@@ -44,19 +44,21 @@ real evening city by the machine itself).
 ## Controls
 
 The machine fills the browser window at any size: the sim viewport
-absorbs the extra height (tall screens get more sky; short-wide
-screens crop the tallest spires, cinema-style).
+absorbs the extra height (tall screens get more sky; short screens
+scale the whole skyline down so no spire is ever cropped).
 
 Everything below also works from the keyboard: **←/→** turn the TIME
 dial, **↑/↓** work the GROWTH lever, **1–4** dial the WEATHER, **P**
 transmits a postcard, **M** works the speaker switch. The GROWTH lever
 also really slides — grab it and drag; it snaps to the nearest detent.
 
-The city itself is a control surface too: **click the sky** to launch
-an aimed firework, **click a building** to ripple its window lights,
-**click the bandstand** for an impromptu tune (notes and all), **click
-a park tree** to shake leaves loose, and **click the drive-in screen**
-after dark to change the picture.
+The city itself sits behind glass — look, don't touch. Everything you
+could once click on the canvas now has a labelled key on the
+**AUXILIARY SERVICES** rail under the console: **ALMANAC** (Form CA-2),
+**CONCERT** (the bandstand strikes up, notes and all), **SALUTE** (a
+commissioned fireworks show with a ripple of window lights), **REEL**
+(change the drive-in's picture), **NEWSREEL**, **TELECAST** (KNAZ-TV),
+**TEST CARD**, and a **SPEAKER** toggle with its own jewel lamp.
 
 - **WEATHER** knob — CLEAR / RAIN / SNOW / AURORA (the needle can't hold
   steady in rain; a change startles the rooftop flocks)
@@ -70,10 +72,11 @@ after dark to change the picture.
   overprints (NIGHT AIRMAIL, WINTER CARNIVAL EDITION, AURORA SPECIAL)
 - **Coin slot** — opens the tip jar; the first coin funds the town's
   streetlamps, every coin after gets a fireworks salute
-- **XMIT lamp** — click to record a six-second newsreel (WebM download)
-- **City plate on the canvas** — click "CITY OF …" for the municipal
-  almanac (Form CA-2): founding year, chief exports, disputed rainfall,
-  and the sister city with a real `?seed=` address you can visit
+- **XMIT lamp / NEWSREEL key** — records a six-second newsreel (WebM
+  download)
+- **ALMANAC key** — issues the municipal almanac (Form CA-2): founding
+  year, chief exports, disputed rainfall, and the sister city with a
+  real `?seed=` address you can visit
 - **POWER lamp** — click to toggle the valve audio unit, which also
   carries the MUNICITRON BROADCAST SERVICE: sparse generative celesta
   phrases in A-major pentatonic, every half minute or so

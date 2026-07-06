@@ -515,6 +515,45 @@
     buildQueue.shift().progress = 1;
   }
 
+  /* ---------------- vertical fit: the skyline scales, never crops ------ */
+  /* The plan is drawn in the original 600-tall space (ground at 552,
+     tallest spire ~470). A short viewport used to decapitate the towers;
+     now every planned height — buildings, replacements, window offsets,
+     landmarks, the hill — carries its native `base` measure and is
+     rescaled by CITY_K whenever the sky shrinks, so the whole town
+     always fits under its own horizon. */
+
+  var CITY_K = 1;
+
+  for (i = 0; i < allBuildings.length; i++) {
+    var sb = allBuildings[i];
+    sb.baseH = sb.h;
+    for (var wj = 0; wj < sb.windows.length; wj++) sb.windows[wj].baseY = sb.windows[wj].y;
+    if (sb.next) {
+      sb.next.baseH = sb.next.h;
+      for (wj = 0; wj < sb.next.windows.length; wj++) sb.next.windows[wj].baseY = sb.next.windows[wj].y;
+    }
+  }
+  for (i = 0; i < landmarks.length; i++) landmarks[i].baseH = landmarks[i].h;
+  if (hill) hill.baseH = hill.h;
+
+  function applyCityScale() {
+    var K = Math.min(1, GROUND_Y / 552);
+    if (K === CITY_K) return;
+    CITY_K = K;
+    for (var i = 0; i < allBuildings.length; i++) {
+      var b = allBuildings[i];
+      b.h = b.baseH * K;
+      for (var w = 0; w < b.windows.length; w++) b.windows[w].y = b.windows[w].baseY * K;
+      if (b.next) {
+        b.next.h = b.next.baseH * K;
+        for (w = 0; w < b.next.windows.length; w++) b.next.windows[w].y = b.next.windows[w].baseY * K;
+      }
+    }
+    for (i = 0; i < landmarks.length; i++) landmarks[i].h = landmarks[i].baseH * K;
+    if (hill) hill.h = hill.baseH * K;
+  }
+
   // the low dawn/dusk discs sit near the horizon, but the skyline is
   // seed-dependent — lift them just clear of the planned FINAL roofline
   // under them so they always peek out (still deterministic, still low)
@@ -545,7 +584,9 @@
   settleSky();
 
   function onViewportChange() {
-    RAIL_Y = GROUND_Y - 104;
+    applyCityScale();
+    // the beam rides the scaled skyline (never below streetlamp height)
+    RAIL_Y = GROUND_Y - Math.max(62, 104 * CITY_K);
     settleSky();
     vignette = null;                              // regenerate for the new frame
     requestMeasure();
@@ -786,7 +827,6 @@
   // reel selector, and a throttle for aimed fireworks
   var notes = [];
   var reelShift = 0;
-  var lastAimed = -10;
 
   // KNAZ-TV: the telecast overlay (typed code on the console)
   var telecast = false;
@@ -896,7 +936,7 @@
     var w = window.innerWidth || 1;
     parTarget = ((e.clientX / w) - 0.5) * 24;
     lastPointer = effT;
-  });
+  }, { passive: true });
 
   /* ---------------- civic calendar ---------------- */
   /* Sixteen real seconds to a civic month; the seasons turn even while
@@ -1274,11 +1314,13 @@
   function builtMass() {
     var area = 0;
     var i;
+    // census counts the PLANNED heights, so resizing the window never
+    // deports anybody
     for (i = 0; i < city.length; i++) {
-      area += city[i].w * city[i].h * easeOutCubic(city[i].progress);
+      area += city[i].w * (city[i].baseH || city[i].h) * easeOutCubic(city[i].progress);
     }
     for (i = 0; i < bgCity.length; i++) {
-      area += bgCity[i].w * bgCity[i].h * easeOutCubic(bgCity[i].progress) * BG_WEIGHT;
+      area += bgCity[i].w * (bgCity[i].baseH || bgCity[i].h) * easeOutCubic(bgCity[i].progress) * BG_WEIGHT;
     }
     return area;
   }
@@ -1287,6 +1329,7 @@
   function applyNext(b) {
     var n = b.next;
     b.h = n.h;
+    b.baseH = n.baseH || n.h;
     b.color = n.color;
     b.cap = n.cap;
     b.door = n.door;
@@ -1933,119 +1976,46 @@
   /* ---------------- canvas / dpr ---------------- */
 
   var canvas = document.getElementById('sim-canvas');
-  var ctx = canvas.getContext('2d');
+  // the sky fill covers every pixel every frame, so an opaque context
+  // lets the browser skip alpha compositing the canvas into the page
+  var ctx = canvas.getContext('2d', { alpha: false });
 
-  /* ---------------- a hands-on city ---------------- */
-  /* The canvas itself is a control surface: the city plate issues the
-     almanac, the sky takes aimed fireworks, buildings sparkle when
-     touched, the bandstand strikes up a tune, trees shake their
-     leaves loose, and the drive-in changes its picture. */
+  /* ---------------- the city behind glass ---------------- */
+  /* The canvas is an exhibit, not a control surface — every civic
+     service is worked from the console below (the auxiliary rail
+     carries what the plate, bandstand and sky clicks used to do). */
 
-  function canvasPoint(e) {
-    var rect = canvas.getBoundingClientRect();
-    if (!rect.width || !rect.height) return null;
-    return {
-      x: (e.clientX - rect.left) / rect.width * VIEW_W,
-      y: (e.clientY - rect.top) / rect.height * VIEW_H
-    };
-  }
+  document.addEventListener('municitron:concert', function () {
+    if (reducedMotion.matches) return;
+    var glyphs = ['♪', '♫', '♩'];
+    for (var n = 0; n < 5 && notes.length < 18; n++) {
+      notes.push({
+        x: park.x - 14 + rng6() * 28,
+        y: GROUND_Y - 40 - rng6() * 8,
+        vy: 14 + rng6() * 8,
+        ph: rng6() * 6.283,
+        life: 0,
+        max: 2.2 + rng6() * 0.8,
+        g: glyphs[Math.floor(rng6() * 3)]
+      });
+    }
+  });
 
-  function hitTest(p) {
-    if (!p) return null;
-    var i;
-    var plateX = LAND_L > 0 ? LAND_L + 22 : 22;
-    if (p.y > GROUND_Y - 8 && p.x > plateX - 12 && p.x < plateX + 330) {
-      return { kind: 'plate' };
-    }
-    if (Math.abs(p.x - park.x) < 32 && p.y > GROUND_Y - 56 && p.y < GROUND_Y) {
-      return { kind: 'bandstand' };
-    }
-    for (i = 0; i < park.trees.length; i++) {
-      var t = park.trees[i];
-      if (Math.abs(p.x - t.x) < t.r + 5 && p.y > GROUND_Y - 18 - t.r * 2 && p.y < GROUND_Y) {
-        return { kind: 'tree', tree: t };
-      }
-    }
-    if (driveIn && !landmarks[3].commissioned &&
-        Math.abs(p.x - driveIn.x) < 56 && p.y > GROUND_Y - 96 && p.y < GROUND_Y - 24) {
-      return { kind: 'screen' };
-    }
-    for (i = 0; i < city.length; i++) {
-      var b = city[i];
-      if (b.progress === 1 && p.x >= b.x && p.x <= b.x + b.w &&
-          p.y >= GROUND_Y - b.h && p.y < GROUND_Y) {
-        return { kind: 'building', building: b };
-      }
-    }
-    if (p.y < GROUND_Y - 12) return { kind: 'sky' };
-    return null;
-  }
-
-  canvas.addEventListener('click', function (e) {
-    var p = canvasPoint(e);
-    var hit = hitTest(p);
-    if (!hit) return;
-    if (hit.kind === 'plate') {
-      document.dispatchEvent(new CustomEvent('municitron:almanac'));
-    } else if (hit.kind === 'bandstand') {
-      document.dispatchEvent(new CustomEvent('municitron:concert'));
-      if (!reducedMotion.matches) {
-        var glyphs = ['♪', '♫', '♩'];
-        for (var n = 0; n < 5 && notes.length < 18; n++) {
-          notes.push({
-            x: park.x - 14 + rng6() * 28,
-            y: GROUND_Y - 40 - rng6() * 8,
-            vy: 14 + rng6() * 8,
-            ph: rng6() * 6.283,
-            life: 0,
-            max: 2.2 + rng6() * 0.8,
-            g: glyphs[Math.floor(rng6() * 3)]
-          });
-        }
-      }
-    } else if (hit.kind === 'tree') {
-      if (!reducedMotion.matches) {
-        for (var l = 0; l < 5 && leaves.length < 30; l++) {
-          leaves.push({
-            x: hit.tree.x + (rng6() * 2 - 1) * hit.tree.r * 0.8,
-            y: GROUND_Y - 16 - hit.tree.r * 0.8,
-            vy: 12 + rng6() * 12,
-            ph: rng6() * 6.283,
-            f: 1 + rng6() * 1.5,
-            amp: 8 + rng6() * 10,
-            settle: 0,
-            color: rng6() < 0.6 ? ORANGE : BRASS
-          });
-        }
-      }
-    } else if (hit.kind === 'screen') {
-      reelShift++;                                // next picture, please
-    } else if (hit.kind === 'building') {
-      var wins = hit.building.windows;            // a ripple of lights
+  // the SALUTE key: a short commissioned fireworks show, plus a ripple
+  // of window lights — the town comes out to watch
+  document.addEventListener('municitron:salute', function () {
+    startShow(5);
+    for (var i = 0; i < city.length; i++) {
+      var wins = city[i].windows;
       for (var w = 0; w < wins.length; w++) {
-        if (rng6() < 0.7) wins[w].flickUntil = effT + 0.3 + rng6() * 2.2;
-      }
-    } else if (hit.kind === 'sky' && !reducedMotion.matches) {
-      if (effT - lastAimed > 0.25) {              // an aimed salute
-        lastAimed = effT;
-        fw.shells.push({
-          x: p.x,
-          y: GROUND_Y,
-          vy: -(330 + rng6() * 80),
-          burstY: Math.max(36, Math.min(p.y, GROUND_Y - 110)),
-          type: Math.floor(rng6() * 3),
-          color: FW_COLORS[Math.floor(rng6() * 3)]
-        });
-        document.dispatchEvent(new CustomEvent('municitron:fireworks'));
+        if (rng6() < 0.25) wins[w].flickUntil = effT + 0.3 + rng6() * 2.2;
       }
     }
   });
 
-  canvas.addEventListener('mousemove', function (e) {
-    var hit = hitTest(canvasPoint(e));
-    canvas.style.cursor = !hit ? ''
-      : hit.kind === 'sky' ? 'crosshair'
-      : 'pointer';
+  // the REEL key advances the drive-in's picture
+  document.addEventListener('municitron:reel', function () {
+    reelShift++;
   });
 
   // the canvas lives inside the CSS transform-scaled machine, so the
@@ -2063,7 +2033,9 @@
   function fitBackingStore() {
     var rect = canvas.getBoundingClientRect();
     if (!rect.width || !rect.height) return false;
-    var dpr = window.devicePixelRatio || 1;
+    // flat poster shapes gain nothing above 2× — capping the backing
+    // store keeps 3×-density screens at a quarter of the pixel work
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
     var w = Math.round(rect.width * dpr);
     var h = Math.round(rect.height * dpr);
     if (canvas.width !== w || canvas.height !== h) {
@@ -2306,11 +2278,11 @@
       ctx.lineWidth = 1.2;
       ctx.beginPath(); ctx.moveTo(gx, gy); ctx.lineTo(gx, gy + 5); ctx.stroke();
       ctx.fillStyle = i % 2 ? ORANGE : CREAM_HI;
-      ctx.beginPath();
+      ctx.beginPath();                            // round-bottomed bucket
       ctx.moveTo(gx - 7, gy + 5);
       ctx.lineTo(gx + 7, gy + 5);
-      ctx.lineTo(gx + 5, gy + 12);
-      ctx.lineTo(gx - 5, gy + 12);
+      ctx.quadraticCurveTo(gx + 6, gy + 12, gx, gy + 12.5);
+      ctx.quadraticCurveTo(gx - 6, gy + 12, gx - 7, gy + 5);
       ctx.closePath(); ctx.fill();
       glow.push([gx, gy + 8]);
     }
@@ -2707,16 +2679,23 @@
       var bob = Math.abs(stride) * 0.8;
       var y = GROUND_Y - bob;
 
-      ctx.strokeStyle = TEAL_TRIM;                // legs mid-stride
-      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = TEAL_TRIM;                // legs mid-stride, with a
+      ctx.lineWidth = 1.3;                        // little bend at the knee
+      ctx.lineCap = 'round';
       ctx.beginPath();
-      ctx.moveTo(p.x, y - 4);
-      ctx.lineTo(p.x + stride * 2.2, y);
-      ctx.moveTo(p.x, y - 4);
-      ctx.lineTo(p.x - stride * 2.2, y);
+      ctx.moveTo(p.x, y - 4.5);
+      ctx.quadraticCurveTo(p.x + stride * 1.4, y - 2.6, p.x + stride * 2.2, y);
+      ctx.moveTo(p.x, y - 4.5);
+      ctx.quadraticCurveTo(p.x - stride * 0.8, y - 2.6, p.x - stride * 2.2, y);
       ctx.stroke();
-      ctx.fillStyle = TEAL_TRIM;                  // torso + head
-      ctx.fillRect(p.x - 1.6, y - 10, 3.2, 6.5);
+      ctx.lineCap = 'butt';
+      ctx.fillStyle = TEAL_TRIM;                  // capsule torso + head
+      ctx.beginPath();
+      ctx.moveTo(p.x - 1.7, y - 4);
+      ctx.lineTo(p.x - 1.7, y - 8.6);
+      ctx.arc(p.x, y - 8.6, 1.7, Math.PI, 0);
+      ctx.lineTo(p.x + 1.7, y - 4);
+      ctx.closePath(); ctx.fill();
       ctx.beginPath(); ctx.arc(p.x, y - 12, 1.9, 0, Math.PI * 2); ctx.fill();
       if (p.hat) {                                // a respectable brim
         ctx.fillRect(p.x - 3, y - 13.6, 6, 1);
@@ -3311,29 +3290,80 @@
       }
     }
 
-    // the fountain: teal basin, brass rim, cream water riding an arc
+    // the fountain: teal basin, brass rim, and a smooth cream crown of
+    // water — two stroked arcs from bowl to basin, a swaying center
+    // plume, a bright pulse traveling each stream, and rings widening
+    // where the water lands
     var fx = park.fountain;
     ctx.fillStyle = TEAL_TRIM;
     ctx.fillRect(fx - 20, GROUND_Y - 8, 40, 8);
     ctx.fillStyle = BRASS;
     ctx.fillRect(fx - 20, GROUND_Y - 9, 40, 2);
+    ctx.fillStyle = 'rgba(242, 233, 210, 0.30)';  // still water in the basin
+    ctx.fillRect(fx - 17, GROUND_Y - 7, 34, 2);
     ctx.fillStyle = TEAL_TRIM;                    // pedestal + bowl
     ctx.fillRect(fx - 2.5, GROUND_Y - 21, 5, 13);
     ctx.beginPath(); ctx.ellipse(fx, GROUND_Y - 21, 9, 2.8, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = CREAM_HI;                     // droplets on two arcs + a jet
-    ctx.globalAlpha = 0.85;
+
+    var still = reducedMotion.matches;
+    var sway = still ? 0 : Math.sin(effT * 1.7) * 1.2;
+    ctx.strokeStyle = CREAM_HI;
+    ctx.lineCap = 'round';
+
+    // the two side streams: bowl lip → apex → basin edge
+    ctx.globalAlpha = 0.55;
+    ctx.lineWidth = 2.2;
     ctx.beginPath();
-    for (i = 0; i < 3; i++) {
-      var wt = reducedMotion.matches ? (i + 1) / 4 : ((effT * 0.55 + i / 3) % 1);
-      var span = (wt * 2 - 1);                    // -1 … 1 across the arc
-      var wy = GROUND_Y - 20 + wt * 11 - (1 - span * span) * 10;
-      dotPath(fx - wt * 15, wy, 1.6);
-      dotPath(fx + wt * 15, wy, 1.6);
-      dotPath(fx, GROUND_Y - 24 - i * 6 -
-        (reducedMotion.matches ? 0 : Math.sin(effT * 3 + i) * 2), 1.4);
+    for (i = -1; i <= 1; i += 2) {
+      ctx.moveTo(fx + i * 4, GROUND_Y - 23);
+      ctx.quadraticCurveTo(fx + i * (11 + sway * i * 0.4), GROUND_Y - 36,
+                           fx + i * 15, GROUND_Y - 7);
     }
+    ctx.stroke();
+
+    // the center plume breathes: a taller stroke with a soft crest
+    var plume = 12 + (still ? 0 : Math.sin(effT * 2.3) * 2.5);
+    ctx.globalAlpha = 0.8;
+    ctx.lineWidth = 2.6;
+    ctx.beginPath();
+    ctx.moveTo(fx, GROUND_Y - 22);
+    ctx.quadraticCurveTo(fx + sway, GROUND_Y - 22 - plume * 0.7, fx + sway * 0.6, GROUND_Y - 22 - plume);
+    ctx.stroke();
+    ctx.fillStyle = CREAM_HI;                     // crest droplet, parting
+    ctx.beginPath();
+    ctx.ellipse(fx + sway * 0.6, GROUND_Y - 24.5 - plume, 1.5, 2.2, 0, 0, Math.PI * 2);
     ctx.fill();
+
+    if (!still) {
+      // a bright pulse rides each stream (quadratic point at t)
+      var pt = (effT * 0.9) % 1;
+      var mt = 1 - pt;
+      ctx.globalAlpha = 0.95;
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      for (i = -1; i <= 1; i += 2) {
+        var qx0 = fx + i * 4, qy0 = GROUND_Y - 23;
+        var qcx = fx + i * 11, qcy = GROUND_Y - 36;
+        var qx1 = fx + i * 15, qy1 = GROUND_Y - 7;
+        var t0 = Math.max(0, pt - 0.12), t1 = pt;
+        var q = function (a, b, c, t) { var m = 1 - t; return m * m * a + 2 * m * t * b + t * t * c; };
+        ctx.moveTo(q(qx0, qcx, qx1, t0), q(qy0, qcy, qy1, t0));
+        ctx.lineTo(q(qx0, qcx, qx1, t1), q(qy0, qcy, qy1, t1));
+      }
+      ctx.stroke();
+
+      // landing rings widen and fade where the streams touch down
+      var ring = (effT * 0.8) % 1;
+      ctx.globalAlpha = 0.5 * (1 - ring);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.ellipse(fx - 15, GROUND_Y - 6.5, 2 + ring * 4, 0.8 + ring * 1.2, 0, 0, Math.PI * 2);
+      ctx.moveTo(fx + 15 + 2 + ring * 4, GROUND_Y - 6.5);
+      ctx.ellipse(fx + 15, GROUND_Y - 6.5, 2 + ring * 4, 0.8 + ring * 1.2, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
     ctx.globalAlpha = 1;
+    ctx.lineCap = 'butt';
 
     // a bench for watching all of it
     var bex = park.bench;
@@ -3439,12 +3469,12 @@
         ctx.fillStyle = GLOW_BRASS;
         ctx.beginPath(); ctx.arc(x + 7, GROUND_Y - 26, 8, 0, Math.PI * 2); ctx.fill();
       }
-      ctx.fillStyle = BRASS;                      // teardrop shade
+      ctx.fillStyle = BRASS;                      // teardrop shade, smooth
       ctx.beginPath();
-      ctx.moveTo(x + 2.5, GROUND_Y - 29);
-      ctx.lineTo(x + 11.5, GROUND_Y - 29);
-      ctx.lineTo(x + 9.5, GROUND_Y - 24.5);
-      ctx.lineTo(x + 4.5, GROUND_Y - 24.5);
+      ctx.moveTo(x + 2, GROUND_Y - 28.6);
+      ctx.quadraticCurveTo(x + 7, GROUND_Y - 32, x + 12, GROUND_Y - 28.6);
+      ctx.quadraticCurveTo(x + 11, GROUND_Y - 24.2, x + 7, GROUND_Y - 23.6);
+      ctx.quadraticCurveTo(x + 3, GROUND_Y - 24.2, x + 2, GROUND_Y - 28.6);
       ctx.closePath(); ctx.fill();
       ctx.fillStyle = glowing ? CREAM_HI : '#235450';   // the bulb itself
       ctx.beginPath(); ctx.arc(x + 7, GROUND_Y - 24, 2, 0, Math.PI * 2); ctx.fill();
@@ -3758,6 +3788,7 @@
         ctx.fillRect(sx - 1.5, top - 22, 3, 22);
         ctx.strokeStyle = BRASS;                  // twelve spokes, long and short
         ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
         ctx.beginPath();
         for (var sp = 0; sp < 12; sp++) {
           var sa = sp * Math.PI / 6 + Math.PI / 12;
@@ -3766,6 +3797,7 @@
           ctx.lineTo(sx + Math.cos(sa) * sl, sy2 + Math.sin(sa) * sl);
         }
         ctx.stroke();
+        ctx.lineCap = 'butt';
         for (var tp = 0; tp < 12; tp += 2) {      // tip balls twinkle after dark
           var ta = tp * Math.PI / 6 + Math.PI / 12;
           var tx = sx + Math.cos(ta) * 16;
@@ -3784,53 +3816,40 @@
       }
     }
 
-    // four batched passes: flat halo glows for scheduled-lit panes first,
-    // then every pane's dot on top (brass, plus rare orange accents).
-    // A pane whose flicker override is running shows the opposite of its
-    // schedule — someone in there just hit the switch. October swaps the
-    // whole city's halos to burnt orange (harvest festival custom).
+    // four batched passes built in ONE sweep of the panes: flat halo
+    // glows for scheduled-lit panes first, then every pane's dot on top
+    // (brass, plus rare orange accents). A pane whose flicker override
+    // is running shows the opposite of its schedule — someone in there
+    // just hit the switch. October swaps the whole city's halos to
+    // burnt orange (harvest festival custom). Radii ride CITY_K so a
+    // shrunken skyline keeps its window rhythm.
     var wy;
-    ctx.fillStyle = calendar.month === 9 ? GLOW_ORANGE : GLOW_BRASS;
-    ctx.beginPath();
+    var wr = 3 * Math.max(0.72, CITY_K);
+    var wg = 7 * Math.max(0.72, CITY_K);
+    var glowPlain = new Path2D(), glowAccent = new Path2D();
+    var dotPlain = new Path2D(), dotAccent = new Path2D();
     for (i = 0; i < b.windows.length; i++) {
       wd = b.windows[i];
       wy = GROUND_Y + wd.y;
       if (wy < top + 6) continue;                 // above the built portion
       var lit = (wd.threshold < litLevel) !== (wd.flickUntil > effT);
-      if (lit && !wd.accent) dotPath(wd.x, wy, 7);
+      var dots = wd.accent ? dotAccent : dotPlain;
+      dots.moveTo(wd.x + wr, wy);
+      dots.arc(wd.x, wy, wr, 0, Math.PI * 2);
+      if (lit) {
+        var glows = wd.accent ? glowAccent : glowPlain;
+        glows.moveTo(wd.x + wg, wy);
+        glows.arc(wd.x, wy, wg, 0, Math.PI * 2);
+      }
     }
-    ctx.fill();
-
+    ctx.fillStyle = calendar.month === 9 ? GLOW_ORANGE : GLOW_BRASS;
+    ctx.fill(glowPlain);
     ctx.fillStyle = GLOW_ORANGE;
-    ctx.beginPath();
-    for (i = 0; i < b.windows.length; i++) {
-      wd = b.windows[i];
-      wy = GROUND_Y + wd.y;
-      if (wy < top + 6) continue;
-      var lit2 = (wd.threshold < litLevel) !== (wd.flickUntil > effT);
-      if (lit2 && wd.accent) dotPath(wd.x, wy, 7);
-    }
-    ctx.fill();
-
+    ctx.fill(glowAccent);
     ctx.fillStyle = BRASS;
-    ctx.beginPath();
-    for (i = 0; i < b.windows.length; i++) {
-      wd = b.windows[i];
-      wy = GROUND_Y + wd.y;
-      if (wy < top + 6) continue;
-      if (!wd.accent) dotPath(wd.x, wy, 3);
-    }
-    ctx.fill();
-
+    ctx.fill(dotPlain);
     ctx.fillStyle = ORANGE;
-    ctx.beginPath();
-    for (i = 0; i < b.windows.length; i++) {
-      wd = b.windows[i];
-      wy = GROUND_Y + wd.y;
-      if (wy < top + 6) continue;
-      if (wd.accent) dotPath(wd.x, wy, 3);
-    }
-    ctx.fill();
+    ctx.fill(dotAccent);
 
     if (b.door && h > 26) {
       ctx.fillStyle = ORANGE;

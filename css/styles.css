@@ -786,3 +786,88 @@ html, body {
   transform: translateY(3px);
   box-shadow: 0 1px 0 var(--orange-deep), 0 2px 5px rgba(0, 0, 0, 0.35);
 }
+
+/* ==========================================================================
+   Auxiliary services rail (added below the finished console — the console
+   block above is untouched)
+   ========================================================================== */
+
+.auxiliary {
+  height: 46px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 0 54px;
+  background: linear-gradient(180deg, var(--teal-lo) 0%, #142e2a 100%);
+  border-top: 3px solid var(--teal-trim);
+  box-shadow: inset 0 1px 0 rgba(232, 220, 192, 0.10), inset 0 -8px 16px rgba(0, 0, 0, 0.35);
+}
+
+.aux-legend {
+  font-family: var(--display);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  line-height: 1.5;
+  color: rgba(232, 220, 192, 0.45);
+  margin-right: 12px;
+}
+
+.aux-legend-right {
+  margin-right: 0;
+  margin-left: 12px;
+  text-align: right;
+}
+
+.aux-key {
+  font-family: var(--display);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--label);
+  background: linear-gradient(180deg, var(--teal-hi) 0%, var(--teal) 55%, var(--teal-lo) 100%);
+  border: 1px solid var(--teal-trim);
+  border-radius: 4px;
+  padding: 7px 13px 6px;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(232, 220, 192, 0.18),
+    0 2px 0 #0d1f1c,
+    0 3px 6px rgba(0, 0, 0, 0.4);
+  transition: transform 0.06s ease, box-shadow 0.06s ease, color 0.15s ease;
+}
+
+.aux-key:hover { color: var(--cream-hi); }
+
+.aux-key:active,
+.aux-key.pressed {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.5),
+    0 0 0 #0d1f1c,
+    0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* toggle keys carry a tiny jewel lamp that lights when engaged */
+.aux-toggle::before {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  margin-right: 7px;
+  vertical-align: 1px;
+  background: #1a2f2b;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.7);
+}
+
+.aux-toggle[aria-pressed="true"] {
+  color: var(--cream-hi);
+}
+
+.aux-toggle[aria-pressed="true"]::before {
+  background: var(--olive);
+  box-shadow: 0 0 6px 1px rgba(127, 166, 83, 0.75);
+}

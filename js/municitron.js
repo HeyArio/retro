@@ -466,13 +466,50 @@
     });
   })();
 
+  /* ---------------- auxiliary services rail ---------------- */
+  /* The strip below the console: every civic service that used to hide
+     behind a click on the canvas now has a labelled key. The city
+     itself is an exhibit behind glass — look, don't touch. */
+
+  function auxWire(id, channel, lamp, ms) {
+    var el = $(id);
+    if (!el) return;
+    el.addEventListener('click', function () {
+      if (lamp) flashLamp(lamp, id, ms || 1400);
+      document.dispatchEvent(new CustomEvent('municitron:' + channel));
+    });
+  }
+
+  auxWire('aux-almanac', 'almanac', xmitLamp);
+  auxWire('aux-concert', 'concert');
+  auxWire('aux-salute', 'salute', xmitLamp, 1800);
+  auxWire('aux-reel', 'reel');
+  auxWire('aux-newsreel', 'newsreel', xmitLamp, 6200);
+  auxWire('aux-telecast', 'telecast', coinLamp, 1200);
+  auxWire('aux-testcard', 'testpattern', xmitLamp, 1800);
+
+  // the SPEAKER key works the same switch as the POWER lamp (js/sound.js
+  // listens there); its jewel follows every route to that switch,
+  // including the M key and direct lamp clicks
+  (function () {
+    var speakerKey = $('aux-speaker');
+    var speakerUnit = powerLamp && powerLamp.closest ? powerLamp.closest('.lamp-unit') : null;
+    if (!speakerKey || !speakerUnit) return;
+    speakerUnit.addEventListener('click', function () {
+      var on = speakerKey.getAttribute('aria-pressed') === 'true';
+      speakerKey.setAttribute('aria-pressed', on ? 'false' : 'true');
+    });
+    speakerKey.addEventListener('click', function () { speakerUnit.click(); });
+  })();
+
   /* ---------------- scale machine to viewport ---------------- */
   /* The machine fills the screen: width is matched exactly, and the sim
      viewport absorbs the leftover height — tall screens get more sky,
-     short-wide screens crop the tallest spires. The console block
-     itself never changes shape. The city renderer is told the new
-     logical sim height via 'municitron:viewport'. */
+     short screens scale the skyline down to fit (js/city.js). The
+     console block itself never changes shape. The city renderer is told
+     the new logical sim height via 'municitron:viewport'. */
 
+  var PANEL_H = 346;                             // console 300 + auxiliary rail 46
   var simEl = document.querySelector('.sim');
   var lastSimH = 600;
 
@@ -481,13 +518,13 @@
     var h = window.innerHeight || document.documentElement.clientHeight;
     if (!w || !h) { requestAnimationFrame(fit); return; }
     var scale = w / 1600;
-    var simH = h / scale - 300;                  // logical px left for the city
+    var simH = h / scale - PANEL_H;              // logical px left for the city
     if (simH < 320) {                            // ultra-wide: fall back to height fit
-      scale = h / 620;
+      scale = h / (320 + PANEL_H);
       simH = 320;
     }
     simH = Math.round(Math.min(simH, 1000));     // very tall: cap the sky, center
-    machine.style.height = (simH + 300) + 'px';
+    machine.style.height = (simH + PANEL_H) + 'px';
     if (simEl) simEl.style.height = simH + 'px';
     machine.style.transform = 'scale(' + scale + ')';
     overlay.style.transform = 'scale(' + scale + ')';
