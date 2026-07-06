@@ -2133,6 +2133,14 @@
     ctx.arc(x, y, r, 0, Math.PI * 2);
   }
 
+  // an upright rounded-corner window pane, centered on (x, y); falls
+  // back to a square-cornered pane where Path2D.roundRect is missing
+  var HAS_RRECT = typeof Path2D !== 'undefined' && !!Path2D.prototype.roundRect;
+  function panePath(path, x, y, w, h) {
+    if (HAS_RRECT) path.roundRect(x - w / 2, y - h / 2, w, h, w * 0.3);
+    else path.rect(x - w / 2, y - h / 2, w, h);
+  }
+
   function drawCelestial(cel, alpha, sky) {
     if (alpha <= 0.01) return;
     ctx.globalAlpha = Math.min(1, alpha);
@@ -2428,12 +2436,23 @@
       brassDots(mq, 1.6, showing ? 1 : 0);
     }
 
-    ctx.fillStyle = TEAL_TRIM;                    // the audience, parked
-    var lot = [-38, -8, 22];
+    ctx.fillStyle = TEAL_TRIM;                    // the audience, parked:
+    var lot = [-38, -8, 22];                      // little fastback coupes
     for (var ci = 0; ci < lot.length; ci++) {
       var px = x + lot[ci];
-      ctx.fillRect(px, GROUND_Y - 5, 20, 4);
-      ctx.fillRect(px + 5, GROUND_Y - 8, 10, 3);
+      ctx.beginPath();
+      ctx.moveTo(px, GROUND_Y - 1.5);
+      ctx.lineTo(px, GROUND_Y - 4);
+      ctx.quadraticCurveTo(px + 1, GROUND_Y - 5.2, px + 4, GROUND_Y - 5.4);
+      ctx.quadraticCurveTo(px + 7, GROUND_Y - 8.2, px + 11, GROUND_Y - 8.2);
+      ctx.quadraticCurveTo(px + 15, GROUND_Y - 8.2, px + 17, GROUND_Y - 5.2);
+      ctx.quadraticCurveTo(px + 19.5, GROUND_Y - 4.8, px + 20, GROUND_Y - 3);
+      ctx.lineTo(px + 20, GROUND_Y - 1.5);
+      ctx.closePath(); ctx.fill();
+      ctx.beginPath();                            // wheels under the skirts
+      dotPath(px + 4.5, GROUND_Y - 1.5, 1.7);
+      dotPath(px + 15.5, GROUND_Y - 1.5, 1.7);
+      ctx.fill();
     }
 
     ctx.fillStyle = TEAL_TRIM;                    // marquee: pole + orange lozenge
@@ -2507,85 +2526,209 @@
 
     if (!monorail.active || reducedMotion.matches) return;
     var x = monorail.x;
-    var y = RAIL_Y - 26;
-    var noseX = monorail.dir === 1 ? x + TRAIN_LEN - 12 : x + 12;
-    ctx.beginPath();                              // streamlined cream body
-    ctx.moveTo(x + 12, y);
-    ctx.lineTo(x + TRAIN_LEN - 12, y);
-    ctx.arc(x + TRAIN_LEN - 12, y + 12, 12, -Math.PI / 2, Math.PI / 2);
-    ctx.lineTo(x + 12, y + 24);
-    ctx.arc(x + 12, y + 12, 12, Math.PI / 2, -Math.PI / 2);
+    var d = monorail.dir;
+    var y = RAIL_Y - 26;                          // roofline
+    var noseX = d === 1 ? x + TRAIN_LEN : x;      // leading end
+    var tailX = d === 1 ? x : x + TRAIN_LEN;
+    var night = litLevel > 0.55;
+
+    if (night) {                                  // headlight throw, cast ahead
+      ctx.fillStyle = 'rgba(242, 233, 210, 0.10)';
+      ctx.beginPath();
+      ctx.moveTo(noseX - d * 4, y + 13);
+      ctx.lineTo(noseX + d * 58, y + 6);
+      ctx.lineTo(noseX + d * 58, y + 22);
+      ctx.closePath(); ctx.fill();
+    }
+
+    // hull: a long raked nose easing over the canopy into a flat roof,
+    // rounded tail, skirt riding just above the brass rail
+    ctx.beginPath();
+    ctx.moveTo(tailX, y + 24);
+    ctx.lineTo(noseX - d * 30, y + 24);
+    ctx.quadraticCurveTo(noseX - d * 6, y + 23, noseX, y + 14);   // chin
+    ctx.quadraticCurveTo(noseX - d * 3, y + 5, noseX - d * 16, y + 2);  // windshield rake
+    ctx.quadraticCurveTo(noseX - d * 26, y, noseX - d * 40, y);   // canopy → roof
+    ctx.lineTo(tailX + d * 9, y);
+    ctx.quadraticCurveTo(tailX, y, tailX, y + 9);                 // rounded tail
     ctx.closePath();
     ctx.fillStyle = CREAM_HI;
     ctx.fill();
     ctx.strokeStyle = TEAL_TRIM;                  // keeps it crisp on any sky
     ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
     ctx.stroke();
-    ctx.save();                                   // orange nose cap, clipped to the hull
+    ctx.lineJoin = 'miter';
+
+    ctx.save();                                   // livery, clipped to the hull
     ctx.clip();
-    ctx.fillStyle = ORANGE;
-    ctx.beginPath(); ctx.arc(noseX, y + 12, 14, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#1E4744';                    // teal beltline
-    ctx.fillRect(x + 6, y + 17, TRAIN_LEN - 12, 4);
-    ctx.restore();
-    var dots = [];
-    var wStart = monorail.dir === 1 ? x + 22 : x + 46;
-    for (var w = 0; w < 5; w++) dots.push([wStart + w * 26, y + 10]);
-    ctx.fillStyle = '#1E4744';                    // teal portholes by day…
+    ctx.fillStyle = ORANGE;                       // swept nose blade
     ctx.beginPath();
-    for (w = 0; w < dots.length; w++) dotPath(dots[w][0], dots[w][1], 3.5);
-    ctx.fill();
-    if (litLevel > 0.55) brassDots(dots, 3.5, litLevel);   // …brass-lit at night
+    ctx.moveTo(noseX + d * 2, y);
+    ctx.lineTo(noseX + d * 2, y + 26);
+    ctx.lineTo(noseX - d * 26, y + 26);
+    ctx.quadraticCurveTo(noseX - d * 12, y + 16, noseX - d * 20, y);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#1E4744';                    // beltline under the glass
+    ctx.fillRect(x - 4, y + 17, TRAIN_LEN + 8, 3);
+
+    // one continuous window band with rounded ends, cream mullions
+    var bL = (d === 1 ? x + 8 : x + 34);
+    var bR = (d === 1 ? x + TRAIN_LEN - 34 : x + TRAIN_LEN - 8);
+    ctx.fillStyle = night ? BRASS : '#1E4744';
+    ctx.beginPath();
+    ctx.moveTo(bL + 4, y + 6);
+    ctx.lineTo(bR - 4, y + 6);
+    ctx.quadraticCurveTo(bR, y + 6, bR, y + 10);
+    ctx.quadraticCurveTo(bR, y + 14, bR - 4, y + 14);
+    ctx.lineTo(bL + 4, y + 14);
+    ctx.quadraticCurveTo(bL, y + 14, bL, y + 10);
+    ctx.quadraticCurveTo(bL, y + 6, bL + 4, y + 6);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = CREAM_HI;
+    for (var mx2 = bL + 16; mx2 < bR - 4; mx2 += 16) {
+      ctx.fillRect(mx2, y + 5, 2, 10);
+    }
+
+    // windshield glass on the raked nose
+    ctx.fillStyle = night ? BRASS : '#16332F';
+    ctx.beginPath();
+    ctx.moveTo(noseX - d * 5, y + 7);
+    ctx.quadraticCurveTo(noseX - d * 6, y + 4, noseX - d * 14, y + 3.5);
+    ctx.lineTo(noseX - d * 16, y + 10);
+    ctx.quadraticCurveTo(noseX - d * 10, y + 10, noseX - d * 5, y + 7);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+
+    if (night) {                                  // the band glows gently
+      ctx.fillStyle = GLOW_BRASS;
+      ctx.fillRect(bL - 3, y + 3, bR - bL + 6, 14);
+    }
+
+    ctx.fillStyle = TEAL_TRIM;                    // bogies gripping the beam
+    ctx.fillRect(x + TRAIN_LEN * 0.18, y + 24, 16, 4);
+    ctx.fillRect(x + TRAIN_LEN * 0.72, y + 24, 16, 4);
   }
 
   function drawCars(litLevel) {
     if (reducedMotion.matches) return;
     var parade = calendar.month === 6;            // Founders' Day pennants
+    var night = litLevel > 0.55;
     for (var i = 0; i < cars.length; i++) {
       var p = cars[i];
       if (!p.active) continue;
-      var y = GROUND_Y - 7;
-      var nose = p.dir === 1 ? p.x + p.len : p.x;
-      var tail = p.dir === 1 ? p.x : p.x + p.len;
-      var cabX = p.x + p.len * (p.dir === 1 ? 0.22 : 0.33);
+      var d = p.dir;
+      var L = p.len;
+      var y = GROUND_Y - 9;                       // beltline height
+      var nose = d === 1 ? p.x + L : p.x;
+      var tail = d === 1 ? p.x : p.x + L;
+      var fw2 = p.x + L * (d === 1 ? 0.76 : 0.24);   // front wheel
+      var rw = p.x + L * (d === 1 ? 0.22 : 0.78);    // rear wheel
 
-      ctx.fillStyle = TEAL_TRIM;                  // body with a swept tail fin
-      ctx.beginPath();
-      ctx.moveTo(tail, y + 5);
-      ctx.lineTo(tail, y - 3.5);                  // the fin's leading edge
-      ctx.lineTo(tail + p.dir * 4, y);
-      ctx.lineTo(nose - p.dir * 2, y);
-      ctx.quadraticCurveTo(nose, y, nose, y + 2.5);
-      ctx.lineTo(nose, y + 5);
-      ctx.closePath(); ctx.fill();
-      ctx.beginPath();                            // rounded cabin
-      ctx.moveTo(cabX, y);
-      ctx.quadraticCurveTo(cabX + p.dir * p.len * 0.1, y - 4.5, cabX + p.dir * p.len * 0.24, y - 4.5);
-      ctx.quadraticCurveTo(cabX + p.dir * p.len * 0.42, y - 4.5, cabX + p.dir * p.len * 0.45, y);
-      ctx.closePath(); ctx.fill();
-      ctx.fillStyle = BRASS;                      // chrome rocker line
-      ctx.fillRect(p.x + 2, y + 3.2, p.len - 4, 1);
-      ctx.fillStyle = ORANGE;                     // tail light on the fin
-      ctx.beginPath(); ctx.arc(tail, y - 2.5, 1.6, 0, Math.PI * 2); ctx.fill();
-      if (litLevel > 0.55) {                      // headlight after dark
-        ctx.fillStyle = CREAM_HI;
-        ctx.beginPath(); ctx.arc(nose, y + 2, 1.8, 0, Math.PI * 2); ctx.fill();
-      }
-      if (parade) {                               // a pennant whips from the cabin
-        ctx.strokeStyle = TEAL_TRIM;
-        ctx.lineWidth = 1;
+      if (night) {                                // headlight throw
+        ctx.fillStyle = 'rgba(242, 233, 210, 0.10)';
         ctx.beginPath();
-        ctx.moveTo(cabX + p.dir * p.len * 0.2, y - 4.5);
-        ctx.lineTo(cabX + p.dir * p.len * 0.2, y - 12);
+        ctx.moveTo(nose - d * 2, y + 4);
+        ctx.lineTo(nose + d * 30, y + 2);
+        ctx.lineTo(nose + d * 30, y + 9);
+        ctx.closePath(); ctx.fill();
+      }
+
+      ctx.fillStyle = TEAL_TRIM;                  // wheels down on the road
+      ctx.beginPath();
+      dotPath(fw2, GROUND_Y - 2.6, 2.6);
+      dotPath(rw, GROUND_Y - 2.6, 2.6);
+      ctx.fill();
+      ctx.fillStyle = CREAM_HI;                   // hubcaps
+      ctx.beginPath();
+      dotPath(fw2, GROUND_Y - 2.6, 0.9);
+      dotPath(rw, GROUND_Y - 2.6, 0.9);
+      ctx.fill();
+
+      // lower body: long hood dipping to the bumper, tail fin swept up,
+      // skirts notched over the wheels by drawing body above them
+      ctx.fillStyle = TEAL_TRIM;
+      ctx.beginPath();
+      ctx.moveTo(tail, y + 6);
+      ctx.lineTo(tail, y - 4.5);                  // fin tip
+      ctx.quadraticCurveTo(tail + d * 3, y - 1.5, tail + d * 9, y - 0.5);
+      ctx.lineTo(nose - d * 12, y - 0.5);         // beltline
+      ctx.quadraticCurveTo(nose - d * 3, y - 0.5, nose, y + 2);   // hood fall
+      ctx.lineTo(nose, y + 6);                    // grille face
+      ctx.closePath(); ctx.fill();
+
+      // greenhouse: curved roof, glass lit at night
+      var c0 = p.x + L * (d === 1 ? 0.26 : 0.36);
+      var c1 = p.x + L * (d === 1 ? 0.64 : 0.74);
+      ctx.beginPath();
+      ctx.moveTo(c0, y - 0.5);
+      ctx.quadraticCurveTo(c0 + d * 2, y - 5.5, (c0 + c1) / 2, y - 5.5);
+      ctx.quadraticCurveTo(c1 - d * 4, y - 5.5, c1, y - 0.5);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = night ? BRASS : '#4a6f6a';  // the glass itself
+      ctx.beginPath();
+      ctx.moveTo(c0 + d * 2.2, y - 0.8);
+      ctx.quadraticCurveTo(c0 + d * 3.6, y - 4.2, (c0 + c1) / 2, y - 4.2);
+      ctx.quadraticCurveTo(c1 - d * 5, y - 4.2, c1 - d * 2.6, y - 0.8);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = TEAL_TRIM;                  // B-pillar
+      ctx.fillRect((c0 + c1) / 2 - 0.8, y - 4.2, 1.6, 3.6);
+
+      ctx.fillStyle = BRASS;                      // chrome spear + bumpers
+      ctx.fillRect(Math.min(tail, nose) + 3, y + 1.4, L - 6, 1);
+      ctx.fillRect(nose - d * 1.5 - (d === 1 ? 0 : 1.5), y + 4.6, 3, 1.4);
+      ctx.fillStyle = ORANGE;                     // taillight on the fin
+      ctx.beginPath(); ctx.arc(tail + d * 0.8, y - 3.2, 1.3, 0, Math.PI * 2); ctx.fill();
+      if (night) {                                // headlight jewel
+        ctx.fillStyle = CREAM_HI;
+        ctx.beginPath(); ctx.arc(nose - d * 1.2, y + 2.6, 1.5, 0, Math.PI * 2); ctx.fill();
+      }
+      if (parade) {                               // a pennant whips from the aerial
+        var ax = c1 - d * 2;
+        ctx.strokeStyle = TEAL_TRIM;
+        ctx.lineWidth = 0.9;
+        ctx.beginPath();
+        ctx.moveTo(ax, y - 5);
+        ctx.quadraticCurveTo(ax - d * 1, y - 9, ax - d * 0.5, y - 13);
         ctx.stroke();
         ctx.fillStyle = ORANGE;
         ctx.beginPath();
-        ctx.moveTo(cabX + p.dir * p.len * 0.2, y - 12);
-        ctx.lineTo(cabX + p.dir * p.len * 0.2 - p.dir * 6, y - 10.5);
-        ctx.lineTo(cabX + p.dir * p.len * 0.2, y - 9);
+        ctx.moveTo(ax - d * 0.5, y - 13);
+        ctx.lineTo(ax - d * 6.5, y - 11.5 + Math.sin(effT * 8 + i) * 0.8);
+        ctx.lineTo(ax - d * 0.5, y - 10);
         ctx.closePath(); ctx.fill();
       }
     }
+  }
+
+  // one marcher: capsule torso, striding legs, cap brim — the same
+  // anatomy as the strolling citizens so the whole town matches
+  function drawMarcher(mx, bob, stride, capColor) {
+    var y = GROUND_Y - bob;
+    ctx.strokeStyle = TEAL_TRIM;
+    ctx.lineWidth = 1.3;
+    ctx.lineCap = 'round';
+    ctx.beginPath();                              // high-knee march
+    ctx.moveTo(mx, y - 4.5);
+    ctx.quadraticCurveTo(mx + stride * 1.6, y - 3.2, mx + stride * 2.4, y);
+    ctx.moveTo(mx, y - 4.5);
+    ctx.quadraticCurveTo(mx - stride * 1.0, y - 2.4, mx - stride * 2.4, y);
+    ctx.stroke();
+    ctx.lineCap = 'butt';
+    ctx.fillStyle = TEAL_TRIM;                    // capsule torso
+    ctx.beginPath();
+    ctx.moveTo(mx - 1.8, y - 4);
+    ctx.lineTo(mx - 1.8, y - 9);
+    ctx.arc(mx, y - 9, 1.8, Math.PI, 0);
+    ctx.lineTo(mx + 1.8, y - 4);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.arc(mx, y - 12.4, 2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = capColor;                     // parade cap
+    ctx.beginPath();
+    ctx.arc(mx, y - 13, 2, Math.PI, 0);
+    ctx.closePath(); ctx.fill();
+    ctx.fillRect(mx - 2.6, y - 13.2, 5.2, 1);
+    return y;
   }
 
   // the Founders' Day procession: flag bearer, marching band, a float
@@ -2593,59 +2736,101 @@
     if (!parade.active || reducedMotion.matches) return;
     var d = parade.dir;
     var hx = parade.x;
-    var i, mx, bob;
+    var i, mx, bob, stride;
 
-    // flag bearer leads
+    // flag bearer leads, banner rippling from a raked staff
     bob = Math.abs(Math.sin(effT * 9)) * 1.2;
-    ctx.fillStyle = TEAL_TRIM;
-    ctx.fillRect(hx - 2, GROUND_Y - 13 - bob, 4, 13);
-    ctx.beginPath(); ctx.arc(hx, GROUND_Y - 16 - bob, 2.4, 0, Math.PI * 2); ctx.fill();
-    ctx.fillRect(hx + d * 3 - 0.75, GROUND_Y - 30 - bob, 1.5, 18);
-    ctx.fillStyle = ORANGE;                       // swallow-tail banner
+    stride = Math.sin(effT * 9) * d;
+    drawMarcher(hx, bob, stride, ORANGE);
+    ctx.strokeStyle = BRASS;
+    ctx.lineWidth = 1.2;
     ctx.beginPath();
-    ctx.moveTo(hx + d * 3, GROUND_Y - 30 - bob);
-    ctx.lineTo(hx + d * 3 + d * 13, GROUND_Y - 27.5 - bob);
-    ctx.lineTo(hx + d * 3 + d * 8, GROUND_Y - 25 - bob);
-    ctx.lineTo(hx + d * 3 + d * 13, GROUND_Y - 22.5 - bob);
-    ctx.lineTo(hx + d * 3, GROUND_Y - 22 - bob);
+    ctx.moveTo(hx + d * 2, GROUND_Y - 9 - bob);
+    ctx.lineTo(hx + d * 5, GROUND_Y - 30 - bob);
+    ctx.stroke();
+    var w1 = Math.sin(effT * 7) * 1.4;            // the cloth waves
+    ctx.fillStyle = ORANGE;
+    ctx.beginPath();
+    ctx.moveTo(hx + d * 5, GROUND_Y - 30 - bob);
+    ctx.quadraticCurveTo(hx + d * 12, GROUND_Y - 30.5 - bob + w1,
+                         hx + d * 18, GROUND_Y - 28.5 - bob - w1);
+    ctx.lineTo(hx + d * 12, GROUND_Y - 26.5 - bob);
+    ctx.quadraticCurveTo(hx + d * 9, GROUND_Y - 25 - bob - w1,
+                         hx + d * 5, GROUND_Y - 24 - bob);
     ctx.closePath(); ctx.fill();
 
-    // eight bandsmen in two ranks, brass in hand
+    // eight bandsmen, horns catching whatever light there is
     for (i = 0; i < 8; i++) {
-      mx = hx - d * (20 + i * 11);
+      mx = hx - d * (22 + i * 12);
       bob = Math.abs(Math.sin(effT * 9 + i * 1.1)) * 1.2;
-      ctx.fillStyle = TEAL_TRIM;
-      ctx.fillRect(mx - 1.75, GROUND_Y - 11 - bob, 3.5, 11);
-      ctx.beginPath(); ctx.arc(mx, GROUND_Y - 13.5 - bob, 2.2, 0, Math.PI * 2); ctx.fill();
-      if (i % 2) {                                // every other man plays
-        ctx.fillStyle = BRASS;
-        ctx.beginPath(); ctx.arc(mx + d * 3, GROUND_Y - 9 - bob, 1.7, 0, Math.PI * 2); ctx.fill();
+      stride = Math.sin(effT * 9 + i * 1.1) * d;
+      var my = drawMarcher(mx, bob, stride, i % 2 ? BRASS : CREAM_HI);
+      if (i % 2) {                                // trumpet at the lips
+        ctx.strokeStyle = BRASS;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(mx + d * 1.5, my - 11.5);
+        ctx.lineTo(mx + d * 5.5, my - 11);
+        ctx.stroke();
+        ctx.fillStyle = BRASS;                    // the bell flares
+        ctx.beginPath();
+        ctx.moveTo(mx + d * 5.5, my - 12.6);
+        ctx.lineTo(mx + d * 7.5, my - 11);
+        ctx.lineTo(mx + d * 5.5, my - 9.4);
+        ctx.closePath(); ctx.fill();
+      } else {                                    // snare at the waist
+        ctx.fillStyle = CREAM_HI;
+        ctx.fillRect(mx + d * 1.6, my - 7.6, 3.4, 2.6);
+        ctx.fillStyle = TEAL_TRIM;
+        ctx.fillRect(mx + d * 1.6, my - 6.4, 3.4, 0.6);
       }
     }
 
-    // the float brings up the rear: orange platform, starburst standard
-    var fx2 = hx - d * 130;
+    // the float brings up the rear: skirted platform with scalloped
+    // bunting, a slow-turning starburst standard, one waving rider
+    var fx2 = hx - d * 132;
     ctx.fillStyle = TEAL_TRIM;                    // wheels
     ctx.beginPath();
-    dotPath(fx2 - 10, GROUND_Y - 3, 3); dotPath(fx2 + 10, GROUND_Y - 3, 3);
+    dotPath(fx2 - 11, GROUND_Y - 3, 3); dotPath(fx2 + 11, GROUND_Y - 3, 3);
     ctx.fill();
-    ctx.fillStyle = ORANGE;                       // platform
-    ctx.fillRect(fx2 - 17, GROUND_Y - 10, 34, 6);
-    ctx.fillStyle = CREAM_HI;                     // bunting scallops
+    ctx.fillStyle = CREAM_HI;                     // hubs
     ctx.beginPath();
-    dotPath(fx2 - 10, GROUND_Y - 4, 3); dotPath(fx2, GROUND_Y - 4, 3); dotPath(fx2 + 10, GROUND_Y - 4, 3);
+    dotPath(fx2 - 11, GROUND_Y - 3, 1); dotPath(fx2 + 11, GROUND_Y - 3, 1);
     ctx.fill();
-    ctx.fillStyle = BRASS;                        // starburst standard
-    ctx.fillRect(fx2 - 1, GROUND_Y - 26, 2, 16);
-    ctx.strokeStyle = BRASS;
-    ctx.lineWidth = 1.5;
+    ctx.fillStyle = ORANGE;                       // platform deck
     ctx.beginPath();
+    ctx.moveTo(fx2 - 19, GROUND_Y - 11);
+    ctx.lineTo(fx2 + 19, GROUND_Y - 11);
+    ctx.quadraticCurveTo(fx2 + 21, GROUND_Y - 11, fx2 + 21, GROUND_Y - 8.5);
+    ctx.lineTo(fx2 + 21, GROUND_Y - 6);
+    ctx.lineTo(fx2 - 21, GROUND_Y - 6);
+    ctx.lineTo(fx2 - 21, GROUND_Y - 8.5);
+    ctx.quadraticCurveTo(fx2 - 21, GROUND_Y - 11, fx2 - 19, GROUND_Y - 11);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = CREAM_HI;                     // scalloped bunting skirt
+    ctx.beginPath();
+    for (var sc = -3; sc <= 3; sc++) {
+      ctx.moveTo(fx2 + sc * 6 + 3, GROUND_Y - 6);
+      ctx.arc(fx2 + sc * 6, GROUND_Y - 6, 3, 0, Math.PI);
+    }
+    ctx.fill();
+    ctx.strokeStyle = BRASS;                      // the standard turns slowly
+    ctx.lineWidth = 1.4;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(fx2, GROUND_Y - 11);
+    ctx.lineTo(fx2, GROUND_Y - 27);
+    var spin = effT * 1.1;
     for (i = 0; i < 8; i++) {
-      var pa = i * Math.PI / 4;
-      ctx.moveTo(fx2 + Math.cos(pa) * 2.5, GROUND_Y - 28 + Math.sin(pa) * 2.5);
-      ctx.lineTo(fx2 + Math.cos(pa) * 7, GROUND_Y - 28 + Math.sin(pa) * 7);
+      var pa = spin + i * Math.PI / 4;
+      ctx.moveTo(fx2 + Math.cos(pa) * 2.5, GROUND_Y - 29 + Math.sin(pa) * 2.5);
+      ctx.lineTo(fx2 + Math.cos(pa) * 7, GROUND_Y - 29 + Math.sin(pa) * 7);
     }
     ctx.stroke();
+    ctx.lineCap = 'butt';
+    ctx.fillStyle = ORANGE;
+    ctx.beginPath(); ctx.arc(fx2, GROUND_Y - 29, 1.8, 0, Math.PI * 2); ctx.fill();
+    drawMarcher(fx2 + d * 13, 0, 0, ORANGE);      // the beauty queen, waving
   }
 
   /* the hillside: a lifted-teal slope behind the back row, cottages
@@ -2865,12 +3050,16 @@
     ctx.stroke();
     ctx.globalAlpha = 1;
 
-    ctx.save();                                   // the diamond
-    ctx.translate(kx, ky);
+    ctx.save();                                   // the diamond, sail bowed
+    ctx.translate(kx, ky);                        // taut by the wind
     ctx.rotate(Math.sin(effT * 0.9 + kite.ph) * 0.2);
     ctx.fillStyle = ORANGE;
     ctx.beginPath();
-    ctx.moveTo(0, -9); ctx.lineTo(6.5, 0); ctx.lineTo(0, 11); ctx.lineTo(-6.5, 0);
+    ctx.moveTo(0, -9);
+    ctx.quadraticCurveTo(5.4, -4.5, 6.5, 0);
+    ctx.quadraticCurveTo(5.2, 5.5, 0, 11);
+    ctx.quadraticCurveTo(-5.2, 5.5, -6.5, 0);
+    ctx.quadraticCurveTo(-5.4, -4.5, 0, -9);
     ctx.closePath(); ctx.fill();
     ctx.strokeStyle = TEAL_TRIM;                  // spars
     ctx.lineWidth = 1;
@@ -2878,12 +3067,30 @@
     ctx.moveTo(0, -9); ctx.lineTo(0, 11);
     ctx.moveTo(-6.5, 0); ctx.lineTo(6.5, 0);
     ctx.stroke();
-    ctx.fillStyle = CREAM_HI;                     // tail bows
+
+    var s1 = Math.sin(effT * 2.4 + kite.ph);      // ribbon tail streaming
+    var s2 = Math.sin(effT * 2.4 + kite.ph + 1.3);
+    ctx.strokeStyle = TEAL_TRIM;
+    ctx.lineWidth = 0.9;
+    ctx.globalAlpha = 0.75;
     ctx.beginPath();
+    ctx.moveTo(0, 11);
+    ctx.quadraticCurveTo(s1 * 4.5, 18, s2 * 5.5, 25);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = CREAM_HI;                     // bow ties on the ribbon
     for (var tb = 1; tb <= 3; tb++) {
-      dotPath(Math.sin(effT * 2.4 + tb) * 3.5, 11 + tb * 7, 1.8);
+      var tt = tb / 3;
+      var bxk = (1 - tt) * (1 - tt) * 0 + 2 * (1 - tt) * tt * s1 * 4.5 + tt * tt * s2 * 5.5;
+      var byk = (1 - tt) * (1 - tt) * 11 + 2 * (1 - tt) * tt * 18 + tt * tt * 25;
+      ctx.save();
+      ctx.translate(bxk, byk);
+      ctx.rotate(s1 * 0.6 + tb);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 2.3, 1.1, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
     }
-    ctx.fill();
     ctx.restore();
   }
 
@@ -3048,25 +3255,49 @@
     }
   }
 
-  // the milk truck: a cream panel van on the dawn round
+  // the milk truck: a cream panel van on the dawn round — rounded roof,
+  // snub cab, dairy stripe, wheels that actually meet the road
   function drawMilk(litLevel) {
     if (!milk.active || reducedMotion.matches) return;
+    var d = milk.dir;
     var y = GROUND_Y - 12;
-    var nose = milk.dir === 1 ? milk.x + 26 : milk.x;
-    ctx.fillStyle = CREAM_HI;                     // box body
-    ctx.fillRect(milk.x, y, 26, 9);
-    ctx.fillStyle = '#235450';                    // roof band + windshield
-    ctx.fillRect(milk.x, y - 1.5, 26, 2);
-    ctx.fillRect(milk.dir === 1 ? milk.x + 20 : milk.x + 2, y + 1.5, 4, 3.5);
-    ctx.fillStyle = ORANGE;                       // dairy livery stripe
-    ctx.fillRect(milk.x + 2, y + 5.5, 22, 1.5);
-    ctx.fillStyle = TEAL_TRIM;                    // wheels
+    var L2 = d === 1 ? milk.x : milk.x + 26;      // rear of the box
+    var nose = d === 1 ? milk.x + 26 : milk.x;
+
+    ctx.fillStyle = TEAL_TRIM;                    // wheels first
     ctx.beginPath();
-    dotPath(milk.x + 5, GROUND_Y - 2, 2.2); dotPath(milk.x + 21, GROUND_Y - 2, 2.2);
+    dotPath(milk.x + 5.5, GROUND_Y - 2.4, 2.4);
+    dotPath(milk.x + 20.5, GROUND_Y - 2.4, 2.4);
     ctx.fill();
+    ctx.fillStyle = CREAM_HI;
+    ctx.beginPath();
+    dotPath(milk.x + 5.5, GROUND_Y - 2.4, 0.8);
+    dotPath(milk.x + 20.5, GROUND_Y - 2.4, 0.8);
+    ctx.fill();
+
+    ctx.fillStyle = CREAM_HI;                     // box with a rounded roof
+    ctx.beginPath();                              // and a snub, sloped cab
+    ctx.moveTo(L2, y + 9);
+    ctx.lineTo(L2, y + 1);
+    ctx.quadraticCurveTo(L2, y - 2, L2 + d * 3, y - 2);
+    ctx.lineTo(nose - d * 8, y - 2);
+    ctx.quadraticCurveTo(nose - d * 3, y - 2, nose - d * 1, y + 2);
+    ctx.quadraticCurveTo(nose, y + 4, nose, y + 6);
+    ctx.lineTo(nose, y + 9);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#235450';                    // windshield in the slope
+    ctx.beginPath();
+    ctx.moveTo(nose - d * 7, y - 0.8);
+    ctx.lineTo(nose - d * 2.4, y + 2.6);
+    ctx.lineTo(nose - d * 7, y + 2.6);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = ORANGE;                       // dairy livery stripe
+    ctx.fillRect(milk.x + 2, y + 5, 22, 1.6);
+    ctx.fillStyle = TEAL_TRIM;                    // crate of bottles aboard
+    ctx.fillRect(L2 + d * 3, y + 1.4, d * 5, 2.4);
     if (litLevel > 0.55) {                        // headlight in the half-dark
       ctx.fillStyle = CREAM_HI;
-      ctx.beginPath(); ctx.arc(nose, y + 6, 1.6, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(nose - d * 0.8, y + 6, 1.5, 0, Math.PI * 2); ctx.fill();
     }
   }
 
@@ -3854,13 +4085,30 @@
         ctx.fillRect(b.x - 1, top - 3, b.w + 2, 4);
         ctx.globalAlpha = 1;
       }
-      if (b.mast) {
-        var mx = b.x + b.w / 2;
-        ctx.fillStyle = BRASS;
-        ctx.fillRect(mx - 1.5, top - 36, 3, 36);
+      if (b.mast) {                               // tapered lattice mast with
+        var mx = b.x + b.w / 2;                   // a blinking aviation beacon
+        ctx.strokeStyle = BRASS;
+        ctx.lineWidth = 1.4;
+        ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.arc(mx, top - 40, 4.5, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.moveTo(mx - 5, top);
+        ctx.lineTo(mx, top - 40);
+        ctx.moveTo(mx + 5, top);
+        ctx.lineTo(mx, top - 40);
+        for (var mr = 1; mr <= 3; mr++) {         // cross-braces, narrowing
+          var mhalf = 5 * (1 - mr * 0.24);
+          ctx.moveTo(mx - mhalf, top - mr * 10);
+          ctx.lineTo(mx + mhalf, top - mr * 10);
+        }
+        ctx.stroke();
+        ctx.lineCap = 'butt';
+        var blink = litLevel > 0.55 && Math.sin(effT * 2.6) > -0.25;
+        if (blink) {
+          ctx.fillStyle = GLOW_ORANGE;
+          ctx.beginPath(); ctx.arc(mx, top - 42.5, 6, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.fillStyle = ORANGE;
+        ctx.beginPath(); ctx.arc(mx, top - 42.5, 2.2, 0, Math.PI * 2); ctx.fill();
       }
       if (b.sign && !b.mast) {                    // rooftop Googie starburst
         var sx = b.x + b.w / 2;
@@ -3898,26 +4146,26 @@
       }
     }
 
-    // four batched passes built in ONE sweep of the panes: flat halo
-    // glows for scheduled-lit panes first, then every pane's dot on top
-    // (brass, plus rare orange accents). A pane whose flicker override
-    // is running shows the opposite of its schedule — someone in there
-    // just hit the switch. October swaps the whole city's halos to
-    // burnt orange (harvest festival custom). Radii ride CITY_K so a
-    // shrunken skyline keeps its window rhythm.
+    // four batched passes built in ONE sweep of the panes: round halo
+    // glows for scheduled-lit panes first, then every pane on top —
+    // upright rounded-corner windows now, real architecture instead of
+    // dots (brass, plus rare orange accents). A pane whose flicker
+    // override is running shows the opposite of its schedule — someone
+    // in there just hit the switch. October swaps the whole city's
+    // halos to burnt orange (harvest festival custom). Sizes ride
+    // CITY_K so a shrunken skyline keeps its window rhythm.
     var wy;
-    var wr = 3 * Math.max(0.72, CITY_K);
-    var wg = 7 * Math.max(0.72, CITY_K);
+    var wk = Math.max(0.72, CITY_K);
+    var pw = 6.4 * wk, ph = 9.4 * wk;             // pane width / height
+    var wg = 7.5 * wk;                            // glow radius
     var glowPlain = new Path2D(), glowAccent = new Path2D();
-    var dotPlain = new Path2D(), dotAccent = new Path2D();
+    var panePlain = new Path2D(), paneAccent = new Path2D();
     for (i = 0; i < b.windows.length; i++) {
       wd = b.windows[i];
       wy = GROUND_Y + wd.y;
       if (wy < top + 6) continue;                 // above the built portion
       var lit = (wd.threshold < litLevel) !== (wd.flickUntil > effT);
-      var dots = wd.accent ? dotAccent : dotPlain;
-      dots.moveTo(wd.x + wr, wy);
-      dots.arc(wd.x, wy, wr, 0, Math.PI * 2);
+      panePath(wd.accent ? paneAccent : panePlain, wd.x, wy, pw, ph);
       if (lit) {
         var glows = wd.accent ? glowAccent : glowPlain;
         glows.moveTo(wd.x + wg, wy);
@@ -3929,9 +4177,9 @@
     ctx.fillStyle = GLOW_ORANGE;
     ctx.fill(glowAccent);
     ctx.fillStyle = BRASS;
-    ctx.fill(dotPlain);
+    ctx.fill(panePlain);
     ctx.fillStyle = ORANGE;
-    ctx.fill(dotAccent);
+    ctx.fill(paneAccent);
 
     if (b.door && h > 26) {
       ctx.fillStyle = ORANGE;

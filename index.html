@@ -157,34 +157,92 @@
       <div class="console-footer">NAZARBAN INSTRUMENT WORKS · EST. 1958</div>
     </div>
 
-    <!-- ============ AUXILIARY SERVICES RAIL (two banks of keys) ============ -->
+    <!-- ============ AUXILIARY SERVICES RAIL (real 1958 hardware) ============ -->
     <div class="auxiliary">
       <div class="aux-legend">AUXILIARY<br>SERVICES</div>
-      <div class="aux-bank">
-        <div class="aux-row">
-          <button class="aux-key" id="aux-concert" title="Strike up the bandstand">CONCERT</button>
-          <button class="aux-key" id="aux-parade" title="Order a parade down Main Street">PARADE</button>
-          <button class="aux-key" id="aux-salute" title="Commission a fireworks salute">SALUTE</button>
-          <button class="aux-key" id="aux-whistle" title="Blow the noon whistle">WHISTLE</button>
-          <button class="aux-key" id="aux-reel" title="Change the drive-in's picture">REEL</button>
-          <button class="aux-key" id="aux-newsreel" title="Record a 6-second newsreel">NEWSREEL</button>
-          <button class="aux-key" id="aux-telecast" title="Switch KNAZ-TV on or off">TELECAST</button>
-          <button class="aux-key" id="aux-testcard" title="Factory calibration card">TEST CARD</button>
-          <button class="aux-key aux-toggle" id="aux-attract" title="Let the machine stroll through the day on its own" aria-pressed="false">ATTRACT</button>
+
+      <!-- forms desk: dial a form, press PRINT -->
+      <div class="aux-unit">
+        <div class="aux-dial" id="forms-dial" role="button" tabindex="0" title="Select a form" aria-label="Select a form">
+          <div class="aux-dial-rotor" id="forms-rotor"></div>
         </div>
-        <div class="aux-row">
-          <button class="aux-key" id="aux-almanac" title="Issue the municipal almanac (Form CA-2)">ALMANAC</button>
-          <button class="aux-key" id="aux-daylog" title="Print the municipal wire's day log (Form DL-7)">DAY LOG</button>
-          <button class="aux-key" id="aux-wirephoto" title="Dispatch a duotone press photograph of the city">WIRE PHOTO</button>
-          <button class="aux-key" id="aux-hatch" title="Open the maintenance hatch — field diagnostics">HATCH</button>
-          <button class="aux-key aux-danger" id="aux-sister" title="Tune the machine to the sister city (leaves this one)">SISTER CITY</button>
-          <button class="aux-key aux-danger" id="aux-newtown" title="Survey a brand-new town (leaves this one)">NEW TOWN</button>
-          <button class="aux-key aux-toggle" id="aux-speaker" title="Toggle the valve speaker" aria-pressed="false">SPEAKER</button>
-          <div class="aux-volume" id="aux-volume" role="button" tabindex="0" aria-label="Speaker volume">
-            <div class="aux-volume-rotor" id="aux-volume-rotor"></div>
-          </div>
-          <button class="aux-window" id="aux-season" title="Civic calendar — click to turn the month">&nbsp;</button>
+        <span id="forms-readout">ALMANAC</span>
+      </div>
+      <div class="aux-unit">
+        <button class="aux-push aux-push-brass" id="forms-print" title="Print the selected form" aria-label="Print the selected form"></button>
+        <span>PRINT</span>
+      </div>
+
+      <div class="aux-divider"></div>
+
+      <!-- ceremonies: momentary pushbuttons -->
+      <div class="aux-unit">
+        <button class="aux-push" id="push-concert" title="Strike up the bandstand" aria-label="Concert"></button>
+        <span>CONCERT</span>
+      </div>
+      <div class="aux-unit">
+        <button class="aux-push" id="push-parade" title="Order a parade down Main Street" aria-label="Parade"></button>
+        <span>PARADE</span>
+      </div>
+      <div class="aux-unit">
+        <button class="aux-push" id="push-salute" title="Commission a fireworks salute" aria-label="Fireworks salute"></button>
+        <span>SALUTE</span>
+      </div>
+      <div class="aux-unit">
+        <button class="aux-push" id="push-whistle" title="Blow the noon whistle" aria-label="Noon whistle"></button>
+        <span>WHISTLE</span>
+      </div>
+      <div class="aux-unit">
+        <button class="aux-push" id="push-newsreel" title="Record a 6-second newsreel" aria-label="Newsreel"></button>
+        <span>NEWSREEL</span>
+      </div>
+
+      <div class="aux-divider"></div>
+
+      <!-- bat-handle switches -->
+      <div class="aux-unit">
+        <button class="aux-switch" id="sw-speaker" title="Toggle the valve speaker" aria-pressed="false"><i></i></button>
+        <span>SPEAKER</span>
+      </div>
+      <div class="aux-unit">
+        <button class="aux-switch" id="sw-telecast" title="Switch KNAZ-TV on or off" aria-pressed="false"><i></i></button>
+        <span>TELECAST</span>
+      </div>
+      <div class="aux-unit">
+        <button class="aux-switch" id="sw-attract" title="Let the machine stroll through the day on its own" aria-pressed="false"><i></i></button>
+        <span>ATTRACT</span>
+      </div>
+
+      <div class="aux-divider"></div>
+
+      <!-- travel desk: select a destination, lift the guard, depart -->
+      <div class="aux-unit">
+        <button class="aux-switch aux-switch-travel" id="travel-sel" title="Select a destination" aria-pressed="false"><i></i></button>
+        <span id="travel-readout">NEW TOWN</span>
+      </div>
+      <div class="aux-unit">
+        <button class="aux-push aux-push-orange" id="travel-depart" title="Depart for the selected destination (asks twice)" aria-label="Depart"></button>
+        <span id="depart-label">DEPART</span>
+      </div>
+
+      <div class="aux-divider"></div>
+
+      <!-- the machine's own fittings -->
+      <div class="aux-unit">
+        <div class="aux-volume" id="aux-volume" role="button" tabindex="0" aria-label="Speaker volume">
+          <div class="aux-volume-rotor" id="aux-volume-rotor"></div>
         </div>
+        <span>VOLUME</span>
+      </div>
+      <div class="aux-unit">
+        <button class="aux-window" id="aux-season" title="Civic calendar — click to turn the month">&nbsp;</button>
+        <span>CIVIC CALENDAR</span>
+      </div>
+      <div class="aux-unit">
+        <button class="aux-hatchplate" id="aux-hatch" title="Open the maintenance hatch" aria-label="Maintenance hatch">
+          <i class="hp-screw"></i><i class="hp-slot"></i><i class="hp-screw"></i>
+        </button>
+        <span>HATCH</span>
       </div>
     </div>
   </div>

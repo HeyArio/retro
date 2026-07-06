@@ -469,71 +469,126 @@
   })();
 
   /* ---------------- auxiliary services rail ---------------- */
-  /* The strip below the console: every civic service that used to hide
-     behind a click on the canvas now has a labelled key. The city
-     itself is an exhibit behind glass — look, don't touch. */
+  /* Real hardware, not labelled keys: a forms dial feeding a PRINT
+     button, a bank of momentary pushbuttons for the ceremonies,
+     bat-handle switches, and a guarded travel desk — all driving the
+     same 'municitron:*' events the city listens for. */
 
-  function auxWire(id, channel, lamp, ms) {
-    var el = $(id);
-    if (!el) return;
-    el.addEventListener('click', function () {
-      if (lamp) flashLamp(lamp, id, ms || 1400);
-      document.dispatchEvent(new CustomEvent('municitron:' + channel));
-    });
+  function fire(channel, lamp, ms) {
+    if (lamp) flashLamp(lamp, 'aux-' + channel, ms || 1400);
+    document.dispatchEvent(new CustomEvent('municitron:' + channel));
   }
 
-  auxWire('aux-almanac', 'almanac', xmitLamp);
-  auxWire('aux-daylog', 'daylog', xmitLamp);
-  auxWire('aux-wirephoto', 'wirephoto', xmitLamp, 1800);
-  auxWire('aux-concert', 'concert');
-  auxWire('aux-parade', 'parade');
-  auxWire('aux-salute', 'salute', xmitLamp, 1800);
-  auxWire('aux-whistle', 'whistle');
-  auxWire('aux-reel', 'reel');
-  auxWire('aux-newsreel', 'newsreel', xmitLamp, 6200);
-  auxWire('aux-telecast', 'telecast', coinLamp, 1200);
-  auxWire('aux-testcard', 'testpattern', xmitLamp, 1800);
+  // click everywhere, keyboard too on the non-button dials
+  function press(id, fn) {
+    var el = $(id);
+    if (!el) return null;
+    el.addEventListener('click', fn);
+    if (el.tagName !== 'BUTTON') {
+      el.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { fn(); e.preventDefault(); }
+      });
+    }
+    return el;
+  }
 
-  // travel keys leave this city behind, so they ask twice: first press
-  // arms the key in burnt orange, a second within 3s actually departs
-  // (with the current dial settings carried along in the URL)
-  function armTwice(id, label, go) {
-    var key = $(id);
-    if (!key) return;
+  // FORMS desk: dial a document, press PRINT, the machine issues it
+  var FORMS = [
+    { name: 'ALMANAC', channel: 'almanac' },
+    { name: 'DAY LOG', channel: 'daylog' },
+    { name: 'WIRE PHOTO', channel: 'wirephoto' },
+    { name: 'RECORD', channel: 'record' }
+  ];
+  var FORM_ANGLES = [-58, -20, 20, 58];
+  var formSel = 0;
+  var formsRotor = $('forms-rotor');
+  var formsReadout = $('forms-readout');
+
+  function renderForms() {
+    if (formsRotor) formsRotor.style.transform = 'rotate(' + FORM_ANGLES[formSel] + 'deg)';
+    if (formsReadout) formsReadout.textContent = FORMS[formSel].name;
+  }
+  press('forms-dial', function () { formSel = (formSel + 1) % FORMS.length; renderForms(); });
+  press('forms-print', function () { fire(FORMS[formSel].channel, xmitLamp, 1800); });
+  renderForms();
+
+  // ceremonies: momentary pushbuttons
+  press('push-concert', function () { fire('concert'); });
+  press('push-parade', function () { fire('parade'); });
+  press('push-salute', function () { fire('salute', xmitLamp, 1800); });
+  press('push-whistle', function () { fire('whistle'); });
+  press('push-newsreel', function () { fire('newsreel', xmitLamp, 6200); });
+
+  // bat-handle switches: the handle remembers, the machine obeys
+  function flip(el) {
+    var on = el.getAttribute('aria-pressed') === 'true';
+    el.setAttribute('aria-pressed', on ? 'false' : 'true');
+    return !on;
+  }
+
+  // SPEAKER throws the same switch as the POWER lamp (js/sound.js
+  // listens there); the handle follows every route to that switch,
+  // including the M key and direct lamp clicks
+  (function () {
+    var sw = $('sw-speaker');
+    var unit = powerLamp && powerLamp.closest ? powerLamp.closest('.lamp-unit') : null;
+    if (!sw || !unit) return;
+    unit.addEventListener('click', function () { flip(sw); });
+    sw.addEventListener('click', function () { unit.click(); });
+  })();
+
+  press('sw-telecast', function () {
+    flip($('sw-telecast'));
+    fire('telecast', coinLamp, 1200);
+  });
+
+  press('sw-attract', function () {
+    attractOn = flip($('sw-attract'));
+    if (attractOn) lastAttractStep = 0;          // first stroll within a second
+  });
+
+  // TRAVEL desk: point the selector at a destination, then DEPART —
+  // leaving town is a two-press affair (armed in orange, asks SURE?)
+  var travelSel = 0;                              // 0 NEW TOWN · 1 SISTER CITY
+  var travelReadout = $('travel-readout');
+  press('travel-sel', function () {
+    travelSel = flip($('travel-sel')) ? 1 : 0;
+    if (travelReadout) travelReadout.textContent = travelSel ? 'SISTER CITY' : 'NEW TOWN';
+  });
+
+  (function () {
+    var btn = $('travel-depart');
+    var label = $('depart-label');
+    if (!btn || !label) return;
     var armed = false;
     var timer = null;
-    key.addEventListener('click', function () {
+    btn.addEventListener('click', function () {
       if (!armed) {
         armed = true;
-        key.classList.add('armed');
-        key.textContent = 'SURE?';
+        btn.classList.add('armed');
+        label.textContent = 'SURE?';
         timer = setTimeout(function () {
           armed = false;
-          key.classList.remove('armed');
-          key.textContent = label;
+          btn.classList.remove('armed');
+          label.textContent = 'DEPART';
         }, 3000);
         return;
       }
       clearTimeout(timer);
-      go(key);
+      var seed;
+      if (travelSel === 1) {
+        var M = window.MUNICITRON_CITY;
+        if (!M || !M.almanac || typeof M.almanac.sisterSeed !== 'number') return;
+        seed = M.almanac.sisterSeed;
+        label.textContent = 'TUNING…';
+      } else {
+        seed = (Math.random() * 0x100000000) >>> 0;
+        label.textContent = 'SURVEYING…';
+      }
+      window.location.href = '?seed=' + seed +
+        '&t=' + state.time + '&w=' + state.weather + '&g=' + state.growth;
     });
-  }
-
-  function departTo(seed, key, verb) {
-    key.textContent = verb;
-    window.location.href = '?seed=' + seed +
-      '&t=' + state.time + '&w=' + state.weather + '&g=' + state.growth;
-  }
-
-  armTwice('aux-newtown', 'NEW TOWN', function (key) {
-    departTo((Math.random() * 0x100000000) >>> 0, key, 'SURVEYING…');
-  });
-
-  armTwice('aux-sister', 'SISTER CITY', function (key) {
-    var M = window.MUNICITRON_CITY;
-    if (!M || !M.almanac || typeof M.almanac.sisterSeed !== 'number') return;
-    departTo(M.almanac.sisterSeed, key, 'TUNING…');
-  });
+  })();
 
   // the VOLUME knob steps LOW / STANDARD / FULL (js/sound.js listens);
   // the pointer swings between three detents like the console knobs
@@ -578,18 +633,6 @@
     });
     refresh();
     setInterval(refresh, 1000);
-  })();
-
-  // the ATTRACT toggle puts the machine on its arcade stroll right now,
-  // instead of waiting out the 90-second idle timer; the jewel shows it
-  (function () {
-    var key = $('aux-attract');
-    if (!key) return;
-    key.addEventListener('click', function () {
-      attractOn = !attractOn;
-      key.setAttribute('aria-pressed', attractOn ? 'true' : 'false');
-      if (attractOn) lastAttractStep = 0;          // first step within a second
-    });
   })();
 
   // the maintenance hatch: the machine's own diagnostics, read straight
@@ -685,7 +728,7 @@
      console block itself never changes shape. The city renderer is told
      the new logical sim height via 'municitron:viewport'. */
 
-  var PANEL_H = 384;                             // console 300 + auxiliary rail 84
+  var PANEL_H = 374;                             // console 300 + auxiliary rail 74
   var simEl = document.querySelector('.sim');
   var lastSimH = 600;
 

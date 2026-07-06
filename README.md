@@ -53,30 +53,31 @@ transmits a postcard, **M** works the speaker switch. The GROWTH lever
 also really slides — grab it and drag; it snaps to the nearest detent.
 
 The city itself sits behind glass — look, don't touch. Everything
-civic runs from the two-row **AUXILIARY SERVICES** rail under the
-console.
+civic runs from the **AUXILIARY SERVICES** rail under the console,
+and the rail is real 1958 hardware, not labelled keys:
 
-Civic actions: **CONCERT** (the bandstand strikes up, notes and all),
-**PARADE** (the band doesn't wait for July), **SALUTE** (a
-commissioned fireworks show with a ripple of window lights),
-**WHISTLE** (the fire station marks noon: folks stop mid-stride, a
-flock objects, every boiler lets off steam), **REEL** (change the
-drive-in's picture), **NEWSREEL**, **TELECAST** (KNAZ-TV), **TEST
-CARD**, and an **ATTRACT** toggle that puts the machine on its arcade
-stroll without waiting out the idle timer.
-
-Paperwork and travel: **ALMANAC** (Form CA-2), **DAY LOG** (Form DL-7:
-a ticker-tape PNG of everything the municipal wire carried, stamped
-with civic dates), **WIRE PHOTO** (the living canvas re-shot as a
-duotone press photograph with scanlines, crop marks and a typeset
-caption), **HATCH** (a screwed-down diagnostics plate: serial number,
-commission date, postcards transmitted, coins received, uptime this
-shift), **SISTER CITY** (tune the machine to the almanac's sister
-seed) and **NEW TOWN** (survey a fresh seed) — both travel keys arm
-in orange and ask "SURE?" first — plus a **SPEAKER** toggle, a
-miniature bakelite **VOLUME** knob (LOW / STANDARD / FULL), and the
-**civic-calendar window**, which is a dial too: click it to turn the
-month early, customs and all.
+- **FORMS desk** — a bakelite selector dial (ALMANAC · DAY LOG · WIRE
+  PHOTO · RECORD) feeding a brass **PRINT** button. Almanac is Form
+  CA-2; Day Log is Form DL-7, a ticker-tape PNG of everything the
+  municipal wire carried; Wire Photo re-shoots the canvas as a duotone
+  press photograph with scanlines, crop marks and a typeset caption;
+  Record is the commissioner's Form CR-5.
+- **Ceremony pushbuttons** — round momentary buttons for **CONCERT**,
+  **PARADE**, **SALUTE**, **WHISTLE** (the fire station marks noon:
+  folks stop mid-stride, a flock objects, every boiler lets off
+  steam), and **NEWSREEL**.
+- **Bat-handle switches** — **SPEAKER**, **TELECAST** (KNAZ-TV) and
+  **ATTRACT** (the machine strolls through the day on its own); the
+  handle throws up in orange when a circuit is live.
+- **Travel desk** — a destination selector (NEW TOWN / SISTER CITY)
+  and a guarded orange **DEPART** button that arms and asks "SURE?"
+  before it leaves town, dial settings carried along.
+- **Machine fittings** — a miniature **VOLUME** knob (LOW / STANDARD /
+  FULL), the **civic-calendar window** (a dial too: click it to turn
+  the month early, customs and all), and the **HATCH**, a tiny
+  screwed-down plate that opens the field diagnostics: serial number,
+  commission date, postcards transmitted, coins received, uptime this
+  shift.
 
 - **WEATHER** knob — CLEAR / RAIN / SNOW / AURORA (the needle can't hold
   steady in rain; a change startles the rooftop flocks)
