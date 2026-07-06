@@ -481,12 +481,82 @@
   }
 
   auxWire('aux-almanac', 'almanac', xmitLamp);
+  auxWire('aux-daylog', 'daylog', xmitLamp);
   auxWire('aux-concert', 'concert');
+  auxWire('aux-parade', 'parade');
   auxWire('aux-salute', 'salute', xmitLamp, 1800);
   auxWire('aux-reel', 'reel');
   auxWire('aux-newsreel', 'newsreel', xmitLamp, 6200);
   auxWire('aux-telecast', 'telecast', coinLamp, 1200);
   auxWire('aux-testcard', 'testpattern', xmitLamp, 1800);
+
+  // the NEW TOWN key surveys a fresh seed — but it leaves this city
+  // behind, so it asks twice: first press arms it, second (within 3s)
+  // departs with the current dial settings carried along
+  (function () {
+    var key = $('aux-newtown');
+    if (!key) return;
+    var armed = false;
+    var timer = null;
+    key.addEventListener('click', function () {
+      if (!armed) {
+        armed = true;
+        key.classList.add('armed');
+        key.textContent = 'SURE?';
+        timer = setTimeout(function () {
+          armed = false;
+          key.classList.remove('armed');
+          key.textContent = 'NEW TOWN';
+        }, 3000);
+        return;
+      }
+      clearTimeout(timer);
+      key.textContent = 'SURVEYING…';
+      var seed = (Math.random() * 0x100000000) >>> 0;
+      window.location.href = '?seed=' + seed +
+        '&t=' + state.time + '&w=' + state.weather + '&g=' + state.growth;
+    });
+  })();
+
+  // the VOLUME knob steps LOW / STANDARD / FULL (js/sound.js listens);
+  // the pointer swings between three detents like the console knobs
+  (function () {
+    var area = $('aux-volume');
+    var rotor = $('aux-volume-rotor');
+    if (!area || !rotor) return;
+    var VOL_NAMES = ['LOW', 'STANDARD', 'FULL'];
+    var VOL_ANGLES = [-55, 0, 55];
+    var vol = 1;
+    function render() {
+      rotor.style.transform = 'rotate(' + VOL_ANGLES[vol] + 'deg)';
+      area.title = 'SPEAKER VOLUME: ' + VOL_NAMES[vol];
+    }
+    function bump() {
+      vol = (vol + 1) % 3;
+      render();
+      document.dispatchEvent(new CustomEvent('municitron:volume', { detail: vol }));
+    }
+    area.addEventListener('click', bump);
+    area.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { bump(); e.preventDefault(); }
+    });
+    render();
+  })();
+
+  // the civic-calendar window reads the city's own months (16 real
+  // seconds each); a light poll is plenty
+  (function () {
+    var win = $('aux-season');
+    if (!win) return;
+    function refresh() {
+      var M = window.MUNICITRON_CITY;
+      if (!M || !M.calendar || !M.months) return;
+      var text = M.months[M.calendar.month] + ' ' + M.calendar.year;
+      if (win.textContent !== text) win.textContent = text;
+    }
+    refresh();
+    setInterval(refresh, 1000);
+  })();
 
   // the SPEAKER key works the same switch as the POWER lamp (js/sound.js
   // listens there); its jewel follows every route to that switch,

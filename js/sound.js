@@ -21,13 +21,17 @@
   var master = null;
   var lastTick = 0;
 
+  // the VOLUME knob's three detents: LOW / STANDARD / FULL
+  var LEVELS = [0.05, 0.12, 0.24];
+  var level = 1;
+
   function boot() {
     if (ac) return;
     var AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     ac = new AC();
     master = ac.createGain();
-    master.gain.value = 0.12;
+    master.gain.value = LEVELS[level];
     master.connect(ac.destination);
 
     // mains hum: two detuned low oscillators through a gentle lowpass
@@ -138,6 +142,16 @@
   document.addEventListener('municitron:mail', function () { blip(1046, 0.12, 0.15, 'sine'); blip(1318, 0.2, 0.12, 'sine', 0.1); });
   document.addEventListener('municitron:record', function () { chime(); });
   document.addEventListener('municitron:concert', function () { phrase(); });
+  document.addEventListener('municitron:daylog', function () { chime(); });
+
+  // the VOLUME knob on the auxiliary rail (detail: 0 / 1 / 2); the
+  // clunk confirms the change at the new level
+  document.addEventListener('municitron:volume', function (e) {
+    var idx = Number(e.detail);
+    if (idx >= 0 && idx <= 2) level = idx;
+    if (master && enabled) master.gain.value = LEVELS[level];
+    if (enabled) clunk();
+  });
 
   // Sputnik telemetry: watch the ambient state for a pass starting
   var wasUp = false;
@@ -175,7 +189,7 @@
       if (enabled) {
         boot();
         if (ac && ac.state === 'suspended') ac.resume();
-        if (master) master.gain.value = 0.12;
+        if (master) master.gain.value = LEVELS[level];
         clunk();
         setTimeout(function () { if (enabled) phrase(); }, 2500);   // sign-on
       } else if (master) {

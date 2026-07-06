@@ -161,14 +161,20 @@
     <div class="auxiliary">
       <div class="aux-legend">AUXILIARY<br>SERVICES</div>
       <button class="aux-key" id="aux-almanac" title="Issue the municipal almanac (Form CA-2)">ALMANAC</button>
+      <button class="aux-key" id="aux-daylog" title="Print the municipal wire's day log (Form DL-7)">DAY LOG</button>
       <button class="aux-key" id="aux-concert" title="Strike up the bandstand">CONCERT</button>
+      <button class="aux-key" id="aux-parade" title="Order a parade down Main Street">PARADE</button>
       <button class="aux-key" id="aux-salute" title="Commission a fireworks salute">SALUTE</button>
       <button class="aux-key" id="aux-reel" title="Change the drive-in's picture">REEL</button>
       <button class="aux-key" id="aux-newsreel" title="Record a 6-second newsreel">NEWSREEL</button>
       <button class="aux-key" id="aux-telecast" title="Switch KNAZ-TV on or off">TELECAST</button>
       <button class="aux-key" id="aux-testcard" title="Factory calibration card">TEST CARD</button>
+      <button class="aux-key aux-danger" id="aux-newtown" title="Survey a brand-new town (leaves this one)">NEW TOWN</button>
       <button class="aux-key aux-toggle" id="aux-speaker" title="Toggle the valve speaker" aria-pressed="false">SPEAKER</button>
-      <div class="aux-legend aux-legend-right">PATENTS<br>PENDING</div>
+      <div class="aux-volume" id="aux-volume" role="button" tabindex="0" aria-label="Speaker volume">
+        <div class="aux-volume-rotor" id="aux-volume-rotor"></div>
+      </div>
+      <div class="aux-window" id="aux-season" title="Civic calendar">&nbsp;</div>
     </div>
   </div>
 
@@ -207,6 +213,7 @@
 <script src="js/almanac.js"></script>
 <script src="js/newsreel.js"></script>
 <script src="js/record.js"></script>
+<script src="js/daylog.js"></script>
 <script src="js/sound.js"></script>
 <script src="js/municitron.js"></script>
 </body>

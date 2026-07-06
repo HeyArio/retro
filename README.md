@@ -52,13 +52,19 @@ dial, **↑/↓** work the GROWTH lever, **1–4** dial the WEATHER, **P**
 transmits a postcard, **M** works the speaker switch. The GROWTH lever
 also really slides — grab it and drag; it snaps to the nearest detent.
 
-The city itself sits behind glass — look, don't touch. Everything you
-could once click on the canvas now has a labelled key on the
-**AUXILIARY SERVICES** rail under the console: **ALMANAC** (Form CA-2),
-**CONCERT** (the bandstand strikes up, notes and all), **SALUTE** (a
-commissioned fireworks show with a ripple of window lights), **REEL**
-(change the drive-in's picture), **NEWSREEL**, **TELECAST** (KNAZ-TV),
-**TEST CARD**, and a **SPEAKER** toggle with its own jewel lamp.
+The city itself sits behind glass — look, don't touch. Everything
+civic runs from the **AUXILIARY SERVICES** rail under the console:
+**ALMANAC** (Form CA-2), **DAY LOG** (Form DL-7: a ticker-tape PNG of
+everything the municipal wire carried, stamped with civic dates),
+**CONCERT** (the bandstand strikes up, notes and all), **PARADE** (the
+band doesn't wait for July), **SALUTE** (a commissioned fireworks show
+with a ripple of window lights), **REEL** (change the drive-in's
+picture), **NEWSREEL**, **TELECAST** (KNAZ-TV), **TEST CARD**,
+**NEW TOWN** (arms in orange, asks "SURE?", then surveys a fresh seed
+with your dial settings carried along), a **SPEAKER** toggle with its
+own jewel lamp, a miniature bakelite **VOLUME** knob (LOW / STANDARD /
+FULL), and a **civic-calendar window** showing the city's own month
+and year ticking by.
 
 - **WEATHER** knob — CLEAR / RAIN / SNOW / AURORA (the needle can't hold
   steady in rain; a change startles the rooftop flocks)

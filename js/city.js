@@ -786,6 +786,19 @@
   var birds = [];                                 // at most two flocks aloft
   var birdTimer = 20 + rng6() * 40;
   var parade = { active: false, x: 0, dir: 1 };   // Founders' Day procession
+
+  // the band forms up: Founders' Day calls it every July, and the
+  // PARADE key on the auxiliary rail doesn't wait for the calendar
+  function startParade(notice) {
+    if (reducedMotion.matches || parade.active) return;
+    parade.dir = harbor ? (harbor.side === 1 ? -1 : 1) : 1;
+    // harbor parades form at the quay; inland ones enter off-screen
+    parade.x = parade.dir === 1
+      ? (LAND_L > 0 ? LAND_L + 20 : -170)
+      : (LAND_R < VIEW_W ? LAND_R - 20 : VIEW_W + 170);
+    parade.active = true;
+    postBulletin(notice);
+  }
   var kite = { active: false, timer: 24 + rng6() * 40, until: 0, ph: 0, anchor: 0 };
 
   // the citizens: strollers (some with hats, some walking Comet),
@@ -1026,10 +1039,13 @@
      clock so notices post even while the lever is DORMANT. */
 
   var bulletin = { current: null, until: 0, clock: 0, queue: [] };
-
+  var dayLog = [];                                // everything the wire carried,
+                                                  // stamped with the civic date
   function postBulletin(msg) {
     if (bulletin.queue.length < 4 && bulletin.queue.indexOf(msg) === -1) {
       bulletin.queue.push(msg);
+      dayLog.push({ month: calendar.month, year: calendar.year, msg: msg });
+      if (dayLog.length > 24) dayLog.shift();
     }
   }
 
@@ -1844,15 +1860,7 @@
       } else if (calendar.month === 6) {
         postBulletin('FOUNDERS’ DAY JULY 4 — FIREWORKS ORDERED');
         foundersTimer = MONTH_LEN * 0.2;
-        if (!reducedMotion.matches && !parade.active) {
-          parade.active = true;
-          parade.dir = harbor ? (harbor.side === 1 ? -1 : 1) : 1;
-          // harbor parades form at the quay; inland ones enter off-screen
-          parade.x = parade.dir === 1
-            ? (LAND_L > 0 ? LAND_L + 20 : -170)
-            : (LAND_R < VIEW_W ? LAND_R - 20 : VIEW_W + 170);
-          postBulletin('FOUNDERS’ DAY PARADE ON MAIN STREET — WAVE');
-        }
+        startParade('FOUNDERS’ DAY PARADE ON MAIN STREET — WAVE');
       } else if (calendar.month === 11) {
         postBulletin('MUNICIPAL LIGHT-UP — CREWS STRINGING THE STREET');
         if (harbor) postBulletin('HARBOR ICED — FERRY SUSPENDED UNTIL THAW');
@@ -2016,6 +2024,17 @@
   // the REEL key advances the drive-in's picture
   document.addEventListener('municitron:reel', function () {
     reelShift++;
+  });
+
+  // the PARADE key: the band doesn't wait for July
+  document.addEventListener('municitron:parade', function () {
+    startParade('PARADE ORDERED — THE BAND FORMS UP ON MAIN STREET');
+  });
+
+  // the DAY LOG key prints the wire's recent traffic (js/daylog.js
+  // composes Form DL-7); the printing itself makes the wire, of course
+  document.addEventListener('municitron:daylog', function () {
+    postBulletin('DAY LOG PRINTED — FORM DL-7');
   });
 
   // the canvas lives inside the CSS transform-scaled machine, so the
@@ -4108,6 +4127,8 @@
     bg: bgCity,
     landmarks: landmarks,
     calendar: calendar,
+    months: MONTHS,
+    log: dayLog,
     park: park,
     driveIn: driveIn,
     ambient: {
