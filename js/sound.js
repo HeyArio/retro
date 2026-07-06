@@ -6,11 +6,12 @@
    toggles the speaker (the click is also the user gesture Web Audio
    requires). No autoplay, no persistence, no tracking.
 
-   Voices: mains hum bed · knob clunks on control changes · geiger-style
-   census ticks · a two-tone chime when a landmark is commissioned ·
-   Sputnik's beep-beep while it crosses · and the MUNICITRON BROADCAST
-   SERVICE: sparse generative celesta phrases, every half minute or so,
-   in A-major pentatonic — the sound of a municipal evening.
+   Voices: the machine at work — a transformer hum, a motor whir and a
+   tabulator's steady relay clatter, the M-58 computing its city · knob
+   clunks on control changes · geiger-style census ticks · a two-tone
+   chime when a landmark is commissioned · Sputnik's beep-beep while it
+   crosses · and, faint under the clatter, the MUNICITRON BROADCAST
+   SERVICE: occasional celesta phrases in a seasonal pentatonic mode.
    ========================================================================== */
 
 (function () {
@@ -19,7 +20,9 @@
   var enabled = false;
   var ac = null;
   var master = null;
+  var bed = null;          // ambient bus (hum + motor + clatter); duckable
   var lastTick = 0;
+  var noiseBuf = null;
 
   // the VOLUME knob's three detents: LOW / STANDARD / FULL
   var LEVELS = [0.05, 0.12, 0.24];
@@ -34,12 +37,18 @@
     master.gain.value = LEVELS[level];
     master.connect(ac.destination);
 
-    // mains hum: two detuned low oscillators through a gentle lowpass
+    // the ambient bed rides its own bus so a whistle or chime can duck
+    // the machine's clatter and sing out clearly over it
+    bed = ac.createGain();
+    bed.gain.value = 1;
+    bed.connect(master);
+
+    // transformer hum: two detuned low oscillators through a gentle lowpass
     var hum = ac.createGain();
-    hum.gain.value = 0.05;
+    hum.gain.value = 0.04;
     var lp = ac.createBiquadFilter();
     lp.type = 'lowpass';
-    lp.frequency.value = 220;
+    lp.frequency.value = 200;
     var o1 = ac.createOscillator();
     o1.type = 'triangle';
     o1.frequency.value = 50;
@@ -47,8 +56,88 @@
     o2.type = 'sine';
     o2.frequency.value = 100.4;
     o1.connect(hum); o2.connect(hum);
-    hum.connect(lp); lp.connect(master);
+    hum.connect(lp); lp.connect(bed);
     o1.start(); o2.start();
+
+    // motor whir: a filtered sawtooth under a slow tremolo — a cooling
+    // fan or a tape reel turning somewhere inside the cabinet
+    var motor = ac.createOscillator();
+    motor.type = 'sawtooth';
+    motor.frequency.value = 82;
+    var mlp = ac.createBiquadFilter();
+    mlp.type = 'lowpass';
+    mlp.frequency.value = 300;
+    var mg = ac.createGain();
+    mg.gain.value = 0.02;
+    var lfo = ac.createOscillator();
+    lfo.type = 'sine';
+    lfo.frequency.value = 0.6;
+    var lfoG = ac.createGain();
+    lfoG.gain.value = 0.009;
+    lfo.connect(lfoG); lfoG.connect(mg.gain);
+    motor.connect(mlp); mlp.connect(mg); mg.connect(bed);
+    motor.start(); lfo.start();
+
+    startClatter();
+  }
+
+  // a half-second of white noise, built once, for the mechanical clacks
+  function noise() {
+    if (noiseBuf) return noiseBuf;
+    var n = Math.floor(ac.sampleRate * 0.4);
+    noiseBuf = ac.createBuffer(1, n, ac.sampleRate);
+    var d = noiseBuf.getChannelData(0);
+    for (var i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+    return noiseBuf;
+  }
+
+  // one relay/key clack: a band-passed noise tick over a wooden thock,
+  // routed through the bed so it ducks with the rest of the machine
+  function clack(when, gain, freq) {
+    if (!ac) return;
+    var t = ac.currentTime + (when || 0);
+    var src = ac.createBufferSource();
+    src.buffer = noise();
+    var bp = ac.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = freq || (1500 + Math.random() * 700);
+    bp.Q.value = 1.1;
+    var g = ac.createGain();
+    g.gain.setValueAtTime(gain || 0.1, t);
+    g.gain.exponentialRampToValueAtTime(0.0004, t + 0.045);
+    src.connect(bp); bp.connect(g); g.connect(bed);
+    src.start(t); src.stop(t + 0.05);
+    var o = ac.createOscillator();
+    o.type = 'triangle';
+    o.frequency.value = 108;
+    var og = ac.createGain();
+    og.gain.setValueAtTime((gain || 0.1) * 0.5, t);
+    og.gain.exponentialRampToValueAtTime(0.0004, t + 0.05);
+    o.connect(og); og.connect(bed);
+    o.start(t); o.stop(t + 0.06);
+  }
+
+  // the tabulator clatter: a steady, humanized pulse with a heavier
+  // relay ka-chunk every eighth beat, like a card machine at work
+  var clatterTimer = null, step = 0;
+  var CLK = 0.42;                                  // seconds per beat
+  function startClatter() {
+    if (clatterTimer) return;
+    clatterTimer = setInterval(function () {
+      if (!enabled || !ac) return;
+      for (var k = 0; k < 2; k++) {               // two beats per tick
+        var at = k * CLK + (Math.random() - 0.5) * 0.04;
+        step++;
+        if (step % 8 === 0) {                      // relay bank throws over
+          clack(at, 0.16, 900); clack(at + 0.07, 0.09, 1300);
+        } else if (step % 4 === 2) {               // an offbeat flutter
+          clack(at, 0.11);
+          if (Math.random() < 0.5) clack(at + 0.21, 0.05);
+        } else {
+          clack(at, 0.08 + Math.random() * 0.03);
+        }
+      }
+    }, CLK * 2 * 1000);
   }
 
   function blip(freq, dur, gain, type, when) {
@@ -87,6 +176,14 @@
   function steamWhistle() {
     if (!enabled || !ac) return;
     var t = ac.currentTime;
+    // duck the machine bed so the whistle rings out over the clatter
+    if (bed) {
+      bed.gain.cancelScheduledValues(t);
+      bed.gain.setValueAtTime(bed.gain.value, t);
+      bed.gain.linearRampToValueAtTime(0.28, t + 0.06);
+      bed.gain.setValueAtTime(0.28, t + 1.15);
+      bed.gain.linearRampToValueAtTime(1, t + 1.7);
+    }
     [523, 659].forEach(function (f, i) {
       var o = ac.createOscillator();
       var g = ac.createGain();
@@ -96,11 +193,11 @@
       o.frequency.setValueAtTime(f, t + 0.9);
       o.frequency.exponentialRampToValueAtTime(f * 0.94, t + 1.35);
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.22 - i * 0.09, t + 0.08);
-      g.gain.setValueAtTime(0.22 - i * 0.09, t + 0.95);
+      g.gain.exponentialRampToValueAtTime(0.32 - i * 0.11, t + 0.08);
+      g.gain.setValueAtTime(0.32 - i * 0.11, t + 0.95);
       g.gain.exponentialRampToValueAtTime(0.0005, t + 1.4);
       o.connect(g);
-      g.connect(master);
+      g.connect(master);                            // over the ducked bed
       o.start(t);
       o.stop(t + 1.5);
     });
@@ -134,17 +231,19 @@
     for (var i = 0; i < len; i++) {
       var note = NOTES[Math.floor(Math.random() * NOTES.length)];
       if (Math.random() < 0.3) note *= 2;         // an octave lift
-      blip(note, 0.55, 0.07, 'sine', t);
+      blip(note, 0.55, 0.05, 'sine', t);
       if (i === len - 1 && Math.random() < 0.6) { // close on a fifth
-        blip(note * 1.5, 0.7, 0.045, 'sine', t + 0.05);
+        blip(note * 1.5, 0.7, 0.035, 'sine', t + 0.05);
       }
       t += 0.3 + Math.random() * 0.32;
     }
   }
 
+  // the broadcast is now faint and infrequent — a radio somewhere under
+  // the machine's clatter, not the main event
   setInterval(function () {
-    if (enabled && Math.random() < 0.55) phrase();
-  }, 26000);
+    if (enabled && Math.random() < 0.3) phrase();
+  }, 42000);
 
   /* ---------------- console events → voices ---------------- */
 
@@ -217,8 +316,9 @@
         boot();
         if (ac && ac.state === 'suspended') ac.resume();
         if (master) master.gain.value = LEVELS[level];
-        clunk();
-        setTimeout(function () { if (enabled) phrase(); }, 2500);   // sign-on
+        clunk();                                    // the machine spins up:
+                                                    // hum, motor and clatter
+                                                    // are the sign-on now
       } else if (master) {
         master.gain.value = 0;
       }

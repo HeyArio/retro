@@ -21,7 +21,8 @@ and the WORKS TODAY line in the maintenance hatch all point home.
 - `js/almanac.js` — composes and downloads the municipal almanac (Form CA-2)
 - `js/record.js` — composes and downloads the commissioner's record (Form CR-5)
 - `js/newsreel.js` — records a six-second WebM of the living canvas
-- `js/sound.js` — optional valve audio (muted by default; POWER lamp toggles)
+- `js/sound.js` — optional valve audio: the machine at work — transformer
+  hum, motor whir and tabulator clatter (muted by default; POWER lamp toggles)
 
 ## Run
 
@@ -101,9 +102,12 @@ and the rail is real 1958 hardware, not labelled keys:
 - **ALMANAC key** — issues the municipal almanac (Form CA-2): founding
   year, chief exports, disputed rainfall, and the sister city with a
   real `?seed=` address you can visit
-- **POWER lamp** — click to toggle the valve audio unit, which also
-  carries the MUNICITRON BROADCAST SERVICE: sparse generative celesta
-  phrases in A-major pentatonic, every half minute or so
+- **POWER lamp** — click to toggle the valve audio unit. On, you hear
+  the M-58 itself at work: a transformer hum, a motor whir and a
+  tabulator's steady relay clatter computing the city, with the noon
+  whistle and civic chimes ducking the clatter to ring out over it.
+  Faint underneath runs the MUNICITRON BROADCAST SERVICE: occasional
+  generative celesta phrases in a seasonal pentatonic mode
 
 ## Atmosphere
 

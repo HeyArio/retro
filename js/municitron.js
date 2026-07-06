@@ -512,11 +512,13 @@
   press('forms-print', function () { fire(FORMS[formSel].channel, xmitLamp, 1800); });
   renderForms();
 
-  // ceremonies: momentary pushbuttons
-  press('push-concert', function () { fire('concert'); });
-  press('push-parade', function () { fire('parade'); });
+  // ceremonies: momentary pushbuttons. Every one blinks the XMIT lamp
+  // the instant it's pressed — the machine acknowledges at once, even
+  // before the effect reaches the glass
+  press('push-concert', function () { fire('concert', xmitLamp, 1400); });
+  press('push-parade', function () { fire('parade', xmitLamp, 1600); });
   press('push-salute', function () { fire('salute', xmitLamp, 1800); });
-  press('push-whistle', function () { fire('whistle'); });
+  press('push-whistle', function () { fire('whistle', xmitLamp, 1400); });
   press('push-newsreel', function () { fire('newsreel', xmitLamp, 6200); });
 
   // bat-handle switches: the handle remembers, the machine obeys

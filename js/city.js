@@ -800,12 +800,12 @@
   function startParade(notice) {
     if (reducedMotion.matches || parade.active) return;
     parade.dir = harbor ? (harbor.side === 1 ? -1 : 1) : 1;
-    // harbor parades form at the quay; inland ones enter off-screen
-    parade.x = parade.dir === 1
-      ? (LAND_L > 0 ? LAND_L + 20 : -170)
-      : (LAND_R < VIEW_W ? LAND_R - 20 : VIEW_W + 170);
+    // the band forms up at the near edge of Main Street and marches on
+    // in view — no long walk-in from off-screen, so pressing PARADE
+    // shows the head of the column at once
+    parade.x = parade.dir === 1 ? LAND_L + 20 : LAND_R - 20;
     parade.active = true;
-    postBulletin(notice);
+    flashNotice(notice);
   }
   var kite = { active: false, timer: 24 + rng6() * 40, until: 0, ph: 0, anchor: 0 };
 
@@ -1083,6 +1083,17 @@
       dayLog.push({ month: calendar.month, year: calendar.year, msg: msg });
       if (dayLog.length > 24) dayLog.shift();
     }
+  }
+
+  // a commissioner's order jumps the wire: its notice shows at once
+  // rather than waiting its turn behind whatever was scrolling, so the
+  // console confirms the instant a ceremony key is pressed
+  function flashNotice(msg) {
+    dayLog.push({ month: calendar.month, year: calendar.year, msg: msg });
+    if (dayLog.length > 24) dayLog.shift();
+    bulletin.current = msg;
+    bulletin.started = bulletin.clock;
+    bulletin.until = bulletin.clock + 6.5;
   }
 
   var WEATHER_NOTICES = [
@@ -2015,6 +2026,7 @@
      carries what the plate, bandstand and sky clicks used to do). */
 
   document.addEventListener('municitron:concert', function () {
+    flashNotice('CONCERT IN THE PARK — THE BANDSTAND STRIKES UP');
     if (reducedMotion.matches) return;
     var glyphs = ['♪', '♫', '♩'];
     for (var n = 0; n < 5 && notes.length < 18; n++) {
@@ -2033,6 +2045,7 @@
   // the SALUTE key: a short commissioned fireworks show, plus a ripple
   // of window lights — the town comes out to watch
   document.addEventListener('municitron:salute', function () {
+    flashNotice('FIREWORKS SALUTE — THE TOWN TURNS OUT TO WATCH');
     startShow(5);
     for (var i = 0; i < city.length; i++) {
       var wins = city[i].windows;
@@ -2070,7 +2083,7 @@
   // commissioner says it's noon — folks stop mid-stride, a rooftop
   // flock objects, and every boiler in town lets off steam
   document.addEventListener('municitron:whistle', function () {
-    postBulletin('NOON WHISTLE — LUNCH PAILS OPEN ACROSS TOWN');
+    flashNotice('NOON WHISTLE — LUNCH PAILS OPEN ACROSS TOWN');
     if (reducedMotion.matches) return;
     whistleT = 3;
     var roost = city[Math.floor(rng6() * city.length)];
