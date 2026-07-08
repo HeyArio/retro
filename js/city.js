@@ -452,6 +452,43 @@
     tallest.roof = 0;                             // the beacon tower stays flat so its spire reads
     if (tallest.next) tallest.next.mast = true; else tallest.mast = true;
 
+    // ---- the Nazarban House: the firm's own headquarters ----
+    // deterministically the tallest wide, fairly central lot that isn't
+    // the beacon tower or the historic courthouse; it stands from the
+    // first frame and is never redeveloped (see drawNazarbanCrest)
+    var nazarLot = null, nazarScore = -1;
+    var midX = landL + span / 2;
+    for (i = 0; i < lots.length; i++) {
+      var nl = lots[i];
+      if (nl === tallest || nl.clock || nl.w < 72 || nl.h < 190) continue;
+      var centrality = 1 - Math.min(1, Math.abs((nl.x + nl.w / 2) - midX) / (span / 2));
+      var score = nl.h + centrality * 130;
+      if (score > nazarScore) { nazarScore = score; nazarLot = nl; }
+    }
+    // small towns and harbors carry a thin front row; the House must still
+    // stand, so fall back to the tallest available lot — even the beacon,
+    // whose mast we then surrender to the crest
+    if (!nazarLot) {
+      for (i = 0; i < lots.length; i++) {
+        var nf = lots[i];
+        if (nf.clock && lots.length > 1) continue;
+        if (!nazarLot || nf.h > nazarLot.h) nazarLot = nf;
+      }
+      if (nazarLot) {
+        nazarLot.mast = false;
+        if (nazarLot.next) nazarLot.next.mast = false;
+      }
+    }
+    if (nazarLot) {
+      nazarLot.nazarban = true;
+      nazarLot.next = null;                       // a monument — never densified
+      nazarLot.chimney = 0;                       // clean roofline for the crest
+      nazarLot.roof = 0;                          // flat top so the starburst reads
+      nazarLot.progress = 1;                      // already standing — predates the boom
+      nazarLot.rising = false;
+      nazarLot.demolishing = false;
+    }
+
     // star field for the dark palettes
     var stars = [];
     for (i = 0; i < 84; i++) {
@@ -475,7 +512,9 @@
       }
       return order;
     }
-    var frontOrder = shuffled(lots);
+    var buildable = [];                          // the Nazarban House is never queued — it just stands
+    for (i = 0; i < lots.length; i++) if (!lots[i].nazarban) buildable.push(lots[i]);
+    var frontOrder = shuffled(buildable);
     var backOrder = shuffled(bg);
     var queue = [];
     var n = Math.max(frontOrder.length, backOrder.length);
@@ -504,7 +543,7 @@
     var guard = 0;
     while (signed < 2 && guard++ < 24) {
       var sl = lots[Math.floor(rng() * lots.length)];
-      if (!sl.sign && (sl.next ? sl.next.h : sl.h) >= 200) {
+      if (!sl.sign && !sl.nazarban && (sl.next ? sl.next.h : sl.h) >= 200) {
         sl.sign = true;
         if (sl.next) sl.next.sign = true;
         signed++;
@@ -515,7 +554,7 @@
     var spec = null, specGuard = 0;
     while (!spec && specGuard++ < 30) {
       var cand = lots[Math.floor(rng() * lots.length)];
-      if (!cand.sign && !cand.mast && (cand.next ? cand.next.h : cand.h) >= 210 && cand.w >= 66) spec = cand;
+      if (!cand.sign && !cand.mast && !cand.nazarban && (cand.next ? cand.next.h : cand.h) >= 210 && cand.w >= 66) spec = cand;
     }
     if (spec) { spec.spectacular = true; spec.roof = 0; if (spec.next) spec.next.spectacular = true; }
 
@@ -5644,7 +5683,8 @@
         ctx.fillRect(b.x - 4, top, b.w + 8, 7);
       }
       var plainTop = b.windows.length && !b.mast && !b.sign && !b.chimney && !b.clock;
-      if (b.spectacular) drawSpectacular(b, top, h, litLevel);
+      if (b.nazarban) { /* the Nazarban crest overlay owns this rooftop */ }
+      else if (b.spectacular) drawSpectacular(b, top, h, litLevel);
       else drawRoof(b, top, h, litLevel);
       if (b.chimney) {                            // rooftop stack
         ctx.fillStyle = TEAL_TRIM;
@@ -5776,6 +5816,104 @@
       ctx.fillRect(b.x + Math.round(b.w / 2) - 7, GROUND_Y - 20, 14, 20);
     }
     if (b.canopy && b.progress === 1 && h > 40) drawCanopy(b);
+  }
+
+  /* ---------------- the Nazarban House ---------------------------------
+     One building in every city is the firm's own headquarters — placed
+     deterministically, standing from the first frame (Nazarban predates
+     the boom), never redeveloped. It wears the same atomic-starburst mark
+     in every age (the through-line of the whole toy) and a lit NAZARBAN
+     nameplate, drawn as an overlay AFTER the building so it reads on top
+     of whichever era skin is live. The mark and letterform take the
+     current era's palette; an electron orbits the core — the thinking
+     machine at work. The full pitch stays on the console (the hatch
+     dossier), keeping the city itself behind glass. */
+
+  function nazarbanPalette() {
+    var s = STYLE;
+    return {
+      rays: s === 'cyberpunk' ? NEON_CYAN : s === 'solarpunk' ? '#3E9A63' : BRASS,
+      core: s === 'cyberpunk' ? NEON_PINK : s === 'silkpunk' ? NEON_PINK : ORANGE,
+      edge: s === 'cyberpunk' ? NEON_CYAN : s === 'solarpunk' ? '#3E9A63' : BRASS,
+      // electric ages glow by day; brass/gaslight ages only light after dark
+      alwaysGlow: (s === 'cyberpunk' || s === 'solarpunk' || s === 'silkpunk'),
+      font: s === 'cyberpunk' ? '"Courier New", monospace'
+        : (s === 'steampunk' || s === 'silkpunk') ? 'Georgia, serif'
+        : s === 'solarpunk' ? '"Trebuchet MS", sans-serif'
+        : 'Jost, Futura, sans-serif'
+    };
+  }
+
+  function drawNazarbanSign(b, top, night, pal) {
+    var word = 'NAZARBAN';
+    var plateH = Math.min(15, Math.max(11, b.w * 0.15));
+    var plateY = top + 9;
+    var fs = plateH * 0.6;
+    ctx.font = '700 ' + fs + 'px ' + pal.font;
+    var hadLS = ('letterSpacing' in ctx);
+    if (hadLS) ctx.letterSpacing = '1px';
+    var maxw = b.w - 10;
+    var tw = ctx.measureText(word).width;
+    while (fs > 5 && tw > maxw) { fs -= 0.5; ctx.font = '700 ' + fs + 'px ' + pal.font; tw = ctx.measureText(word).width; }
+    var plateW = Math.min(b.w - 4, tw + 12);
+    var px = b.x + b.w / 2 - plateW / 2;
+
+    ctx.fillStyle = 'rgba(6, 26, 24, 0.74)';        // dark signage plate
+    ctx.fillRect(px, plateY, plateW, plateH);
+    ctx.strokeStyle = pal.edge; ctx.lineWidth = 1;
+    ctx.strokeRect(px + 0.5, plateY + 0.5, plateW - 1, plateH - 1);
+
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    if (night || pal.alwaysGlow) { ctx.shadowBlur = 7; ctx.shadowColor = pal.edge; }
+    ctx.fillStyle = night ? (STYLE === 'cyberpunk' ? NEON_CYAN : '#FFE196') : CREAM_HI;
+    ctx.fillText(word, b.x + b.w / 2, plateY + plateH / 2 + 0.5);
+    ctx.shadowBlur = 0;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    if (hadLS) ctx.letterSpacing = '0px';
+  }
+
+  function drawNazarbanCrest(b, litLevel) {
+    if (b.progress <= 0) return;
+    var h = b.h * easeOutCubic(b.progress);
+    var top = GROUND_Y - h;
+    var lit = Math.max(0, Math.min(1, litLevel + (b.litBias || 0)));
+    var night = lit > 0.5;
+    var pal = nazarbanPalette();
+    var cx = b.x + b.w / 2;
+    var ey = top - 34;                              // emblem center, above the roof
+
+    ctx.fillStyle = CREAM_HI;                       // chrome support mast
+    ctx.fillRect(cx - 1.5, top - 16, 3, 16);
+
+    ctx.save();                                     // the starburst — 16 alternating rays
+    ctx.strokeStyle = pal.rays; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+    if (night || pal.alwaysGlow) { ctx.shadowBlur = 8; ctx.shadowColor = pal.rays; }
+    ctx.beginPath();
+    for (var sp = 0; sp < 16; sp++) {
+      var sa = sp * Math.PI / 8;
+      var sl = sp % 2 ? 7 : 14;
+      ctx.moveTo(cx + Math.cos(sa) * 3.5, ey + Math.sin(sa) * 3.5);
+      ctx.lineTo(cx + Math.cos(sa) * sl, ey + Math.sin(sa) * sl);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.fillStyle = pal.core;                       // nucleus
+    ctx.beginPath(); ctx.arc(cx, ey, 4.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = CREAM_HI;
+    ctx.beginPath(); ctx.arc(cx, ey, 1.8, 0, Math.PI * 2); ctx.fill();
+
+    if (!reducedMotion.matches) {                   // one electron orbiting — the machine at work
+      var ang = effT * 1.6;
+      var ox = cx + Math.cos(ang) * 11, oy = ey + Math.sin(ang) * 5.5;
+      ctx.save();
+      if (night || pal.alwaysGlow) { ctx.shadowBlur = 6; ctx.shadowColor = pal.rays; }
+      ctx.fillStyle = pal.rays;
+      ctx.beginPath(); ctx.arc(ox, oy, 1.6, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+
+    if (h > 40) drawNazarbanSign(b, top, night, pal);
   }
 
   /* ---------------- Googie neon signage, aircars, ringed planet ---------- */
@@ -6085,6 +6223,7 @@
     drawKite();
     drawDriveIn(litLevel);
     for (i = 0; i < city.length; i++) drawBuilding(city[i], litLevel);
+    for (i = 0; i < city.length; i++) if (city[i].nazarban) drawNazarbanCrest(city[i], litLevel);
     drawFutureHouse(litLevel);
     drawTube(litLevel);
     drawLeaves();

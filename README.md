@@ -17,7 +17,17 @@ then and how its thinking machine helped the city (brief → install →
 result). Every one resolves to the same live wire: Nazarban AI today, an
 AI consultation & implementation firm. Open the maintenance **HATCH** for
 the full dossier and the call to action, or read the age stamped into the
-fine print of any transmitted postcard. The story lives in `ERAS`
+fine print of any transmitted postcard.
+
+Every city also carries the **Nazarban House** — the firm's own
+headquarters, a permanent tower placed deterministically in the skyline
+(present from the first frame, never redeveloped). It wears the same
+atomic-starburst crest and a lit `NAZARBAN` nameplate in every age, both
+taking the current era's palette, with an electron orbiting the mark —
+the thinking machine at work. Because it lives on the canvas, it rides
+along in every transmitted postcard. The House stays behind glass (no
+click); its story is told by the hatch dossier. See `drawNazarbanCrest`
+and the designation block in `js/city.js`. The story lives in `ERAS`
 (`js/city.js`), keyed to the render themes; deep-link any age with
 `?style=cyberpunk`. Six further ages (art deco, dieselpunk, clockpunk,
 decopunk, biopunk, nanopunk) ship in `ERAS`/`THEMES` for `?style=` use.
