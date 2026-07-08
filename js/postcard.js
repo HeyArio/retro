@@ -129,14 +129,24 @@
       c.restore();
     }
 
-    // fine print, with the seed as the transmission number and the
-    // works' present-day address for whoever the card reaches
+    // fine print, with the age being simulated, the seed as the
+    // transmission number, and the works' present-day address
+    var Mc = window.MUNICITRON_CITY || {};
+    var eraC = (Mc.eras && Mc.style) ? Mc.eras[Mc.style] : null;
+    var eraTag = eraC ? (eraC.year + ' · ' + eraC.tag + ' · ') : '';
     var finePrint =
-      'NAZARBAN INSTRUMENT WORKS · MODEL M-58 OUTPUT · FORM PC-1 · TRANSMISSION Nº ' +
-      seed.toString(16).toUpperCase() + ' · NAZARBANAI.COM';
-    setFont(c, '600', 9.5, 'Jost, Futura, sans-serif', 2.5);
-    if (c.measureText(finePrint).width > (FACE_R - FACE_L) * S) {
-      setFont(c, '600', 9.5, 'Jost, Futura, sans-serif', 1.5);
+      'NAZARBAN INSTRUMENT WORKS · MODEL M-58 OUTPUT · ' + eraTag +
+      'FORM PC-1 · TRANSMISSION Nº ' + seed.toString(16).toUpperCase() +
+      ' · NAZARBANAI.COM';
+    var fpMax = (FACE_R - FACE_L) * S, fpSize = 9.5, fpSpace = 2.5;
+    setFont(c, '600', fpSize, 'Jost, Futura, sans-serif', fpSpace);
+    if (c.measureText(finePrint).width > fpMax) {
+      fpSpace = 1.5;
+      setFont(c, '600', fpSize, 'Jost, Futura, sans-serif', fpSpace);
+    }
+    while (fpSize > 7 && c.measureText(finePrint).width > fpMax) {
+      fpSize -= 0.5;
+      setFont(c, '600', fpSize, 'Jost, Futura, sans-serif', fpSpace);
     }
     c.fillStyle = 'rgba(74, 53, 16, 0.55)';
     c.fillText(finePrint, FACE_L * S, (CARD_H - 51) * S);

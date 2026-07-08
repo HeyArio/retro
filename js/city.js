@@ -6228,6 +6228,114 @@
     silkpunk:   { label: 'SILKPUNK',   teals: ['#1E7A6A','#2A9684','#145A4E'], trim: '#0A342C', brass: '#E8C25A', orange: '#E24A32', cream: '#F4ECD6', cyan: '#4FD0C0', pink: '#E86A8A', ground: '#166054', skies: ['#101C20','#E0A46A','#EAD2A2','#F2E4C6','#DDBE8E','#9A4A4A','#2E4A4A','#0E181C'] }
   };
 
+  /* ---------------- Nazarban through the ages --------------------------
+     The console is the constant: a 1958 simulation unit that can render
+     any age. This ERA metadata carries the museum story behind each skin
+     — who Nazarban was in that age, and how it helped the city — and
+     every era resolves to the same live wire: Nazarban AI, today. Read by
+     the maintenance-hatch dossier (js/municitron.js), the era bulletin,
+     and the postcard fine print (js/postcard.js). Keyed to THEMES ids. */
+
+  var NAZARBAN_TODAY = {
+    name: 'NAZARBAN AI',
+    what: 'AI CONSULTATION & IMPLEMENTATION',
+    line: 'Every age needs a thinking machine. Today the machine is AI — and it is real. Nazarban builds yours.',
+    url: 'https://nazarbanai.com'
+  };
+
+  var ERAS = {
+    steampunk: {
+      year: '1858', age: 'THE AGE OF STEAM', tag: 'AGE OF STEAM',
+      company: 'NAZARBAN ANALYTICAL WORKS',
+      machine: 'THE NAZARBAN DIFFERENCE ENGINE',
+      brief: 'The city drowned in ledgers no hall of clerks could keep.',
+      install: 'A steam-driven analytical engine, geared straight to the census.',
+      result: 'The books balanced by lamplight — and the city could plan at last.'
+    },
+    atompunk: {
+      year: '1958', age: 'THE ATOMIC AGE', tag: 'ATOMIC AGE',
+      company: 'NAZARBAN INSTRUMENT WORKS',
+      machine: 'MUNICITRON M-58 — MUNICIPAL SIMULATION UNIT',
+      brief: 'The city grew faster than any council could foresee.',
+      install: 'The M-58 — a console that ran tomorrow before it arrived.',
+      result: 'Growth planned, not guessed. The atomic city kept its nerve.'
+    },
+    cyberpunk: {
+      year: '1999', age: 'THE WIRED AGE', tag: 'WIRED AGE',
+      company: 'NAZARBAN SYSTEMS',
+      machine: 'THE NAZARBAN NEURODECK',
+      brief: 'The city sprawled into a network no one could see whole.',
+      install: 'A neural deck wired to every sensor, ledger and light.',
+      result: 'The grid answered in real time. Nothing moved unseen.'
+    },
+    solarpunk: {
+      year: '2077', age: 'THE GREEN AGE', tag: 'GREEN AGE',
+      company: 'NAZARBAN COLLECTIVE',
+      machine: 'THE NAZARBAN GROVE',
+      brief: 'The city had to give back more than it took.',
+      install: 'A living console that balanced sun, water and green.',
+      result: 'The city breathed — it powered itself and grew gardens.'
+    },
+    silkpunk: {
+      year: '2140', age: 'THE WOVEN AGE', tag: 'WOVEN AGE',
+      company: 'NAZARBAN LOOM',
+      machine: 'THE NAZARBAN LOOM',
+      brief: 'A city of a thousand trades, none speaking to the others.',
+      install: 'A loom of silk circuitry that wove every trade to one thread.',
+      result: 'The city moved as one cloth. Fortune followed the weave.'
+    },
+
+    // further ages, reachable by ?style= — same museum voice
+    clockpunk: {
+      year: '1580', age: 'THE AGE OF CLOCKWORK', tag: 'CLOCKWORK AGE',
+      company: 'NAZARBAN HOROLOGICAL WORKS',
+      machine: 'THE NAZARBAN ORRERY',
+      brief: 'The city kept a hundred calendars and trusted none.',
+      install: 'A clockwork orrery that reckoned every hour and tide.',
+      result: 'The town ran on one true time — and the markets with it.'
+    },
+    artdeco: {
+      year: '1928', age: 'THE GILDED AGE', tag: 'GILDED AGE',
+      company: 'NAZARBAN ELECTRIC WORKS',
+      machine: 'THE NAZARBAN TABULATOR',
+      brief: 'A boom town outran its own paperwork.',
+      install: 'A gilt electric tabulator on every clerk’s desk.',
+      result: 'The ledgers closed each night. The boom kept its books.'
+    },
+    dieselpunk: {
+      year: '1938', age: 'THE DIESEL AGE', tag: 'DIESEL AGE',
+      company: 'NAZARBAN MOTOR WORKS',
+      machine: 'THE NAZARBAN CALCULATOR-ENGINE',
+      brief: 'Rail, freight and factory each ran on a separate clock.',
+      install: 'A diesel calculator-engine timing the whole works.',
+      result: 'The city moved as one shift. Nothing waited on the dock.'
+    },
+    decopunk: {
+      year: '1939', age: 'THE STREAMLINE AGE', tag: 'STREAMLINE AGE',
+      company: 'NAZARBAN STREAMLINE WORKS',
+      machine: 'THE NAZARBAN WORLD-ENGINE',
+      brief: 'The fair promised a future the city could not schedule.',
+      install: 'A streamlined world-engine to model the years ahead.',
+      result: 'Tomorrow arrived on time, for once, and to plan.'
+    },
+    biopunk: {
+      year: '2090', age: 'THE LIVING AGE', tag: 'LIVING AGE',
+      company: 'NAZARBAN BIOWORKS',
+      machine: 'THE NAZARBAN CULTURED MIND',
+      brief: 'The city had to heal as fast as it was built.',
+      install: 'A cultured mind grown to read the city like a body.',
+      result: 'The streets mended themselves. The city stayed well.'
+    },
+    nanopunk: {
+      year: '2110', age: 'THE FINE AGE', tag: 'FINE AGE',
+      company: 'NAZARBAN MOLECULAR WORKS',
+      machine: 'THE NAZARBAN LATTICE',
+      brief: 'The city’s work had shrunk below what any eye could watch.',
+      install: 'A molecular lattice that minded the smallest machines.',
+      result: 'The invisible city ran clean — and answered to a dial.'
+    }
+  };
+
   var STYLE = 'atompunk';
 
   function glowRGBA(hex, a) { var c = hexToRgb(hex); return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
@@ -6235,6 +6343,7 @@
   function applyTheme(id) {
     var th = THEMES[id]; if (!th) return;
     STYLE = id;
+    if (window.MUNICITRON_CITY) window.MUNICITRON_CITY.style = id;
     var oldTeals = TEALS.slice(), oldBg = BG_TEALS.slice(), i, k, b;
     TEALS = th.teals.slice();
     TEAL_TRIM = th.trim; BRASS = th.brass; ORANGE = th.orange;
@@ -6283,7 +6392,12 @@
       if (!THEMES[v]) return;
       applyTheme(v);
       try { localStorage.setItem(STYLE_KEY, v); } catch (e) {}
-      postBulletin('ART DIRECTION — ' + THEMES[v].label + ' ENGAGED');
+      var era = ERAS[v];
+      postBulletin(era
+        ? 'NOW SIMULATING ' + era.age + ' — NAZARBAN, ' + era.year
+        : 'ART DIRECTION — ' + THEMES[v].label + ' ENGAGED');
+      document.dispatchEvent(new CustomEvent('municitron:era',
+        { detail: { style: v, era: era || null } }));
     });
   })();
 
@@ -6313,7 +6427,10 @@
     },
     request: request,
     fx: fw,
-    reducedMotion: reducedMotion
+    reducedMotion: reducedMotion,
+    style: STYLE,
+    eras: ERAS,
+    today: NAZARBAN_TODAY
   };
   postBulletin('MUNICIPAL SIMULATION IN PROGRESS — MODEL M-58');
   if (memory && memory.prevVisit) {

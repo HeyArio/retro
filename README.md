@@ -8,6 +8,20 @@ machines now, as [Nazarban AI](https://nazarbanai.com). The nameplate
 on the console footer, the fine print on every transmitted postcard,
 and the WORKS TODAY line in the maintenance hatch all point home.
 
+## Nazarban through the ages
+
+The **ERA** dial (top-left of the sim) is the spine of the whole toy: the
+M-58 renders the same kind of city across ages — 1858 steam, 1958 atomic,
+1999 wired, 2077 green, 2140 woven — and each age carries who Nazarban was
+then and how its thinking machine helped the city (brief → install →
+result). Every one resolves to the same live wire: Nazarban AI today, an
+AI consultation & implementation firm. Open the maintenance **HATCH** for
+the full dossier and the call to action, or read the age stamped into the
+fine print of any transmitted postcard. The story lives in `ERAS`
+(`js/city.js`), keyed to the render themes; deep-link any age with
+`?style=cyberpunk`. Six further ages (art deco, dieselpunk, clockpunk,
+decopunk, biopunk, nanopunk) ship in `ERAS`/`THEMES` for `?style=` use.
+
 ## Files
 
 - `index.html` — page markup (console + postcard overlay)

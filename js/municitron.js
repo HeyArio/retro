@@ -462,7 +462,8 @@
       [19000, function () { setTime(2); }],
       [20500, function () { cap('THE LEVER COMMANDS PROGRESS'); setGrowth(2); }],
       [25000, function () { setGrowth(1); cap('THE REGISTER COUNTS EVERY SOUL'); }],
-      [28500, function () { cap('THE CITY IS YOURS — CARRY ON'); }]
+      [28500, function () { cap('DIAL THE ERA — NAZARBAN THROUGH THE AGES'); }],
+      [31500, function () { cap('THE CITY IS YOURS — CARRY ON'); }]
     ].forEach(function (step) {
       setTimeout(function () { if (!canceled) step[1](); }, step[0]);
     });
@@ -694,26 +695,71 @@
         row.appendChild(dd);
         rows.appendChild(row);
       }
-      // the works' registry plate: the manufacturer survives to this day,
-      // building thinking machines — the one live wire in the whole hatch
+      // the dossier behind the current skin: who Nazarban was in this age
+      // and how it helped the city — the museum story, read live off the
+      // era metadata (js/city.js), ending on the one live wire in the hatch
+      var era = (M.eras && M.style) ? M.eras[M.style] : null;
+      var today = M.today || { name: 'NAZARBAN AI',
+        what: 'AI CONSULTATION & IMPLEMENTATION',
+        line: 'Every age needs a thinking machine. Today the machine is AI — and it is real. Nazarban builds yours.',
+        url: 'https://nazarbanai.com' };
+
+      function hatchRow(label, value) {
+        var dl = document.createElement('dl');
+        dl.className = 'hatch-row';
+        var dt = document.createElement('dt');
+        dt.textContent = label;
+        var dd = document.createElement('dd');
+        dd.textContent = value;
+        dl.appendChild(dt); dl.appendChild(dd);
+        rows.appendChild(dl);
+      }
+
+      function hatchBand(text, color, heading) {
+        var p = document.createElement('div');
+        p.className = 'hatch-row';
+        p.style.display = 'block';
+        p.style.textAlign = heading ? 'center' : 'left';
+        p.style.fontFamily = 'Jost, Futura, sans-serif';
+        p.style.fontWeight = '600';
+        p.style.fontSize = heading ? '9px' : '10px';
+        p.style.letterSpacing = heading ? '2.5px' : '0.4px';
+        p.style.lineHeight = '1.55';
+        p.style.color = color;
+        p.textContent = text;
+        rows.appendChild(p);
+      }
+
+      if (era) {
+        hatchBand('· NAZARBAN THROUGH THE AGES ·', 'var(--brass-light)', true);
+        hatchRow('NOW SIMULATING', era.age + ' · ' + era.year);
+        hatchRow('THE FIRM THEN', era.company);
+        hatchRow('THE MACHINE', era.machine);
+        hatchBand(era.brief + ' ' + era.install + ' ' + era.result,
+          'rgba(242, 233, 210, 0.72)', false);
+      }
+
+      // the works today — the real company, the real pitch, the real link
+      hatchBand(today.line, 'rgba(242, 233, 210, 0.82)', false);
       var reg = document.createElement('dl');
       reg.className = 'hatch-row';
       var regT = document.createElement('dt');
       regT.textContent = 'THE WORKS TODAY';
       var regD = document.createElement('dd');
       var regA = document.createElement('a');
-      regA.href = 'https://nazarbanai.com';
+      regA.href = today.url || 'https://nazarbanai.com';
       regA.target = '_blank';
       regA.rel = 'noopener';
-      regA.textContent = 'NAZARBANAI.COM';
-      regA.title = 'Nazarban Instrument Works builds thinking machines now — Nazarban AI';
-      regA.style.color = 'inherit';
+      regA.textContent = today.name + ' ↗';
+      regA.title = today.what + ' — Nazarban AI (nazarbanai.com)';
+      regA.style.color = 'var(--brass-light)';
       regA.style.textDecoration = 'underline dotted';
       regA.style.textUnderlineOffset = '3px';
       regD.appendChild(regA);
       reg.appendChild(regT);
       reg.appendChild(regD);
       rows.appendChild(reg);
+      hatchBand(today.what, 'rgba(242, 233, 210, 0.5)', true);
     }
 
     key.addEventListener('click', function () {
