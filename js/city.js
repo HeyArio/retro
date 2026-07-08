@@ -48,13 +48,19 @@
 
   /* ---------------- palette — must stay in step with css/styles.css ---- */
 
-  var TEALS      = ['#1E4744', '#235450', '#183B37'];
-  var TEAL_TRIM  = '#16332F';
-  var BRASS      = '#C9A227';
-  var ORANGE     = '#D96F32';
-  var CREAM_HI   = '#F2E9D2';
-  var GLOW_BRASS = 'rgba(201, 162, 39, 0.30)';
-  var GLOW_ORANGE = 'rgba(217, 111, 50, 0.32)';
+  /* WORLD OF TOMORROW — atomic-age Googie palette. Deep saturated teals,
+     neon gold/coral window light, electric cyan signage, dramatic skies. */
+  var TEALS      = ['#0F4F4B', '#166A61', '#0A3C39'];
+  var TEAL_TRIM  = '#082B29';
+  var BRASS      = '#FFC94A';                     // neon gold (windows / accents)
+  var ORANGE     = '#FF6B3D';                     // hot atomic coral-tangerine
+  var CREAM_HI   = '#FBF3DE';
+  var NEON_CYAN  = '#3FE0D8';                     // electric turquoise signage
+  var GLOW_BRASS = 'rgba(255, 201, 74, 0.55)';
+  var GLOW_ORANGE = 'rgba(255, 107, 61, 0.55)';
+  var GLOW_CYAN  = 'rgba(63, 224, 216, 0.5)';
+  var NEON_PINK  = '#FF5A96';                     // hot magenta neon (Atom-City accent)
+  var GLOW_PINK  = 'rgba(255, 90, 150, 0.5)';
 
   /* logical drawing space — everything renders in these coordinates and
      is mapped to the real backing store with a single setTransform.
@@ -101,14 +107,14 @@
      glyphs (sun for dawn→afternoon, moon otherwise). */
 
   var TIMES = [
-    { sky: '#0D211E', lit: 0.55, star: 1.0,  cel: { kind: 'moon', x: 430,  y: 170, r: 38, color: CREAM_HI } },
-    { sky: '#E3C9A4', lit: 0.30, star: 0.0,  cel: { kind: 'sun',  x: 300,  y: 400, r: 54, color: ORANGE   } },
-    { sky: '#E8DCC0', lit: 0.50, star: 0.0,  cel: { kind: 'sun',  x: 460,  y: 210, r: 44, color: BRASS    } },
-    { sky: '#F2E9D2', lit: 0.30, star: 0.0,  cel: { kind: 'sun',  x: 800,  y: 120, r: 44, color: BRASS    } },
-    { sky: '#EBDDBB', lit: 0.40, star: 0.0,  cel: { kind: 'sun',  x: 1150, y: 210, r: 44, color: BRASS    } },
-    { sky: '#DFB68C', lit: 0.70, star: 0.15, cel: { kind: 'moon', x: 1300, y: 400, r: 34, color: CREAM_HI } },
-    { sky: '#2C4A44', lit: 0.95, star: 0.5,  cel: { kind: 'moon', x: 1240, y: 210, r: 38, color: CREAM_HI } },
-    { sky: '#122B27', lit: 0.85, star: 0.9,  cel: { kind: 'moon', x: 800,  y: 140, r: 38, color: CREAM_HI } }
+    { sky: '#0F1230', lit: 0.62, star: 1.0,  cel: { kind: 'moon', x: 430,  y: 170, r: 38, color: CREAM_HI } },
+    { sky: '#F4995F', lit: 0.35, star: 0.05, cel: { kind: 'sun',  x: 300,  y: 400, r: 56, color: ORANGE   } },
+    { sky: '#F0CBA0', lit: 0.45, star: 0.0,  cel: { kind: 'sun',  x: 460,  y: 210, r: 46, color: BRASS    } },
+    { sky: '#F6DEC0', lit: 0.28, star: 0.0,  cel: { kind: 'sun',  x: 800,  y: 120, r: 46, color: BRASS    } },
+    { sky: '#F2C592', lit: 0.40, star: 0.0,  cel: { kind: 'sun',  x: 1150, y: 210, r: 46, color: BRASS    } },
+    { sky: '#6E3F66', lit: 0.75, star: 0.2,  cel: { kind: 'sun',  x: 1300, y: 400, r: 40, color: BRASS    } },
+    { sky: '#3A2E6E', lit: 0.95, star: 0.6,  cel: { kind: 'moon', x: 1240, y: 210, r: 38, color: CREAM_HI } },
+    { sky: '#141636', lit: 0.92, star: 1.0,  cel: { kind: 'moon', x: 800,  y: 140, r: 38, color: CREAM_HI } }
   ];
 
   /* ---------------- weather ------------------------------------------- */
@@ -118,9 +124,9 @@
 
   var WEATHERS = [
     { tint: null },
-    { tint: '#31504A', amt: 0.35 },
-    { tint: '#D5C6A2', amt: 0.45 },
-    { tint: '#0D211E', amt: 0.60 }
+    { tint: '#2A4460', amt: 0.42 },
+    { tint: '#DCE6EA', amt: 0.45 },
+    { tint: '#0A1730', amt: 0.62 }
   ];
 
   /* ---------------- helpers ---------------- */
@@ -364,6 +370,9 @@
         color: TEALS[Math.floor(rng() * TEALS.length)],
         cap: rng() < 0.5,                         // darker parapet slab
         door: rng() < 0.3,                        // burnt-orange door accent
+        canopy: rng() < 0.4,                      // cantilevered Googie entry
+        accent: Math.floor(rng() * 3),            // crown/neon hue: 0 cyan · 1 pink · 2 orange
+        roofOrange: rng() < 0.3,                  // burnt-orange swooping roof (a la the image)
         jitter: 0.6 + rng() * 0.8,                // spawn-interval variation
         litBias: (rng() - 0.5) * 0.12,            // lights up early or late at dusk
         chimney: rng() < 0.35 ? 0.2 + rng() * 0.6 : 0,   // stack position (0 = none)
@@ -376,7 +385,13 @@
       x += w + 14 + Math.floor(rng() * 24);
     }
 
-    for (i = 0; i < lots.length; i++) lots[i].windows = makeWindows(lots[i].x, lots[i].w, lots[i].h);
+    // every front-row lot gets a Googie roofline of its own — narrow
+    // shopfronts skip the dome/folded-plate forms that need the width
+    for (i = 0; i < lots.length; i++) {
+      lots[i].windows = makeWindows(lots[i].x, lots[i].w, lots[i].h);
+      var roofSet = lots[i].w < 66 ? [0, 0, 1, 2, 3, 4, 6] : [0, 0, 1, 2, 3, 4, 5, 6, 7];
+      lots[i].roof = roofSet[Math.floor(rng() * roofSet.length)];
+    }
 
     // ---- back row: shorter, narrower, lifted-teal silhouettes ----
     x = landL;
@@ -434,16 +449,19 @@
       var finalH = lots[i].next ? lots[i].next.h : lots[i].h;
       if (finalH > tallestH) { tallestH = finalH; tallest = lots[i]; }
     }
+    tallest.roof = 0;                             // the beacon tower stays flat so its spire reads
     if (tallest.next) tallest.next.mast = true; else tallest.mast = true;
 
     // star field for the dark palettes
     var stars = [];
-    for (i = 0; i < 46; i++) {
+    for (i = 0; i < 84; i++) {
       stars.push({
         x: Math.floor(rng() * VIEW_W),
-        y: Math.floor(rng() * (GROUND_Y - 180)),
-        r: 1 + rng() * 1.2,
-        a: 0.5 + rng() * 0.5
+        y: Math.floor(rng() * (GROUND_Y - 150)),
+        r: 1 + rng() * 1.4,
+        a: 0.5 + rng() * 0.5,
+        tw: rng() * 6.283,
+        ts: 0.6 + rng() * 1.6
       });
     }
 
@@ -493,7 +511,30 @@
       }
     }
 
-    return { lots: lots, bg: bg, queue: queue, densify: densify, stars: stars, landmarks: landmarks, park: park, driveIn: driveIn, harbor: harbor, hill: hill, landL: landL, landR: landR };
+    // one lucky building hosts an animated neon spectacular
+    var spec = null, specGuard = 0;
+    while (!spec && specGuard++ < 30) {
+      var cand = lots[Math.floor(rng() * lots.length)];
+      if (!cand.sign && !cand.mast && (cand.next ? cand.next.h : cand.h) >= 210 && cand.w >= 66) spec = cand;
+    }
+    if (spec) { spec.spectacular = true; spec.roof = 0; if (spec.next) spec.next.spectacular = true; }
+
+    // a Googie roadside sign in the foreground — WELCOME TO the town
+    var welcome = { x: landL + span * (rng() < 0.5 ? 0.1 : 0.88) };
+    // the atomic broadcast tower rises behind the skyline, roughly centre
+    var tower = {
+      x: landL + span * (0.4 + rng() * 0.2),
+      h: 340 + rng() * 90,
+      baseW: 56 + rng() * 24
+    };
+    // a glowing exhibit kiosk at the margin opposite the welcome sign
+    var kiosk = { x: welcome.x < landL + span * 0.5 ? landL + span * 0.9 : landL + span * 0.1 };
+    // the House of the Future stands on its own little plot
+    var futureHouse = { x: landL + span * (0.26 + rng() * 0.14), side: rng() < 0.5 ? -1 : 1 };
+    // a pneumatic-tube transit line strung across the skyline
+    var tube = { x0: -80, x1: VIEW_W + 80 };
+
+    return { lots: lots, bg: bg, queue: queue, densify: densify, stars: stars, landmarks: landmarks, park: park, driveIn: driveIn, harbor: harbor, hill: hill, welcome: welcome, tower: tower, kiosk: kiosk, futureHouse: futureHouse, tube: tube, landL: landL, landR: landR };
   }
 
   var plan = generatePlan();
@@ -501,6 +542,11 @@
   var bgCity = plan.bg;
   var park = plan.park;
   var driveIn = plan.driveIn;
+  var welcome = plan.welcome;
+  var tower = plan.tower;
+  var futureHouse = plan.futureHouse;
+  var tube = plan.tube;
+  var kiosk = plan.kiosk;
   var harbor = plan.harbor;
   var hill = plan.hill;
   var LAND_L = plan.landL;
@@ -536,6 +582,7 @@
   }
   for (i = 0; i < landmarks.length; i++) landmarks[i].baseH = landmarks[i].h;
   if (hill) hill.baseH = hill.h;
+  if (tower) tower.baseH = tower.h;
 
   function applyCityScale() {
     var K = Math.min(1, GROUND_Y / 552);
@@ -552,6 +599,7 @@
     }
     for (i = 0; i < landmarks.length; i++) landmarks[i].h = landmarks[i].baseH * K;
     if (hill) hill.h = hill.baseH * K;
+    if (tower) tower.h = tower.baseH * K;
   }
 
   // the low dawn/dusk discs sit near the horizon, but the skyline is
@@ -745,9 +793,9 @@
   }
 
   var AURORA_RIBBONS = [
-    { base: 128, amp: 30, th: 46, f: 0.0052, sp: 1.0,  color: '47,97,87',    a: 0.55 },
-    { base: 178, amp: 36, th: 40, f: 0.0043, sp: 0.7,  color: '201,162,39',  a: 0.30 },
-    { base: 100, amp: 24, th: 30, f: 0.0065, sp: 1.4,  color: '232,220,192', a: 0.22 }
+    { base: 128, amp: 34, th: 48, f: 0.0052, sp: 1.0,  color: '63,224,216',  a: 0.5  },
+    { base: 178, amp: 38, th: 42, f: 0.0043, sp: 0.7,  color: '255,90,150',  a: 0.4  },
+    { base: 100, amp: 26, th: 32, f: 0.0065, sp: 1.4,  color: '255,201,74',  a: 0.32 }
   ];
 
   /* ---------------- ambient traffic (fourth rng stream) ---------------- */
@@ -769,7 +817,17 @@
   var ferry = { x: 0, dir: 1, active: false, timer: 16 + rng4() * 30 };
   var funi = { p: 0, dir: 1, moving: false, timer: 6 + rng4() * 10 };
   var milk = { x: 0, dir: 1, active: false, timer: 20 + rng4() * 40 };
+  var aircars = [];
+  for (i = 0; i < 5; i++) {
+    aircars.push({ active: false, timer: 3 + rng4() * 16, x: 0, y: 0, dir: 1,
+                   v: 100 + rng4() * 80, tone: Math.floor(rng4() * 3), lane: i });
+  }
+  var planet = { fx: 0.16 + rng4() * 0.12, fy: 92 + rng4() * 42, r: 40 + rng4() * 16,
+                 color: rng4() < 0.5 ? '#B5896B' : '#8FA6B0', tilt: -0.3 - rng4() * 0.22 };
   var icedLevel = 0;                              // eased harbor-freeze blend
+  var rocketFX = { phase: 0, t: 0, timer: 22 + rng4() * 38, y: 0 };   // rocketport launches
+  var robot = { active: false, timer: 16 + rng6() * 34, x: 0, dir: 1, v: 15 + rng6() * 6, ph: 0 };   // MECHANICAL MAN
+  var taxi = { phase: 0, timer: 24 + rng4() * 40, t: 0, x: 0, y: 0, dir: 1, padX: 0 };   // flying-saucer taxi
 
   // harbor towns keep their traffic on the land side of the quay
   var CAR_L = harbor && harbor.side === -1 ? harbor.shore + 10 : -30;
@@ -793,6 +851,8 @@
 
   var birds = [];                                 // at most two flocks aloft
   var birdTimer = 20 + rng6() * 40;
+  var jets = [];                                  // rocket-belt commuters
+  var jetTimer = 26 + rng6() * 44;
   var parade = { active: false, x: 0, dir: 1 };   // Founders' Day procession
 
   // the band forms up: Founders' Day calls it every July, and the
@@ -1499,6 +1559,109 @@
           airship.y = (130 + rng4() * 70) * SKY_K;
           airship.x = airship.dir === 1 ? -110 : VIEW_W + 110;
         }
+      }
+
+      // flying aircars: bubble-canopy pods gliding the mid-sky lanes
+      var acRun = 0;
+      for (i = 0; i < aircars.length; i++) if (aircars[i].active) acRun++;
+      for (i = 0; i < aircars.length; i++) {
+        var ac = aircars[i];
+        if (ac.active) {
+          ac.x += ac.v * dt * ac.dir;
+          if (ac.x < -130 || ac.x > VIEW_W + 130) { ac.active = false; ac.timer = 5 + rng4() * 13; }
+        } else if (acRun < 2) {
+          ac.timer -= dt;
+          if (ac.timer <= 0) {
+            ac.active = true; acRun++;
+            ac.dir = rng4() < 0.5 ? -1 : 1;
+            ac.y = (155 + rng4() * 150) * SKY_K;
+            ac.v = 95 + rng4() * 85;
+            ac.tone = Math.floor(rng4() * 3);
+            ac.x = ac.dir === 1 ? -110 : VIEW_W + 110;
+          }
+        }
+      }
+
+      // the rocketport sends one up now and then
+      var rl = landmarks[1];
+      if (rl && rl.kind === 'rocket' && rl.commissioned && rl.progress >= 1) {
+        if (rocketFX.phase === 0) {
+          rocketFX.timer -= dt;
+          if (rocketFX.timer <= 0) { rocketFX.phase = 1; rocketFX.t = 0; postBulletin('ROCKETPORT — COUNTDOWN COMMENCED, STAND CLEAR'); }
+        } else if (rocketFX.phase === 1) {
+          rocketFX.t += dt;
+          if (smoke.length < SMOKE_MAX && rng6() < dt * 22) {
+            smoke.push({ x: rl.x + 10 + (rng6() * 2 - 1) * 22, y: GROUND_Y - 6, r: 6 + rng6() * 5, vy: -(6 + rng6() * 8), vx: (rng6() * 2 - 1) * 12, life: 0, max: 2.2 + rng6() * 1.4 });
+          }
+          if (rocketFX.t > 1.3) { rocketFX.phase = 2; rocketFX.t = 0; rocketFX.y = 0; document.dispatchEvent(new CustomEvent('municitron:rocket-launch')); postBulletin('LIFT-OFF — THE ROCKETPORT REACHES FOR THE STARS'); }
+        } else if (rocketFX.phase === 2) {
+          rocketFX.t += dt;
+          rocketFX.y += (60 + rocketFX.t * rocketFX.t * 150) * dt;
+          if (smoke.length < SMOKE_MAX && rng6() < dt * 18) {
+            smoke.push({ x: rl.x + 10 + (rng6() * 2 - 1) * 7, y: GROUND_Y - 40 - rocketFX.y * 0.35, r: 4 + rng6() * 3, vy: -(4 + rng6() * 5), vx: (rng6() * 2 - 1) * 6, life: 0, max: 1.8 + rng6() });
+          }
+          if (rocketFX.y > rl.h + 240) { rocketFX.phase = 3; rocketFX.t = 0; }
+        } else {
+          rocketFX.t += dt;
+          if (rocketFX.t > 6) { rocketFX.phase = 0; rocketFX.timer = 40 + rng4() * 55; }
+        }
+      }
+
+      // rocket-belt commuters cross the mid-sky
+      if (jets.length < 2) {
+        jetTimer -= dt;
+        if (jetTimer <= 0) {
+          jetTimer = 24 + rng6() * 44;
+          var jd = rng6() < 0.5 ? -1 : 1;
+          jets.push({ x: jd === 1 ? -40 : VIEW_W + 40, y: (150 + rng6() * 120) * SKY_K, dir: jd, v: 64 + rng6() * 40, ph: rng6() * 6.283, bob: 8 + rng6() * 10 });
+        }
+      }
+      for (i = jets.length - 1; i >= 0; i--) {
+        var jp = jets[i];
+        jp.x += jp.v * dt * jp.dir;
+        if (jp.x < -60 || jp.x > VIEW_W + 60) jets.splice(i, 1);
+      }
+
+      // the MECHANICAL MAN takes a turn down Main Street
+      if (robot.active) {
+        robot.ph += dt;
+        robot.x += robot.v * dt * robot.dir;
+        if (robot.x > CAR_R + 20 || robot.x < CAR_L - 20) { robot.active = false; robot.timer = 44 + rng6() * 60; }
+      } else {
+        robot.timer -= dt;
+        if (robot.timer <= 0) {
+          robot.active = true; robot.ph = 0;
+          robot.dir = rng6() < 0.5 ? -1 : 1;
+          robot.x = robot.dir === 1 ? CAR_L - 16 : CAR_R + 16;
+          if (rng6() < 0.5) postBulletin('MECHANICAL MAN DEMONSTRATION ON MAIN STREET \u2014 QUITE SAFE');
+        }
+      }
+
+      // the flying-saucer taxi calls at its pad
+      if (taxi.phase === 0) {
+        taxi.timer -= dt;
+        if (taxi.timer <= 0) {
+          taxi.phase = 1; taxi.t = 0;
+          taxi.dir = rng4() < 0.5 ? -1 : 1;
+          taxi.padX = LAND_L + 70 + rng4() * Math.max(40, (LAND_R - LAND_L) - 140);
+          taxi.x = taxi.dir === 1 ? -60 : VIEW_W + 60;
+          taxi.y = (66 + rng4() * 40) * SKY_K;
+        }
+      } else if (taxi.phase === 1) {
+        taxi.x += (taxi.padX - taxi.x) * Math.min(1, dt * 1.4);
+        if (Math.abs(taxi.x - taxi.padX) < 6) { taxi.phase = 2; taxi.t = 0; }
+      } else if (taxi.phase === 2) {
+        taxi.t += dt;
+        taxi.y += ((GROUND_Y - 96) - taxi.y) * Math.min(1, dt * 1.7);
+        if (taxi.t > 2.4) { taxi.phase = 3; taxi.t = 0; }
+      } else if (taxi.phase === 3) {
+        taxi.t += dt;
+        if (taxi.t > 2.2) { taxi.phase = 4; taxi.t = 0; }
+      } else {
+        taxi.t += dt;
+        taxi.y -= (36 + taxi.t * taxi.t * 60) * dt;
+        taxi.x += taxi.dir * 28 * dt;
+        if (taxi.y < -40) { taxi.phase = 0; taxi.timer = 30 + rng4() * 50; }
       }
 
       // street traffic scales with the census
@@ -2272,33 +2435,63 @@
   function drawRocket(cx, H, lit) {
     var top = GROUND_Y - H;
     var bx = cx + 10;
+    var lift = rocketFX.phase >= 1 ? rocketFX.y : 0;   // launch offset (ship only)
+    var gone = rocketFX.phase === 3;
     ctx.fillStyle = TEAL_TRIM;                    // launch platform
     ctx.fillRect(cx - 70, GROUND_Y - 10, 140, 10);
-    ctx.fillStyle = '#183B37';                    // gantry mast
+    ctx.fillStyle = '#183B37';                    // gantry mast (retracts for launch)
+    var swing = rocketFX.phase === 0 ? 0 : (rocketFX.phase === 1 ? easeOutCubic(Math.min(1, rocketFX.t / 1.3)) : 1);
+    ctx.save();
+    ctx.translate(-swing * 50, 0);
+    ctx.globalAlpha = 1 - swing * 0.55;
     ctx.fillRect(cx - 52, top + 30, 14, GROUND_Y - top - 40);
     ctx.fillStyle = BRASS;                        // gantry rungs to the ship
     for (var yy = top + 44; yy < GROUND_Y - 20; yy += 22) {
       ctx.fillRect(cx - 56, yy, 30, 2);
     }
+    if (rocketFX.phase === 1) {                   // countdown lights climb the gantry
+      var litN = Math.floor((rocketFX.t / 1.3) * 5);
+      for (var cl = 0; cl < 5; cl++) {
+        var on = cl <= litN;
+        if (on) { ctx.shadowBlur = 6; ctx.shadowColor = ORANGE; }
+        ctx.fillStyle = on ? ORANGE : 'rgba(120,60,30,0.6)';
+        ctx.beginPath(); ctx.arc(cx - 45, top + 42 + cl * 14, 2.6, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
     ctx.fillStyle = ORANGE;                       // fins
+    if (!gone) {
     ctx.beginPath();
-    ctx.moveTo(bx - 16, GROUND_Y - 64); ctx.lineTo(bx - 34, GROUND_Y - 10); ctx.lineTo(bx - 16, GROUND_Y - 10);
+    ctx.moveTo(bx - 16, GROUND_Y - 64 - lift); ctx.lineTo(bx - 34, GROUND_Y - 10 - lift); ctx.lineTo(bx - 16, GROUND_Y - 10 - lift);
     ctx.closePath(); ctx.fill();
     ctx.beginPath();
-    ctx.moveTo(bx + 16, GROUND_Y - 64); ctx.lineTo(bx + 34, GROUND_Y - 10); ctx.lineTo(bx + 16, GROUND_Y - 10);
+    ctx.moveTo(bx + 16, GROUND_Y - 64 - lift); ctx.lineTo(bx + 34, GROUND_Y - 10 - lift); ctx.lineTo(bx + 16, GROUND_Y - 10 - lift);
     ctx.closePath(); ctx.fill();
+    if (rocketFX.phase === 1 || rocketFX.phase === 2) {   // exhaust flame
+      var fl = rocketFX.phase === 1 ? 8 + 30 * (rocketFX.t / 1.3) : 42 + Math.sin(effT * 40) * 9;
+      var fbY = GROUND_Y - 10 - lift;
+      ctx.fillStyle = GLOW_ORANGE;
+      ctx.beginPath(); ctx.moveTo(bx - 13, fbY); ctx.quadraticCurveTo(bx, fbY + fl * 1.25, bx + 13, fbY); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = ORANGE;
+      ctx.beginPath(); ctx.moveTo(bx - 8, fbY); ctx.quadraticCurveTo(bx, fbY + fl, bx + 8, fbY); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = CREAM_HI;
+      ctx.beginPath(); ctx.moveTo(bx - 4, fbY); ctx.quadraticCurveTo(bx, fbY + fl * 0.6, bx + 4, fbY); ctx.closePath(); ctx.fill();
+    }
     ctx.fillStyle = CREAM_HI;                     // hull
-    ctx.fillRect(bx - 16, top + 62, 32, GROUND_Y - top - 72);
+    ctx.fillRect(bx - 16, top + 62 - lift, 32, GROUND_Y - top - 72);
     ctx.fillStyle = ORANGE;                       // nose cone
     ctx.beginPath();
-    ctx.moveTo(bx - 16, top + 64);
-    ctx.quadraticCurveTo(bx, top + 4, bx + 16, top + 64);
+    ctx.moveTo(bx - 16, top + 64 - lift);
+    ctx.quadraticCurveTo(bx, top + 4 - lift, bx + 16, top + 64 - lift);
     ctx.closePath(); ctx.fill();
     ctx.fillStyle = '#1E4744';                    // hull band
-    ctx.fillRect(bx - 16, top + 92, 32, 8);
+    ctx.fillRect(bx - 16, top + 92 - lift, 32, 8);
     var dots = [];
-    for (var d = 0; d < 3; d++) dots.push([bx, top + 132 + d * 36]);
+    for (var d = 0; d < 3; d++) dots.push([bx, top + 132 + d * 36 - lift]);
     brassDots(dots, 3.5, lit);
+    }
   }
 
   function drawAtom(cx, H, lit) {
@@ -2423,7 +2616,7 @@
       ctx.fillRect(x + 40, GROUND_Y - 28, 6, 28);
       ctx.fillStyle = '#183B37';                  // screen frame
       ctx.fillRect(x - 55, GROUND_Y - 94, 110, 68);
-      if (showing && !reducedMotion.matches) {    // tonight's picture
+      if (!reducedMotion.matches) {              // the picture always rolls
         var reel = Math.floor(effT / 2.8) + reelShift;
         var fields = ['#235450', ORANGE, '#1E4744', BRASS];
         var f1 = fields[((reel % 4) + 4) % 4];
@@ -2480,37 +2673,78 @@
     ctx.beginPath(); ctx.arc(x + 61.5, GROUND_Y - 40, 2, 0, Math.PI * 2); ctx.fill();
   }
 
-  // an uncommissioned plaza holds a survey billboard — the city has plans
-  function drawVacantSign(x) {
-    ctx.fillStyle = TEAL_TRIM;                    // posts
-    ctx.fillRect(x - 20, GROUND_Y - 24, 3, 24);
-    ctx.fillRect(x + 17, GROUND_Y - 24, 3, 24);
-    ctx.fillStyle = CREAM_HI;                     // panel
-    ctx.fillRect(x - 27, GROUND_Y - 42, 54, 20);
-    ctx.save();                                   // civic caution stripes
+  // an uncommissioned plaza holds a survey board announcing what's coming
+  function drawVacantSign(x, title, kind) {
+    var pw = 100, ph = 30, py = GROUND_Y - 60;
+    ctx.fillStyle = TEAL_TRIM;                    // survey stakes
+    ctx.fillRect(x - pw / 2 + 8, py + ph, 3, 30);
+    ctx.fillRect(x + pw / 2 - 11, py + ph, 3, 30);
+    ctx.fillStyle = CREAM_HI;                     // the board
+    ctx.fillRect(x - pw / 2, py, pw, ph);
+    ctx.fillStyle = ORANGE;                       // header ribbon
+    ctx.fillRect(x - pw / 2, py, pw, 10);
+    ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 2;
+    ctx.strokeRect(x - pw / 2, py, pw, ph);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '1px';
+    ctx.fillStyle = CREAM_HI;
+    ctx.font = '700 6.5px Jost, Futura, sans-serif';
+    ctx.fillText('FUTURE SITE OF', x, py + 5.5);
+    ctx.fillStyle = TEAL_TRIM;                    // the promised landmark, sized to fit
+    var tfs = 9;
+    ctx.font = '700 ' + tfs + 'px Jost, Futura, sans-serif';
+    var t = title || 'A CIVIC WONDER';
+    while (ctx.measureText(t).width > pw - 12 && tfs > 5.5) { tfs -= 0.5; ctx.font = '700 ' + tfs + 'px Jost, Futura, sans-serif'; }
+    ctx.fillText(t, x, py + 20);
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    ctx.strokeStyle = BRASS; ctx.lineWidth = 1.1; ctx.lineCap = 'round';   // artist's-impression starburst
     ctx.beginPath();
-    ctx.rect(x - 27, GROUND_Y - 42, 54, 20);
-    ctx.clip();
-    ctx.fillStyle = ORANGE;
-    for (var sx = x - 34; sx < x + 30; sx += 16) {
+    for (var s = 0; s < 8; s++) { var a = s * Math.PI / 4, rr = s % 2 ? 2.5 : 5; ctx.moveTo(x - pw / 2 + 10, py - 4); ctx.lineTo(x - pw / 2 + 10 + Math.cos(a) * rr, py - 4 + Math.sin(a) * rr); }
+    ctx.stroke(); ctx.lineCap = 'butt';
+  }
+
+  // era-specific accents layered onto the commissioned landmarks
+  function drawLandmarkEra(L, litLevel) {
+    var s = STYLE; if (s === 'atompunk') return;
+    var x = L.x, top = GROUND_Y - L.h * easeOutCubic(L.progress), night = litLevel > 0.5, i;
+    if (s === 'cyberpunk') {
+      if (!reducedMotion.matches) {
+        ctx.fillStyle = glowRGBA(NEON_CYAN, 0.10);
+        for (i = 0; i < 5; i++) { var sy = top + ((effT * 40 + i * 60) % Math.max(1, GROUND_Y - top)); ctx.fillRect(x - 60, sy, 120, 1.5); }
+      }
+      if (night) { ctx.shadowBlur = 8; ctx.shadowColor = NEON_PINK; }
+      ctx.strokeStyle = glowRGBA(NEON_PINK, night ? 0.8 : 0.35); ctx.lineWidth = 2;
+      var bk = 12;
       ctx.beginPath();
-      ctx.moveTo(sx, GROUND_Y - 22);
-      ctx.lineTo(sx + 12, GROUND_Y - 42);
-      ctx.lineTo(sx + 17, GROUND_Y - 42);
-      ctx.lineTo(sx + 5, GROUND_Y - 22);
-      ctx.closePath(); ctx.fill();
+      ctx.moveTo(x - 62, GROUND_Y - 2 - bk); ctx.lineTo(x - 62, GROUND_Y - 2); ctx.lineTo(x - 62 + bk, GROUND_Y - 2);
+      ctx.moveTo(x + 62, GROUND_Y - 2 - bk); ctx.lineTo(x + 62, GROUND_Y - 2); ctx.lineTo(x + 62 - bk, GROUND_Y - 2);
+      ctx.stroke(); ctx.shadowBlur = 0;
+      ctx.fillStyle = glowRGBA(NEON_CYAN, 0.6); ctx.fillRect(x - 62, GROUND_Y - 3, 124, 1.6);
+    } else if (s === 'steampunk') {
+      drawGear(x - 42, GROUND_Y - 14, 16, 10, effT * 0.4, 'rgba(224,169,78,0.7)');
+      drawGear(x + 44, GROUND_Y - 12, 12, 8, -effT * 0.5, 'rgba(198,96,42,0.6)');
+      ctx.fillStyle = BRASS; for (var rx = x - 54; rx <= x + 54; rx += 12) { ctx.beginPath(); ctx.arc(rx, GROUND_Y - 4, 1.4, 0, Math.PI * 2); ctx.fill(); }
+      if (!reducedMotion.matches) { ctx.fillStyle = 'rgba(232,222,200,0.28)'; var puy = top - ((effT * 16) % 30); ctx.beginPath(); ctx.arc(x + 22, puy, 5, 0, Math.PI * 2); ctx.fill(); }
+    } else if (s === 'solarpunk') {
+      ctx.fillStyle = '#2E7D4F'; for (i = -1; i <= 1; i++) { ctx.beginPath(); ctx.arc(x + i * 42, GROUND_Y, 8 + (i === 0 ? 3 : 0), Math.PI, 0); ctx.fill(); }
+      ctx.fillStyle = '#3E9A63'; for (var gx = x - 52; gx <= x + 52; gx += 9) { ctx.beginPath(); ctx.arc(gx, GROUND_Y - 2, 2.5, Math.PI, 0); ctx.fill(); }
+    } else if (s === 'silkpunk') {
+      for (i = -1; i <= 1; i += 2) {
+        var lx = x + i * 46;
+        ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(lx, top + 6); ctx.lineTo(lx, top + 18); ctx.stroke();
+        if (night) { ctx.shadowBlur = 6; ctx.shadowColor = ORANGE; }
+        ctx.fillStyle = night ? glowRGBA(ORANGE, 0.9) : ORANGE; ctx.beginPath(); ctx.ellipse(lx, top + 22, 4, 6, 0, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+      }
     }
-    ctx.restore();
-    ctx.strokeStyle = TEAL_TRIM;
-    ctx.lineWidth = 2;
-    ctx.strokeRect(x - 27, GROUND_Y - 42, 54, 20);
   }
 
   // commissioned landmarks reveal bottom-up behind a construction curtain
   function drawLandmark(L, litLevel) {
     // the wheel's lot is the drive-in until the day it isn't
-    if (L.progress <= 0) { if (L.kind !== 'wheel') drawVacantSign(L.x); return; }
+    if (L.progress <= 0) { if (L.kind !== 'wheel') drawVacantSign(L.x, L.title, L.kind); return; }
     var revealH = L.h * easeOutCubic(L.progress) + 44;   // headroom for spires
+    if (L.kind === 'rocket' && rocketFX.phase >= 2) revealH += rocketFX.y + 80;   // room for the launch
     ctx.save();
     ctx.beginPath();
     ctx.rect(L.x - 115, GROUND_Y - revealH, 230, revealH);
@@ -2519,6 +2753,7 @@
     else if (L.kind === 'rocket') drawRocket(L.x, L.h, litLevel);
     else if (L.kind === 'wheel') drawWheel(L.x, L.h, litLevel);
     else drawAtom(L.x, L.h, litLevel);
+    drawLandmarkEra(L, litLevel);
     ctx.restore();
   }
 
@@ -2544,6 +2779,7 @@
     var noseX = d === 1 ? x + TRAIN_LEN : x;      // leading end
     var tailX = d === 1 ? x : x + TRAIN_LEN;
     var night = litLevel > 0.55;
+    if (STYLE !== 'atompunk') { drawTrainEra(STYLE, x, d, night); return; }
 
     if (night) {                                  // headlight throw, cast ahead
       ctx.fillStyle = 'rgba(242, 233, 210, 0.10)';
@@ -2630,7 +2866,9 @@
     for (var i = 0; i < cars.length; i++) {
       var p = cars[i];
       if (!p.active) continue;
+      if (STYLE !== 'atompunk') { drawCarEra(STYLE, p, litLevel > 0.55); continue; }
       var d = p.dir;
+      var carColor = CAR_COLORS[i % CAR_COLORS.length];
       var L = p.len;
       var y = GROUND_Y - 9;                       // beltline height
       var nose = d === 1 ? p.x + L : p.x;
@@ -2660,7 +2898,7 @@
 
       // lower body: long hood dipping to the bumper, tail fin swept up,
       // skirts notched over the wheels by drawing body above them
-      ctx.fillStyle = TEAL_TRIM;
+      ctx.fillStyle = carColor;
       ctx.beginPath();
       ctx.moveTo(tail, y + 6);
       ctx.lineTo(tail, y - 4.5);                  // fin tip
@@ -2714,34 +2952,74 @@
     }
   }
 
-  // one marcher: capsule torso, striding legs, cap brim — the same
-  // anatomy as the strolling citizens so the whole town matches
-  function drawMarcher(mx, bob, stride, capColor) {
-    var y = GROUND_Y - bob;
-    ctx.strokeStyle = TEAL_TRIM;
-    ctx.lineWidth = 1.3;
+  // a lively crowd: coats in varied poster tones over a shared silhouette
+  var FOLK_COATS = ['#0E3F3C', '#1B6157', '#C24E22', '#C79A2E', '#0A2F2C', '#D8CBA6'];
+  var SKIN = '#E6C6A0';
+  // the town's automobiles in candy colors; chrome and dark tyres stay shared
+  var CAR_COLORS = ['#E7A8B0', '#9FC9B7', '#E8DCC0', '#E19A7C', '#7FB0A8', '#E9C979'];
+
+  // one flat mid-century figure, facing travel: swing-coat torso, striding
+  // legs with feet, an arm swinging opposite the lead leg, round head and an
+  // optional fedora. stride is -1..1 (walk phase); returns the bobbed ground y.
+  function drawPerson(x, gy, stride, d, coat, hat, hatColor, gawk) {
+    var s = stride;
+    var y = gy - Math.abs(s) * 0.9;
+    var hipY = y - 6;
+
+    ctx.strokeStyle = TEAL_TRIM;                  // legs
+    ctx.lineWidth = 1.8;
     ctx.lineCap = 'round';
-    ctx.beginPath();                              // high-knee march
-    ctx.moveTo(mx, y - 4.5);
-    ctx.quadraticCurveTo(mx + stride * 1.6, y - 3.2, mx + stride * 2.4, y);
-    ctx.moveTo(mx, y - 4.5);
-    ctx.quadraticCurveTo(mx - stride * 1.0, y - 2.4, mx - stride * 2.4, y);
+    ctx.beginPath();
+    ctx.moveTo(x, hipY); ctx.lineTo(x + s * 2.6, y);
+    ctx.moveTo(x, hipY); ctx.lineTo(x - s * 2.6, y);
+    ctx.stroke();
+    ctx.lineWidth = 1.6;                          // feet, pointing forward
+    ctx.beginPath();
+    ctx.moveTo(x + s * 2.6, y); ctx.lineTo(x + s * 2.6 + d * 2.2, y);
+    ctx.moveTo(x - s * 2.6, y); ctx.lineTo(x - s * 2.6 + d * 2.2, y);
     ctx.stroke();
     ctx.lineCap = 'butt';
-    ctx.fillStyle = TEAL_TRIM;                    // capsule torso
+
+    ctx.fillStyle = coat;                         // swing-coat torso
     ctx.beginPath();
-    ctx.moveTo(mx - 1.8, y - 4);
-    ctx.lineTo(mx - 1.8, y - 9);
-    ctx.arc(mx, y - 9, 1.8, Math.PI, 0);
-    ctx.lineTo(mx + 1.8, y - 4);
+    ctx.moveTo(x - 2.6, hipY + 1);
+    ctx.lineTo(x + 2.6, hipY + 1);
+    ctx.lineTo(x + 1.9, y - 12.5);
+    ctx.lineTo(x - 1.9, y - 12.5);
     ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.arc(mx, y - 12.4, 2, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = capColor;                     // parade cap
+
+    ctx.strokeStyle = coat;                       // arm swings opposite lead leg
+    ctx.lineWidth = 1.7;
+    ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.arc(mx, y - 13, 2, Math.PI, 0);
-    ctx.closePath(); ctx.fill();
-    ctx.fillRect(mx - 2.6, y - 13.2, 5.2, 1);
+    ctx.moveTo(x, y - 11);
+    ctx.lineTo(x - s * 2.2, y - 6);
+    ctx.stroke();
+    ctx.lineCap = 'butt';
+
+    var lean = gawk ? d * 0.9 : 0;                // head (tips back to gawk)
+    var headY = y - 14.6 - (gawk ? 0.6 : 0);
+    ctx.fillStyle = SKIN;
+    ctx.beginPath(); ctx.arc(x + lean, headY, 2.1, 0, Math.PI * 2); ctx.fill();
+
+    if (hat) {                                    // fedora: crown + brim
+      ctx.fillStyle = hatColor || TEAL_TRIM;
+      ctx.beginPath();
+      ctx.moveTo(x - 1.7 + lean, headY - 1.3);
+      ctx.lineTo(x - 1.2 + lean, headY - 3.7);
+      ctx.lineTo(x + 1.6 + lean, headY - 3.7);
+      ctx.lineTo(x + 1.9 + lean, headY - 1.3);
+      ctx.closePath(); ctx.fill();
+      ctx.fillRect(x - 3.3 + lean + d * 0.4, headY - 1.6, 6.4, 1);
+    }
     return y;
+  }
+
+  // a marcher wears the town's anatomy in a band-uniform teal coat, cap in
+  // the given accent; the parade code adds the instrument at the returned y
+  function drawMarcher(mx, bob, stride, capColor) {
+    if (STYLE !== 'atompunk') return drawPersonEra(STYLE, mx, GROUND_Y, stride, parade.dir, curLit > 0.55);
+    return drawPerson(mx, GROUND_Y, stride, parade.dir, '#12514B', true, capColor, false);
   }
 
   // the Founders' Day procession: flag bearer, marching band, a float
@@ -2955,32 +3233,11 @@
     for (var i = 0; i < folks.length; i++) {
       var p = folks[i];
       if (!p.active) continue;
-      var stride = gawk ? 0 : Math.sin(effT * 9 + p.ph);
-      var bob = Math.abs(stride) * 0.8;
-      var y = GROUND_Y - bob;
-
-      ctx.strokeStyle = TEAL_TRIM;                // legs mid-stride, with a
-      ctx.lineWidth = 1.3;                        // little bend at the knee
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(p.x, y - 4.5);
-      ctx.quadraticCurveTo(p.x + stride * 1.4, y - 2.6, p.x + stride * 2.2, y);
-      ctx.moveTo(p.x, y - 4.5);
-      ctx.quadraticCurveTo(p.x - stride * 0.8, y - 2.6, p.x - stride * 2.2, y);
-      ctx.stroke();
-      ctx.lineCap = 'butt';
-      ctx.fillStyle = TEAL_TRIM;                  // capsule torso + head
-      ctx.beginPath();
-      ctx.moveTo(p.x - 1.7, y - 4);
-      ctx.lineTo(p.x - 1.7, y - 8.6);
-      ctx.arc(p.x, y - 8.6, 1.7, Math.PI, 0);
-      ctx.lineTo(p.x + 1.7, y - 4);
-      ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.arc(p.x, y - 12, 1.9, 0, Math.PI * 2); ctx.fill();
-      if (p.hat) {                                // a respectable brim
-        ctx.fillRect(p.x - 3, y - 13.6, 6, 1);
-        ctx.fillRect(p.x - 1.8, y - 16, 3.6, 2.6);
-      }
+      var stride = gawk ? 0 : Math.sin(effT * 8 + p.ph) * p.dir;
+      var coat = FOLK_COATS[i % FOLK_COATS.length];
+      var y = STYLE !== 'atompunk'
+        ? drawPersonEra(STYLE, p.x, GROUND_Y, stride, p.dir, curLit > 0.55)
+        : drawPerson(p.x, GROUND_Y, stride, p.dir, coat, p.hat, TEAL_TRIM, gawk);
       if (p.dog) {                                // Comet, at heel
         var dx2 = p.x - p.dir * 8;
         ctx.strokeStyle = TEAL_TRIM;
@@ -3041,8 +3298,12 @@
     for (var i = 0; i < notes.length; i++) {
       var p = notes[i];
       ctx.globalAlpha = Math.max(0, 0.9 * (1 - p.life / p.max));
-      ctx.fillStyle = BRASS;
-      ctx.fillText(p.g, p.x + Math.sin(effT * 2.2 + p.ph) * 5, p.y);
+      var nCol = STYLE === 'cyberpunk' ? NEON_CYAN : STYLE === 'solarpunk' ? '#3E9A63' : STYLE === 'silkpunk' ? ORANGE : BRASS;
+      if (STYLE === 'cyberpunk') { ctx.shadowBlur = 6; ctx.shadowColor = nCol; }
+      ctx.fillStyle = nCol;
+      var ng = STYLE === 'cyberpunk' ? '\u25C8' : STYLE === 'solarpunk' ? '\u2740' : STYLE === 'silkpunk' ? '\u2767' : p.g;
+      ctx.fillText(ng, p.x + Math.sin(effT * 2.2 + p.ph) * 5, p.y);
+      ctx.shadowBlur = 0;
     }
     ctx.textAlign = 'left';
     ctx.globalAlpha = 1;
@@ -3211,6 +3472,13 @@
     ctx.lineTo(mbx + 9, GROUND_Y - 2 + mby);
     ctx.lineTo(mbx + 1, GROUND_Y - 2 + mby);
     ctx.closePath(); ctx.fill();
+    ctx.fillStyle = ORANGE;                       // masthead pennant
+    var mpw = reducedMotion.matches ? 0 : Math.sin(effT * 3) * 0.7;
+    ctx.beginPath();
+    ctx.moveTo(mbx, GROUND_Y - 22 + mby);
+    ctx.lineTo(mbx + 8, GROUND_Y - 20.5 + mby + mpw);
+    ctx.lineTo(mbx, GROUND_Y - 19 + mby);
+    ctx.closePath(); ctx.fill();
 
     // the lighthouse on its rock
     var lx = harbor.lightX;
@@ -3261,7 +3529,9 @@
       ctx.fillRect(ferry.x - 12, fy - 6, 24, 8);
       ctx.fillStyle = ORANGE;                     // funnel
       ctx.fillRect(ferry.x + ferry.dir * 5 - 2, fy - 11, 4, 5);
-      ctx.fillStyle = TEAL_TRIM;                  // portholes
+      ctx.fillStyle = ORANGE;                     // boot stripe
+      ctx.fillRect(ferry.x - 21, fy + 3.4, 42, 1.4);
+      ctx.fillStyle = starLevel > 0.4 ? BRASS : TEAL_TRIM;   // portholes, lit after dark
       ctx.beginPath();
       dotPath(ferry.x - 6, fy - 2, 1.3); dotPath(ferry.x, fy - 2, 1.3); dotPath(ferry.x + 6, fy - 2, 1.3);
       ctx.fill();
@@ -3317,25 +3587,67 @@
   function drawAirship(litLevel) {
     if (!airship.active || reducedMotion.matches) return;
     var x = airship.x, y = airship.y;
-    var rear = airship.dir === 1 ? x - 58 : x + 58;
-    ctx.fillStyle = '#235450';                    // envelope
-    ctx.beginPath(); ctx.ellipse(x, y, 64, 19, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = CREAM_HI;                     // tail fins
-    ctx.fillRect(rear - 6, y - 16, 12, 12);
-    ctx.fillRect(rear - 6, y + 4, 12, 12);
-    ctx.fillStyle = BRASS;                        // gondola
-    ctx.fillRect(x - 14, y + 17, 28, 8);
-    ctx.fillStyle = TEAL_TRIM;
+    var d = airship.dir;                          // nose direction
+    var nose = x + d * 66;
+    var tail = x - d * 60;
+    if (STYLE !== 'atompunk') { drawAirshipEra(STYLE, x, y, d, litLevel > 0.5); return; }
+
+    // clean triangular tail fins
+    ctx.fillStyle = TEALS[1];
+    ctx.beginPath();                              // upper fin
+    ctx.moveTo(tail + d * 12, y - 5);
+    ctx.lineTo(tail - d * 16, y - 27);
+    ctx.lineTo(tail - d * 4, y - 4);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();                              // lower fin
+    ctx.moveTo(tail + d * 12, y + 5);
+    ctx.lineTo(tail - d * 16, y + 27);
+    ctx.lineTo(tail - d * 4, y + 4);
+    ctx.closePath(); ctx.fill();
+
+    // streamlined envelope: pointed nose, rounded tail
+    ctx.fillStyle = CREAM_HI;
     ctx.beginPath();
-    dotPath(x - 7, y + 21, 1.8); dotPath(x, y + 21, 1.8); dotPath(x + 7, y + 21, 1.8);
+    ctx.moveTo(nose, y);
+    ctx.bezierCurveTo(nose - d * 34, y - 21, tail + d * 30, y - 20, tail, y);
+    ctx.bezierCurveTo(tail + d * 30, y + 20, nose - d * 34, y + 21, nose, y);
+    ctx.closePath(); ctx.fill();
+
+    ctx.save();                                   // detail clipped to the hull
+    ctx.clip();
+    ctx.fillStyle = ORANGE;                       // longitudinal accent band
+    ctx.fillRect(x - 74, y - 3.2, 148, 6.4);
+    ctx.fillStyle = BRASS;                        // nose cone
+    ctx.beginPath(); ctx.ellipse(nose, y, 17, 22, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(6, 37, 35, 0.22)';    // ring frames
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(x + d * 4, y - 21); ctx.lineTo(x + d * 4, y + 21);
+    ctx.moveTo(x - d * 26, y - 20); ctx.lineTo(x - d * 26, y + 20);
+    ctx.stroke();
+    ctx.restore();
+
+    // suspension cables + streamlined gondola
+    ctx.strokeStyle = TEALS[2]; ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.moveTo(x - 11, y + 17); ctx.lineTo(x - 9, y + 25);
+    ctx.moveTo(x + 11, y + 17); ctx.lineTo(x + 9, y + 25);
+    ctx.stroke();
+    ctx.fillStyle = TEALS[1];
+    ctx.beginPath(); ctx.ellipse(x, y + 28, 16, 5.5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = litLevel > 0.5 ? BRASS : TEALS[2];   // gondola windows
+    ctx.beginPath();
+    dotPath(x - 8, y + 28, 1.5); dotPath(x, y + 28, 1.5); dotPath(x + 8, y + 28, 1.5);
     ctx.fill();
-    ctx.font = '600 10px Jost, Futura, sans-serif';
-    if ('letterSpacing' in ctx) ctx.letterSpacing = '3px';
+
+    ctx.font = '600 8px Jost, Futura, sans-serif';    // NAZARBAN on the envelope
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '1.5px';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = 'rgba(242, 233, 210, 0.85)';
-    ctx.fillText('NAZARBAN', x, y + 1);
+    ctx.fillStyle = TEALS[2];
+    ctx.fillText('NAZARBAN', x - d * 2, y - 9);
     ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
     if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
   }
 
@@ -3533,17 +3845,45 @@
   function drawUfo() {
     if (!ufo.active || reducedMotion.matches) return;
     var x = ufo.x;
-    var y = ufo.y + Math.sin(effT * 6) * 12;
-    ctx.fillStyle = GLOW_BRASS;                   // under-glow
-    ctx.beginPath(); ctx.ellipse(x, y + 8, 30, 8, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = CREAM_HI;                     // hull
-    ctx.beginPath(); ctx.ellipse(x, y, 26, 8, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#235450';                    // dome
-    ctx.beginPath(); ctx.ellipse(x, y - 5, 11, 7, 0, Math.PI, 0); ctx.fill();
-    ctx.fillStyle = BRASS;                        // running lights
+    var y = ufo.y + Math.sin(effT * 2.0) * 9;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(Math.sin(effT * 1.1) * 0.05);
+
+    ctx.fillStyle = GLOW_CYAN;                    // tractor beam
+    ctx.globalAlpha = 0.28 + 0.12 * Math.sin(effT * 4);
     ctx.beginPath();
-    dotPath(x - 12, y + 3, 2); dotPath(x, y + 4, 2); dotPath(x + 12, y + 3, 2);
-    ctx.fill();
+    ctx.moveTo(-6, 5); ctx.lineTo(6, 5);
+    ctx.lineTo(19, 42); ctx.lineTo(-19, 42);
+    ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = TEALS[2];                     // saucer underside
+    ctx.beginPath(); ctx.ellipse(0, 1.5, 33, 9, 0, 0, Math.PI); ctx.fill();
+    ctx.fillStyle = CREAM_HI;                     // chrome topside
+    ctx.beginPath(); ctx.ellipse(0, 1.5, 33, 9, 0, Math.PI, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = BRASS;                      // rim
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(0, 1.5, 33, 9, 0, 0, Math.PI * 2); ctx.stroke();
+
+    ctx.fillStyle = 'rgba(63, 224, 216, 0.5)';    // glass dome
+    ctx.beginPath(); ctx.ellipse(0, -2.5, 13, 10, 0, Math.PI, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = CREAM_HI; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.ellipse(0, -2.5, 13, 10, 0, Math.PI, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = 'rgba(251, 243, 222, 0.85)';  // dome glint
+    ctx.beginPath(); ctx.ellipse(-4.5, -7, 3, 2, -0.5, 0, Math.PI * 2); ctx.fill();
+
+    for (var k = 0; k < 7; k++) {                 // rim lights, sequential pulse
+      var t = (k + 0.5) / 7 * Math.PI;
+      var lx = Math.cos(t) * 28;
+      var ly = 1.5 + Math.sin(t) * 5;
+      var on = (k + Math.floor(effT * 3)) % 3 === 0;
+      if (on) { ctx.shadowBlur = 7; ctx.shadowColor = BRASS; }
+      ctx.fillStyle = on ? BRASS : 'rgba(255, 201, 74, 0.35)';
+      ctx.beginPath(); ctx.arc(lx, ly, 1.9, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+    ctx.restore();
   }
 
   // the municipal park: bandstand, trees, seasonal dress — snow caps in
@@ -3571,6 +3911,15 @@
     ctx.closePath(); ctx.fill();
     ctx.fillStyle = BRASS;                        // finial
     ctx.beginPath(); ctx.arc(bx, GROUND_Y - 46, 2.5, 0, Math.PI * 2); ctx.fill();
+    for (var pf = 0; pf < 7; pf++) {              // festive pennant garland
+      var pxb = bx - 24 + pf * 8;
+      ctx.fillStyle = pf % 2 ? ORANGE : BRASS;
+      ctx.beginPath();
+      ctx.moveTo(pxb, GROUND_Y - 25);
+      ctx.lineTo(pxb + 6, GROUND_Y - 25);
+      ctx.lineTo(pxb + 3, GROUND_Y - 21);
+      ctx.closePath(); ctx.fill();
+    }
 
     for (i = 0; i < park.shrubs.length; i++) {    // round shrubs at ground level
       var sh = park.shrubs[i];
@@ -4040,6 +4389,1187 @@
     ctx.globalAlpha = 1;
   }
 
+  /* ---------------- Googie rooflines: a distinct silhouette per lot ----- */
+  /* Each front-row lot draws one archetype above its parapet, so no two
+     read alike: a roadside blade, a butterfly wing, a single upsweep, a
+     floating cantilever, an observation dome, a barrel vault or a
+     folded-plate sawtooth. All flat poster shapes in the console palette. */
+
+  var ROOF = { FLAT: 0, FIN: 1, BUTTERFLY: 2, UPSWEEP: 3, CANTILEVER: 4, DOME: 5, ARCH: 6, FOLDED: 7 };
+  var ACCENTS   = [NEON_CYAN, NEON_PINK, ORANGE];
+  var ACC_GLOW  = [GLOW_CYAN, GLOW_PINK, GLOW_ORANGE];
+  var ACC_BAND  = ['rgba(63,224,216,0.55)', 'rgba(255,90,150,0.55)', 'rgba(255,107,61,0.55)'];
+
+  function roofSide(b) { return (Math.floor(b.x) % 2 === 0) ? -1 : 1; }   // deterministic per lot
+
+  // FLAT lots keep the old repertoire: a rooftop neon marquee, or one of
+  // three sculpted crowns, chosen by the building's own hash
+  function drawFlatCrown(b, top, h, litLevel) {
+    var signHash = Math.abs(Math.floor(b.x * 13.7 + b.w * 3.1));
+    var free = !b.mast && !b.sign && !b.chimney && !b.clock;
+    if (free && b.w >= 50 && h > 30 && signHash % 3 === 0) {
+      drawNeonSign(b.x + b.w / 2, top, b.w, signHash, litLevel > 0.42);
+      return;
+    }
+    if (!free || h <= 44) return;
+    var cx0 = b.x + b.w / 2, cst = signHash % 3, acc = ACCENTS[b.accent];
+    if (cst === 0) {                              // stepped setback ziggurat
+      ctx.fillStyle = b.color;
+      ctx.fillRect(cx0 - b.w * 0.33, top - 9, b.w * 0.66, 9);
+      ctx.fillRect(cx0 - b.w * 0.18, top - 17, b.w * 0.36, 8);
+      ctx.fillStyle = acc;
+      ctx.fillRect(cx0 - b.w * 0.18, top - 17, b.w * 0.36, 1.4);
+      ctx.fillStyle = ORANGE;
+      ctx.fillRect(cx0 - 1, top - 24, 2, 7);
+    } else if (cst === 1) {                       // small glass dome
+      var dr = Math.min(b.w * 0.36, 20);
+      ctx.fillStyle = 'rgba(63, 224, 216, 0.38)';
+      ctx.beginPath(); ctx.ellipse(cx0, top, dr, dr * 0.85, 0, Math.PI, Math.PI * 2); ctx.fill();
+      if (litLevel > 0.5) {
+        ctx.fillStyle = GLOW_CYAN;
+        ctx.beginPath(); ctx.ellipse(cx0, top, dr * 0.66, dr * 0.55, 0, Math.PI, Math.PI * 2); ctx.fill();
+      }
+      ctx.strokeStyle = CREAM_HI; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.ellipse(cx0, top, dr, dr * 0.85, 0, Math.PI, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx0 - dr, top); ctx.lineTo(cx0 + dr, top); ctx.stroke();
+    } else {                                      // penthouse + twin antenna fins
+      ctx.fillStyle = b.color;
+      ctx.fillRect(cx0 - b.w * 0.28, top - 12, b.w * 0.56, 12);
+      ctx.fillStyle = 'rgba(6,30,28,0.3)';
+      ctx.fillRect(cx0 - b.w * 0.28, top - 12, b.w * 0.56, 2);
+      ctx.fillStyle = BRASS;
+      ctx.fillRect(cx0 - b.w * 0.22, top - 20, 2, 8);
+      ctx.fillRect(cx0 + b.w * 0.22 - 2, top - 20, 2, 8);
+    }
+  }
+
+  function drawRoof(b, top, h, litLevel) {
+    var cx = b.x + b.w / 2, x0 = b.x, x1 = b.x + b.w;
+    var night = litLevel > 0.55;
+    var acc = ACCENTS[b.accent], accGlow = ACC_GLOW[b.accent];
+    var s = b.roof, side, i;
+    var slab = b.roofOrange ? ORANGE : TEAL_TRIM;   // burnt-orange swooping roofs
+
+    if (s === ROOF.FLAT) { drawFlatCrown(b, top, h, litLevel); return; }
+
+    if (s === ROOF.FIN) {                         // roadside pylon blade
+      side = roofSide(b);
+      var fx = side < 0 ? x0 + b.w * 0.16 : x1 - b.w * 0.16;
+      var fh = Math.max(26, Math.min(72, h * 0.28));
+      var fw = Math.max(6, Math.min(11, b.w * 0.13));
+      ctx.fillStyle = TEAL_TRIM;                  // mounting foot
+      ctx.fillRect(fx - fw / 2 - 3, top - 3, fw + 6, 4);
+      ctx.fillStyle = b.color;                    // the blade
+      ctx.fillRect(fx - fw / 2, top - fh, fw, fh);
+      if (night) { ctx.shadowBlur = 7; ctx.shadowColor = acc; }
+      ctx.fillStyle = acc;                        // neon tube edges
+      ctx.fillRect(fx - fw / 2, top - fh, 1.6, fh);
+      ctx.fillRect(fx + fw / 2 - 1.6, top - fh, 1.6, fh);
+      ctx.shadowBlur = 0;
+      var dots = [];                              // marquee bulbs down the blade
+      for (var by = top - fh + 5; by < top - 4; by += 7) dots.push([fx, by]);
+      coloredDots(dots, 1.5, night ? 1 : 0, BRASS, GLOW_BRASS);
+      if (night) { ctx.shadowBlur = 8; ctx.shadowColor = ORANGE; }
+      ctx.fillStyle = ORANGE;                     // orb finial
+      ctx.beginPath(); ctx.arc(fx, top - fh - 3, 3.2, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+
+    } else if (s === ROOF.BUTTERFLY) {            // upswept winged roof
+      var over = 6;
+      ctx.fillStyle = slab;                       // chevron slab
+      ctx.beginPath();
+      ctx.moveTo(x0 - over, top - 11);
+      ctx.lineTo(cx, top + 3);
+      ctx.lineTo(x1 + over, top - 11);
+      ctx.lineTo(x1 + over, top - 7);
+      ctx.lineTo(cx, top + 7);
+      ctx.lineTo(x0 - over, top - 7);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = BRASS; ctx.lineWidth = 1.6;   // brass fascia
+      ctx.beginPath();
+      ctx.moveTo(x0 - over, top - 11); ctx.lineTo(cx, top + 3); ctx.lineTo(x1 + over, top - 11);
+      ctx.stroke();
+
+    } else if (s === ROOF.UPSWEEP) {              // single dramatic slope
+      side = roofSide(b);
+      var lowY = top + 2, highY = top - Math.min(28, h * 0.12 + 12);
+      var lx = side < 0 ? x0 - 4 : x1 + 4;
+      var hx = side < 0 ? x1 + 8 : x0 - 8;
+      ctx.fillStyle = slab;                       // sloped slab
+      ctx.beginPath();
+      ctx.moveTo(lx, lowY); ctx.lineTo(hx, highY);
+      ctx.lineTo(hx, highY + 4.5); ctx.lineTo(lx, lowY + 4.5);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = BRASS; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(lx, lowY); ctx.lineTo(hx, highY); ctx.stroke();
+      ctx.fillStyle = b.color;                    // fin past the high end
+      ctx.fillRect(hx - (side < 0 ? 2.4 : 0), highY - 12, 2.4, 16);
+      if (night) { ctx.shadowBlur = 8; ctx.shadowColor = ORANGE; }
+      ctx.fillStyle = ORANGE;                     // beacon on the point
+      ctx.beginPath(); ctx.arc(hx + (side < 0 ? -1.2 : 1.2), highY - 13, 2.4, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+
+    } else if (s === ROOF.CANTILEVER) {           // floating Googie roof plane
+      side = roofSide(b);
+      var proj = Math.min(20, b.w * 0.34);
+      var slabT = top - 7;
+      var pL = side < 0 ? x0 - proj : x0 - 2;
+      var pR = side < 0 ? x1 + 2 : x1 + proj;
+      var lift = 3;                               // boomerang lift at the tip
+      ctx.fillStyle = slab;
+      ctx.beginPath();
+      ctx.moveTo(pL, slabT - (side < 0 ? lift : 0));
+      ctx.lineTo(pR, slabT - (side < 0 ? 0 : lift));
+      ctx.lineTo(pR, slabT + 5 - (side < 0 ? 0 : lift));
+      ctx.lineTo(pL, slabT + 5 - (side < 0 ? lift : 0));
+      ctx.closePath(); ctx.fill();
+      var tipX = side < 0 ? pL : pR;              // diagonal support strut
+      ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(tipX, slabT + 4);
+      ctx.lineTo(side < 0 ? x0 + 6 : x1 - 6, GROUND_Y - h * 0.35);
+      ctx.stroke();
+      if (night) { ctx.fillStyle = accGlow; ctx.fillRect(pL, slabT + 5, pR - pL, 2); }
+      ctx.fillStyle = acc;                        // lit eave tube
+      ctx.fillRect(pL, slabT + 4.4, pR - pL, 1.2);
+
+    } else if (s === ROOF.DOME) {                 // observation dome (Starlite)
+      var dr2 = Math.min(b.w * 0.5, 36);
+      var domeY = top - 2;
+      ctx.fillStyle = CREAM_HI;                   // drum ring
+      ctx.fillRect(cx - dr2, domeY, dr2 * 2, 4);
+      ctx.fillStyle = 'rgba(63, 224, 216, 0.42)'; // glass dome
+      ctx.beginPath(); ctx.ellipse(cx, domeY, dr2, dr2 * 1.02, 0, Math.PI, Math.PI * 2); ctx.fill();
+      if (night) {
+        ctx.fillStyle = GLOW_CYAN;
+        ctx.beginPath(); ctx.ellipse(cx, domeY, dr2 * 0.7, dr2 * 0.72, 0, Math.PI, Math.PI * 2); ctx.fill();
+      }
+      ctx.strokeStyle = CREAM_HI; ctx.lineWidth = 1.2;   // outline + meridians
+      ctx.beginPath();
+      ctx.ellipse(cx, domeY, dr2, dr2 * 1.02, 0, Math.PI, Math.PI * 2);
+      ctx.moveTo(cx, domeY); ctx.lineTo(cx, domeY - dr2 * 1.02);
+      ctx.moveTo(cx - dr2 * 0.55, domeY); ctx.lineTo(cx - dr2 * 0.55, domeY - dr2 * 0.85);
+      ctx.moveTo(cx + dr2 * 0.55, domeY); ctx.lineTo(cx + dr2 * 0.55, domeY - dr2 * 0.85);
+      ctx.moveTo(cx - dr2, domeY); ctx.lineTo(cx + dr2, domeY);
+      ctx.stroke();
+      ctx.fillStyle = BRASS;                      // finial
+      ctx.fillRect(cx - 1, domeY - dr2 * 1.02 - 6, 2, 8);
+      ctx.beginPath(); ctx.arc(cx, domeY - dr2 * 1.02 - 7, 2.4, 0, Math.PI * 2); ctx.fill();
+
+    } else if (s === ROOF.ARCH) {                 // barrel-vault cap
+      var ah = Math.min(b.w * 0.42, 30);
+      ctx.fillStyle = b.color;
+      ctx.beginPath(); ctx.ellipse(cx, top, b.w / 2, ah, 0, Math.PI, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(6,30,28,0.22)';       // shaded lee of the vault
+      ctx.beginPath(); ctx.ellipse(cx, top, b.w / 2, ah, 0, Math.PI * 1.5, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = BRASS; ctx.lineWidth = 1.3;   // rib
+      ctx.beginPath(); ctx.ellipse(cx, top, b.w * 0.34, ah * 0.9, 0, Math.PI, Math.PI * 2); ctx.stroke();
+      if (night) { ctx.shadowBlur = 6; ctx.shadowColor = acc; }
+      ctx.fillStyle = acc;                        // glowing apex tube
+      ctx.fillRect(cx - b.w * 0.3, top - ah + 1, b.w * 0.6, 1.4);
+      ctx.shadowBlur = 0;
+
+    } else if (s === ROOF.FOLDED) {               // folded-plate sawtooth
+      var folds = Math.max(3, Math.min(5, Math.round(b.w / 22)));
+      var fw2 = b.w / folds, fh2 = Math.min(15, b.w * 0.16);
+      for (i = 0; i < folds; i++) {
+        var fx0 = x0 + i * fw2;
+        ctx.fillStyle = b.color;                  // sunlit slope
+        ctx.beginPath();
+        ctx.moveTo(fx0, top); ctx.lineTo(fx0 + fw2 * 0.5, top - fh2); ctx.lineTo(fx0 + fw2 * 0.5, top);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = night ? GLOW_CYAN : 'rgba(63,224,216,0.5)';   // glazed north slope
+        ctx.beginPath();
+        ctx.moveTo(fx0 + fw2 * 0.5, top - fh2); ctx.lineTo(fx0 + fw2, top); ctx.lineTo(fx0 + fw2 * 0.5, top);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = BRASS; ctx.lineWidth = 1;   // ridge
+        ctx.beginPath(); ctx.moveTo(fx0, top); ctx.lineTo(fx0 + fw2 * 0.5, top - fh2); ctx.stroke();
+      }
+    }
+  }
+
+  // a cantilevered street-level entry canopy on slim pylons \u2014 pure Googie
+  function drawCanopy(b) {
+    var side = roofSide(b);
+    var cy = GROUND_Y - Math.min(30, b.h * 0.14 + 16);
+    var cxm = b.x + b.w / 2;
+    var half = Math.min(b.w * 0.42, 26);
+    var proj = side < 0 ? -8 : 8;
+    ctx.fillStyle = TEAL_TRIM;                    // the slab
+    ctx.beginPath();
+    ctx.moveTo(cxm - half + proj * 0.4, cy);
+    ctx.lineTo(cxm + half + proj, cy - 1.5);
+    ctx.lineTo(cxm + half + proj, cy + 3.5);
+    ctx.lineTo(cxm - half + proj * 0.4, cy + 5);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = BRASS;                        // fascia trim
+    ctx.fillRect(cxm - half + proj * 0.4, cy - 1, half * 2, 1.4);
+    ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 1.6;   // two slim pylons
+    ctx.beginPath();
+    ctx.moveTo(cxm - half * 0.5, cy + 4); ctx.lineTo(cxm - half * 0.5 - 1, GROUND_Y);
+    ctx.moveTo(cxm + half * 0.6, cy + 3); ctx.lineTo(cxm + half * 0.6 + 1, GROUND_Y);
+    ctx.stroke();
+  }
+
+  // the town's Googie welcome sign, a boomerang panel on two raked poles
+  function drawWelcome(litLevel) {
+    if (!welcome) return;
+    var x = welcome.x, night = litLevel > 0.55;
+    var pw = 152, ph = 46, poleH = 56;
+    var py = GROUND_Y - poleH - ph, px = x - pw / 2;
+
+    ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 3;   // twin raked poles
+    ctx.beginPath();
+    ctx.moveTo(x - 24, GROUND_Y); ctx.lineTo(x - 15, py + ph);
+    ctx.moveTo(x + 24, GROUND_Y); ctx.lineTo(x + 15, py + ph);
+    ctx.stroke();
+
+    var skew = 11;                                // skewed boomerang panel
+    ctx.fillStyle = '#0A2B29';
+    ctx.beginPath();
+    ctx.moveTo(px + skew, py); ctx.lineTo(px + pw, py);
+    ctx.lineTo(px + pw - skew, py + ph); ctx.lineTo(px, py + ph);
+    ctx.closePath(); ctx.fill();
+    if (night) { ctx.shadowBlur = 8; ctx.shadowColor = NEON_PINK; }
+    ctx.strokeStyle = NEON_PINK; ctx.lineWidth = 2;   // neon border
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    if (night) { ctx.shadowBlur = 6; ctx.shadowColor = BRASS; }
+    ctx.strokeStyle = BRASS; ctx.lineWidth = 1.6; ctx.lineCap = 'round';   // corner starburst
+    ctx.beginPath();
+    for (var s = 0; s < 8; s++) {
+      var a = s * Math.PI / 4, rr = s % 2 ? 5 : 9;
+      ctx.moveTo(px + 15, py - 5); ctx.lineTo(px + 15 + Math.cos(a) * rr, py - 5 + Math.sin(a) * rr);
+    }
+    ctx.stroke(); ctx.shadowBlur = 0; ctx.lineCap = 'butt';
+
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '1.5px';
+    ctx.fillStyle = CREAM_HI;
+    ctx.font = '600 8px Jost, Futura, sans-serif';
+    ctx.fillText('WELCOME TO', x, py + 11);
+    if (night) { ctx.shadowBlur = 6; ctx.shadowColor = NEON_PINK; }
+    ctx.fillStyle = night ? '#FF8FBB' : NEON_PINK;
+    var nfs = 14;                                 // shrink to fit the full name
+    ctx.font = '700 ' + nfs + 'px Jost, Futura, sans-serif';
+    while (ctx.measureText(CITY_NAME).width > pw - 20 && nfs > 8) {
+      nfs -= 0.5;
+      ctx.font = '700 ' + nfs + 'px Jost, Futura, sans-serif';
+    }
+    ctx.fillText(CITY_NAME, x, py + 25);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = BRASS;
+    ctx.font = '600 7px Jost, Futura, sans-serif';
+    ctx.fillText('THE FUTURE IS NOW', x, py + 38);
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  }
+
+  // the atomic broadcast tower — a tapering lattice mast with a mid
+  // observation deck and a spoked gyro-wheel crown; the World-of-Tomorrow
+  // centrepiece, standing behind the skyline
+  function drawTower(litLevel) {
+    if (!tower) return;
+    var x = tower.x, h = tower.h, night = litLevel > 0.55;
+    var topY = GROUND_Y - h;
+    var baseHalf = tower.baseW / 2, topHalf = 6;
+    var lattice = rgbStr(mixRgb(TRIM_RGB, hexToRgb(TEALS[0]), 0.3));
+    var i, t, s;
+    function half(tt) { return topHalf + (baseHalf - topHalf) * Math.pow(1 - tt, 1.4); }
+    function ly(tt) { return GROUND_Y - h * tt; }
+
+    ctx.fillStyle = TEALS[2];                     // base plinth
+    ctx.fillRect(x - baseHalf - 4, GROUND_Y - 26, (baseHalf + 4) * 2, 26);
+    ctx.fillStyle = TEAL_TRIM;
+    ctx.fillRect(x - baseHalf - 8, GROUND_Y - 6, (baseHalf + 8) * 2, 6);
+
+    var segs = 11;
+    ctx.strokeStyle = lattice; ctx.lineWidth = 1.1; ctx.globalAlpha = 0.85;
+    ctx.beginPath();                              // X cross-bracing
+    for (s = 0; s < segs; s++) {
+      var t0 = s / segs, t1 = (s + 1) / segs;
+      ctx.moveTo(x - half(t0), ly(t0)); ctx.lineTo(x + half(t1), ly(t1));
+      ctx.moveTo(x + half(t0), ly(t0)); ctx.lineTo(x - half(t1), ly(t1));
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.beginPath();                              // horizontals
+    for (s = 0; s <= segs; s++) { t = s / segs; ctx.moveTo(x - half(t), ly(t)); ctx.lineTo(x + half(t), ly(t)); }
+    ctx.stroke();
+    ctx.lineWidth = 2.4;                          // legs
+    ctx.beginPath();
+    for (s = 0; s <= segs; s++) { t = s / segs; if (s === 0) ctx.moveTo(x - half(t), ly(t)); else ctx.lineTo(x - half(t), ly(t)); }
+    ctx.stroke();
+    ctx.beginPath();
+    for (s = 0; s <= segs; s++) { t = s / segs; if (s === 0) ctx.moveTo(x + half(t), ly(t)); else ctx.lineTo(x + half(t), ly(t)); }
+    ctx.stroke();
+
+    var dt = 0.52, dy = ly(dt), dHalf = half(dt) + 15;   // mid observation deck
+    ctx.fillStyle = CREAM_HI;
+    ctx.beginPath(); ctx.ellipse(x, dy, dHalf, 9, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = TEALS[1];
+    ctx.fillRect(x - dHalf, dy - 8, dHalf * 2, 8);
+    ctx.fillStyle = TEAL_TRIM;
+    ctx.beginPath(); ctx.ellipse(x, dy - 8, dHalf, 6, 0, Math.PI, Math.PI * 2); ctx.fill();
+    var dk = [];
+    for (var wx = -dHalf + 8; wx <= dHalf - 8; wx += 9) dk.push([x + wx, dy - 3]);
+    coloredDots(dk, 1.6, night ? 1 : 0, BRASS, GLOW_BRASS);
+    ctx.fillStyle = BRASS; ctx.fillRect(x - dHalf, dy - 9, dHalf * 2, 1.4);
+
+    var cyC = topY - 4;                           // the gyro-wheel crown
+    if (true) {                                   // the rotating sky-diner
+      var rt = 0.78, ry = ly(rt), rHalf = half(rt) + 22;
+      ctx.fillStyle = TEAL_TRIM;
+      ctx.fillRect(x - 5, ry, 10, ly(0.6) - ry);
+      ctx.fillStyle = CREAM_HI;                   // saucer underside
+      ctx.beginPath(); ctx.ellipse(x, ry + 4, rHalf, 6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = TEALS[1];                   // window band
+      ctx.fillRect(x - rHalf, ry - 5, rHalf * 2, 9);
+      ctx.fillStyle = CREAM_HI;                   // roof cap
+      ctx.beginPath(); ctx.ellipse(x, ry - 5, rHalf, 6, 0, Math.PI, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = BRASS; ctx.fillRect(x - rHalf, ry - 6, rHalf * 2, 1.4);
+      var slots = 16;                             // windows scroll to imply rotation
+      for (var wi = 0; wi < slots; wi++) {
+        var frac = ((wi / slots) + (reducedMotion.matches ? 0 : effT * 0.04)) % 1;
+        var wxr = x - rHalf + 4 + frac * (rHalf * 2 - 8);
+        var wlit = night && (Math.floor(frac * slots) % 3 !== 0);
+        if (wlit) { ctx.shadowBlur = 5; ctx.shadowColor = BRASS; }
+        ctx.fillStyle = wlit ? BRASS : 'rgba(6,30,28,0.4)';
+        ctx.fillRect(wxr, ry - 3, 2.4, 5);
+        ctx.shadowBlur = 0;
+      }
+    }
+    ctx.strokeStyle = lattice; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x, topY + 6); ctx.lineTo(x, cyC); ctx.stroke();
+    var R = 26;
+    if (night && !reducedMotion.matches) {        // broadcast waves
+      for (i = 0; i < 3; i++) {
+        var wave = ((effT * 0.5 + i / 3) % 1);
+        ctx.strokeStyle = 'rgba(63,224,216,' + (0.3 * (1 - wave)).toFixed(3) + ')';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(x, cyC, R + wave * 46, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke();
+      }
+    }
+    ctx.strokeStyle = BRASS; ctx.lineWidth = 2; ctx.lineCap = 'round';   // out-thrust arms
+    ctx.beginPath(); ctx.moveTo(x - R - 12, cyC); ctx.lineTo(x + R + 12, cyC); ctx.stroke();
+    if (night) { ctx.shadowBlur = 8; ctx.shadowColor = BRASS; }
+    ctx.lineWidth = 2;                            // spoked wheel
+    ctx.beginPath(); ctx.arc(x, cyC, R, 0, Math.PI * 2); ctx.stroke();
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(x, cyC, R * 0.55, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath();
+    for (i = 0; i < 12; i++) { var a = i * Math.PI / 6; ctx.moveTo(x + Math.cos(a) * R * 0.55, cyC + Math.sin(a) * R * 0.55); ctx.lineTo(x + Math.cos(a) * R, cyC + Math.sin(a) * R); }
+    ctx.stroke();
+    ctx.shadowBlur = 0; ctx.lineCap = 'butt';
+    ctx.strokeStyle = CREAM_HI; ctx.lineWidth = 1.4;   // gimbal ring
+    ctx.beginPath(); ctx.ellipse(x, cyC, R * 1.05, R * 0.4, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = CREAM_HI;                     // hub
+    ctx.beginPath(); ctx.arc(x, cyC, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = ORANGE;
+    ctx.beginPath(); ctx.arc(x, cyC, 2.4, 0, Math.PI * 2); ctx.fill();
+    if (night) { ctx.shadowBlur = 6; ctx.shadowColor = BRASS; }
+    ctx.fillStyle = night ? BRASS : CREAM_HI;     // node spheres on the arms
+    ctx.beginPath(); dotPath(x - R - 12, cyC, 3); dotPath(x + R + 12, cyC, 3); ctx.fill();
+    ctx.shadowBlur = 0;
+    if (!reducedMotion.matches) {                 // orbiting electrons
+      ctx.fillStyle = ORANGE;
+      for (i = 0; i < 3; i++) {
+        var ea = effT * 1.1 + i * 2.094;
+        ctx.beginPath(); ctx.arc(x + Math.cos(ea) * R * 1.05, cyC + Math.sin(ea) * R * 0.4, 2.4, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  }
+
+  // rocket-belt commuters: little figures under bubble helmets, twin
+  // exhaust flames trailing, arms thrust into the World of Tomorrow
+  function drawJetpacks(litLevel) {
+    if (reducedMotion.matches || !jets.length) return;
+    var night = litLevel > 0.55;
+    for (var i = 0; i < jets.length; i++) {
+      var jp = jets[i], d = jp.dir;
+      var x = jp.x, y = jp.y + Math.sin(effT * 1.6 + jp.ph) * jp.bob * 0.15;
+      var fl = 5 + Math.abs(Math.sin(effT * 22 + jp.ph)) * 4;
+      ctx.fillStyle = GLOW_ORANGE;                 // exhaust bloom
+      ctx.beginPath(); dotPath(x - d * 3, y + 8, 3.4); dotPath(x + d * 1, y + 8, 3); ctx.fill();
+      ctx.fillStyle = ORANGE;                      // twin flames
+      ctx.beginPath();
+      ctx.moveTo(x - d * 3 - 2, y + 6); ctx.lineTo(x - d * 3, y + 8 + fl); ctx.lineTo(x - d * 3 + 2, y + 6); ctx.closePath();
+      ctx.moveTo(x + d * 1 - 2, y + 6); ctx.lineTo(x + d * 1, y + 7 + fl * 0.8); ctx.lineTo(x + d * 1 + 2, y + 6); ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = BRASS;                       // backpack
+      ctx.fillRect(x - 3.5, y + 1, 7, 6);
+      ctx.fillStyle = '#C24E22';                   // body, leaning into travel
+      ctx.beginPath();
+      ctx.moveTo(x - d * 2, y - 6); ctx.lineTo(x + d * 5, y - 3); ctx.lineTo(x + d * 4, y + 2); ctx.lineTo(x - d * 2, y + 1); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 1.6; ctx.lineCap = 'round';   // legs trailing
+      ctx.beginPath();
+      ctx.moveTo(x - d * 1, y + 1); ctx.lineTo(x - d * 9, y + 4);
+      ctx.moveTo(x - d * 1, y + 1); ctx.lineTo(x - d * 9, y + 1);
+      ctx.stroke(); ctx.lineCap = 'butt';
+      ctx.fillStyle = SKIN;                        // head
+      ctx.beginPath(); ctx.arc(x + d * 5.5, y - 5, 2.3, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = night ? GLOW_CYAN : 'rgba(63,224,216,0.7)'; ctx.lineWidth = 1.2;   // bubble helmet
+      ctx.beginPath(); ctx.arc(x + d * 5.5, y - 5, 3.7, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = '#C24E22'; ctx.lineWidth = 1.6; ctx.lineCap = 'round';   // arm forward
+      ctx.beginPath(); ctx.moveTo(x + d * 2, y - 4); ctx.lineTo(x + d * 7, y - 6); ctx.stroke(); ctx.lineCap = 'butt';
+    }
+  }
+
+  // a glowing exhibit kiosk — a domed booth with a cyan neon sign
+  function drawKiosk(litLevel) {
+    if (!kiosk) return;
+    var x = kiosk.x, night = litLevel > 0.55;
+    var w = 34, bodyTop = GROUND_Y - 34;
+    ctx.fillStyle = TEALS[1];                     // booth body
+    ctx.fillRect(x - w / 2, bodyTop, w, 34);
+    ctx.fillStyle = TEAL_TRIM;
+    ctx.fillRect(x - w / 2 - 2, GROUND_Y - 4, w + 4, 4);
+    if (night) { ctx.fillStyle = GLOW_CYAN; ctx.fillRect(x - w / 2 + 2, bodyTop + 8, w - 4, 14); }
+    ctx.fillStyle = night ? '#8FF0EA' : '#2A6C68';   // lit window
+    ctx.fillRect(x - w / 2 + 4, bodyTop + 10, w - 8, 10);
+    ctx.fillStyle = TEAL_TRIM;
+    ctx.fillRect(x - 1, bodyTop + 10, 2, 10);
+    ctx.fillStyle = CREAM_HI;                     // rounded awning
+    ctx.beginPath(); ctx.ellipse(x, bodyTop, w / 2 + 4, 8, 0, Math.PI, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = ORANGE;
+    ctx.beginPath(); ctx.ellipse(x, bodyTop, w / 2 + 4, 8, 0, Math.PI * 1.5, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = TEAL_TRIM; ctx.fillRect(x - 1, bodyTop - 20, 2, 12);   // sign post
+    ctx.fillStyle = '#0A2B29';
+    ctx.fillRect(x - 22, bodyTop - 32, 44, 14);
+    if (night) { ctx.shadowBlur = 7; ctx.shadowColor = NEON_CYAN; }
+    ctx.strokeStyle = NEON_CYAN; ctx.lineWidth = 1.4; ctx.strokeRect(x - 21, bodyTop - 31, 42, 12);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = night ? '#9FF3EE' : NEON_CYAN;
+    ctx.font = '700 8px Jost, Futura, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '1px';
+    if (night) { ctx.shadowBlur = 6; ctx.shadowColor = NEON_CYAN; }
+    ctx.fillText('EXHIBIT', x, bodyTop - 25);
+    ctx.shadowBlur = 0;
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    ctx.strokeStyle = BRASS; ctx.lineWidth = 1.3; ctx.lineCap = 'round';   // starburst finial
+    if (night) { ctx.shadowBlur = 5; ctx.shadowColor = BRASS; }
+    ctx.beginPath();
+    for (var sp = 0; sp < 8; sp++) { var aa = sp * Math.PI / 4, rr = sp % 2 ? 3 : 6; ctx.moveTo(x + 18, bodyTop - 36); ctx.lineTo(x + 18 + Math.cos(aa) * rr, bodyTop - 36 + Math.sin(aa) * rr); }
+    ctx.stroke(); ctx.shadowBlur = 0; ctx.lineCap = 'butt';
+  }
+
+  // the House of the Future: a Monsanto-style cluster of rounded pods
+  // cantilevered off a central stalk, big ribbon windows aglow
+  function drawFutureHouse(litLevel) {
+    if (!futureHouse) return;
+    var x = futureHouse.x, night = litLevel > 0.55;
+    var podY = GROUND_Y - 40;
+    ctx.fillStyle = TEAL_TRIM;                     // stalk
+    ctx.fillRect(x - 6, podY, 12, GROUND_Y - podY);
+    ctx.fillStyle = '#183B37';
+    ctx.fillRect(x - 13, GROUND_Y - 5, 26, 5);
+    var pods = [ { dx: 0, w: 36, h: 24, up: 0 }, { dx: -27, w: 26, h: 18, up: 5 }, { dx: 27, w: 26, h: 18, up: 5 } ];
+    for (var i = 0; i < pods.length; i++) {
+      var p = pods[i], cx = x + p.dx, cy = podY - p.up, pw = p.w, ph = p.h;
+      ctx.fillStyle = CREAM_HI;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(cx - pw / 2, cy - ph, pw, ph, ph / 2);
+      else ctx.rect(cx - pw / 2, cy - ph, pw, ph);
+      ctx.fill();
+      if (night) { ctx.shadowBlur = 5; ctx.shadowColor = BRASS; }
+      ctx.fillStyle = night ? BRASS : '#2A6C68';   // ribbon window
+      ctx.fillRect(cx - pw / 2 + 4, cy - ph * 0.72, pw - 8, ph * 0.4);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = TEAL_TRIM;
+      ctx.fillRect(cx - pw / 2, cy - ph * 0.28, pw, 2);
+    }
+    ctx.fillStyle = TEAL_TRIM; ctx.fillRect(x - 1, podY - 52, 2, 12);   // little sign post
+    ctx.fillStyle = '#0A2B29'; ctx.fillRect(x - 24, podY - 62, 48, 11);
+    if (night) { ctx.shadowBlur = 6; ctx.shadowColor = NEON_CYAN; }
+    ctx.strokeStyle = NEON_CYAN; ctx.lineWidth = 1.2; ctx.strokeRect(x - 23, podY - 61, 46, 9);
+    ctx.fillStyle = night ? '#9FF3EE' : NEON_CYAN;
+    ctx.font = '700 6.5px Jost, Futura, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '0.5px';
+    ctx.fillText('HOME OF TOMORROW', x, podY - 56.5);
+    ctx.shadowBlur = 0;
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  }
+
+  // a pneumatic-tube transit line: a translucent glass tube on pylons
+  // with capsules whooshing through it above the street
+  function drawTube(litLevel) {
+    if (!tube) return;
+    var y = RAIL_Y - 118, night = litLevel > 0.55;
+    var x0 = tube.x0, x1 = tube.x1, px;
+    ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 3;   // support pylons
+    ctx.beginPath();
+    for (px = x0 + 50; px < x1; px += 210) { ctx.moveTo(px, y + 7); ctx.lineTo(px, RAIL_Y - 2); }
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(63,224,216,0.13)';          // glass tube
+    ctx.fillRect(x0, y - 7, x1 - x0, 14);
+    ctx.strokeStyle = 'rgba(203,236,234,0.5)'; ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(x0, y - 7); ctx.lineTo(x1, y - 7); ctx.moveTo(x0, y + 7); ctx.lineTo(x1, y + 7);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(203,236,234,0.25)'; ctx.lineWidth = 1;   // ring seams
+    ctx.beginPath();
+    for (px = x0 + 24; px < x1; px += 48) { ctx.moveTo(px, y - 7); ctx.lineTo(px, y + 7); }
+    ctx.stroke();
+    ctx.fillStyle = TEALS[1];                         // end stations
+    ctx.fillRect(x0 - 11, y - 12, 12, 24); ctx.fillRect(x1 - 1, y - 12, 12, 24);
+    if (reducedMotion.matches) return;
+    var span2 = x1 - x0 - 24;
+    var caps = [ { p: (effT * 0.16) % 1, dir: 1 }, { p: (effT * 0.13 + 0.5) % 1, dir: -1 } ];
+    for (var ci = 0; ci < caps.length; ci++) {
+      var c = caps[ci];
+      var cxp = c.dir === 1 ? x0 + 12 + c.p * span2 : x1 - 12 - c.p * span2;
+      ctx.fillStyle = 'rgba(255,201,74,0.22)';        // motion streak
+      ctx.fillRect(cxp - c.dir * 16, y - 3.5, 16, 7);
+      ctx.fillStyle = tubeCapCol();
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(cxp - 9, y - 4.5, 18, 9, 4.5); else ctx.rect(cxp - 9, y - 4.5, 18, 9);
+      ctx.fill();
+      ctx.fillStyle = night ? BRASS : CREAM_HI;
+      ctx.fillRect(cxp - 4, y - 2.5, 8, 3);
+      ctx.fillStyle = CREAM_HI;
+      ctx.beginPath(); ctx.arc(cxp + c.dir * 8, y, 2.2, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // MECHANICAL MAN: a boxy retro robot clanking down Main Street
+  function drawRobot(litLevel) {
+    if (!robot.active || reducedMotion.matches) return;
+    var d = robot.dir, x = robot.x, gy = GROUND_Y, night = litLevel > 0.55;
+    var step = Math.sin(robot.ph * 6);
+    ctx.fillStyle = TEAL_TRIM;                        // legs + feet
+    ctx.fillRect(x - 4, gy - 9, 3.4, 9 - Math.max(0, step) * 2);
+    ctx.fillRect(x + 1.6, gy - 9, 3.4, 9 - Math.max(0, -step) * 2);
+    ctx.fillRect(x - 5.5, gy - 1.5, 5.5, 2); ctx.fillRect(x + 1, gy - 1.5, 5.5, 2);
+    ctx.fillStyle = CREAM_HI;                         // torso
+    ctx.fillRect(x - 6, gy - 24, 12, 15);
+    ctx.fillStyle = TEALS[1]; ctx.fillRect(x - 6, gy - 20, 12, 3);
+    ctx.fillStyle = night ? GLOW_CYAN : 'rgba(63,224,216,0.6)'; ctx.fillRect(x - 4, gy - 16, 8, 2);
+    ctx.strokeStyle = BRASS; ctx.lineWidth = 2; ctx.lineCap = 'round';   // arms
+    ctx.beginPath();
+    ctx.moveTo(x - 6, gy - 22); ctx.lineTo(x - 8, gy - 14 + step * 1.5);
+    ctx.moveTo(x + 6, gy - 22); ctx.lineTo(x + 8, gy - 14 - step * 1.5);
+    ctx.stroke(); ctx.lineCap = 'butt';
+    ctx.fillStyle = CREAM_HI; ctx.fillRect(x - 4.5, gy - 33, 9, 8);      // head
+    ctx.fillStyle = TEAL_TRIM; ctx.fillRect(x - 4.5, gy - 30, 9, 1.5);
+    if (night) { ctx.shadowBlur = 6; ctx.shadowColor = ORANGE; }
+    ctx.fillStyle = ORANGE; ctx.beginPath(); ctx.arc(x + d * 1.5, gy - 29, 1.6, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 1;   // antenna
+    ctx.beginPath(); ctx.moveTo(x, gy - 33); ctx.lineTo(x, gy - 38); ctx.stroke();
+    ctx.fillStyle = ORANGE; ctx.beginPath(); ctx.arc(x, gy - 39, 1.4, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // a flying-saucer taxi descending to its rooftop pad
+  function drawTaxi(litLevel) {
+    if (taxi.phase === 0 || reducedMotion.matches) return;
+    var night = litLevel > 0.55, padY = GROUND_Y - 84;
+    ctx.fillStyle = TEAL_TRIM; ctx.fillRect(taxi.padX - 3, padY, 6, GROUND_Y - padY);   // pad post
+    ctx.fillStyle = BRASS; ctx.fillRect(taxi.padX - 18, padY - 3, 36, 4);               // deck
+    var beac = Math.floor(effT * 3) % 2 === 0;
+    ctx.fillStyle = beac ? ORANGE : 'rgba(255,107,61,0.4)';
+    ctx.beginPath(); dotPath(taxi.padX - 16, padY - 4, 1.6); dotPath(taxi.padX + 16, padY - 4, 1.6); ctx.fill();
+    var x = taxi.x, y = taxi.y;
+    if (taxi.phase === 2 || taxi.phase === 3) {        // tractor/landing beam
+      ctx.fillStyle = 'rgba(63,224,216,0.14)';
+      ctx.beginPath();
+      ctx.moveTo(x - 8, y + 4); ctx.lineTo(x + 8, y + 4);
+      ctx.lineTo(taxi.padX + 14, padY - 3); ctx.lineTo(taxi.padX - 14, padY - 3);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = TEALS[1]; ctx.beginPath(); ctx.ellipse(x, y + 2, 22, 6, 0, 0, Math.PI); ctx.fill();
+    ctx.fillStyle = CREAM_HI; ctx.beginPath(); ctx.ellipse(x, y + 2, 22, 6, 0, Math.PI, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = ORANGE; ctx.fillRect(x - 22, y + 0.5, 44, 2);      // taxi band
+    ctx.fillStyle = 'rgba(63,224,216,0.5)'; ctx.beginPath(); ctx.ellipse(x, y - 2, 9, 7, 0, Math.PI, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = CREAM_HI; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.ellipse(x, y - 2, 9, 7, 0, Math.PI, Math.PI * 2); ctx.stroke();
+    if (night) { ctx.shadowBlur = 6; ctx.shadowColor = BRASS; }
+    ctx.fillStyle = BRASS; ctx.fillRect(x - 5, y - 10, 10, 3);          // TAXI light
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = night ? BRASS : 'rgba(255,201,74,0.6)';
+    for (var k = 0; k < 5; k++) { ctx.beginPath(); dotPath(x - 16 + k * 8, y + 4, 1.3); ctx.fill(); }
+  }
+
+  // a kinetic atomic sculpture turning on the park lawn
+  function drawKineticSculpture(litLevel) {
+    if (!park) return;
+    var x = park.x + 60, gy = GROUND_Y, night = litLevel > 0.55;
+    ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(x, gy); ctx.lineTo(x, gy - 30); ctx.stroke();
+    ctx.fillStyle = BRASS; ctx.beginPath(); ctx.arc(x, gy - 32, 3, 0, Math.PI * 2); ctx.fill();
+    var spin = reducedMotion.matches ? 0.4 : effT * 0.5;
+    var cy = gy - 40, colors = [ORANGE, NEON_CYAN, NEON_PINK];
+    for (var a = 0; a < 3; a++) {
+      var ang = spin + a * 2.094;
+      var ax = x + Math.cos(ang) * (10 + a * 4);
+      var ay = cy - a * 5 + Math.sin(ang) * (5 + a * 2);
+      ctx.strokeStyle = BRASS; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(x, cy - a * 5); ctx.lineTo(ax, ay); ctx.stroke();
+      if (night) { ctx.shadowBlur = 5; ctx.shadowColor = colors[a]; }
+      ctx.fillStyle = colors[a];
+      ctx.beginPath(); ctx.arc(ax, ay, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+  }
+
+  // an animated neon spectacular: chase-light border and a neon rocket
+  // that climbs its own track and resets, over and over
+  function drawSpectacular(b, top, h, litLevel) {
+    var night = litLevel > 0.5;
+    var pw = Math.min(b.w * 0.72, 58), ph = Math.min(60, h * 0.5 + 20);
+    var cx = b.x + b.w / 2, py = top - ph - 8;
+    ctx.fillStyle = 'rgba(158,168,172,0.9)';           // support legs
+    ctx.fillRect(cx - pw * 0.3, top - 8, 2, 8); ctx.fillRect(cx + pw * 0.3 - 2, top - 8, 2, 8);
+    ctx.fillStyle = 'rgba(9,20,22,0.94)';              // dark backing
+    ctx.fillRect(cx - pw / 2, py, pw, ph);
+    var per = [], step = 7, xx, yy;                    // chase-light border
+    for (xx = cx - pw / 2; xx < cx + pw / 2; xx += step) per.push([xx, py]);
+    for (yy = py; yy < py + ph; yy += step) per.push([cx + pw / 2, yy]);
+    for (xx = cx + pw / 2; xx > cx - pw / 2; xx -= step) per.push([xx, py + ph]);
+    for (yy = py + ph; yy > py; yy -= step) per.push([cx - pw / 2, yy]);
+    for (var pi = 0; pi < per.length; pi++) {
+      var on = ((pi + Math.floor(effT * 6)) % 3 === 0);
+      if (on && night) { ctx.shadowBlur = 5; ctx.shadowColor = BRASS; }
+      ctx.fillStyle = on ? BRASS : 'rgba(255,201,74,0.28)';
+      ctx.beginPath(); ctx.arc(per[pi][0], per[pi][1], 1.6, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+    var trackTop = py + 10, trackBot = py + ph - 10;
+    var prog = (effT * 0.5) % 1;
+    var rY = trackBot - prog * (trackBot - trackTop);
+    ctx.fillStyle = 'rgba(63,224,216,0.35)';           // the track
+    for (var ty = trackTop; ty <= trackBot; ty += 6) { ctx.beginPath(); ctx.arc(cx, ty, 1, 0, Math.PI * 2); ctx.fill(); }
+    if (night) { ctx.shadowBlur = 7; ctx.shadowColor = NEON_PINK; }
+    ctx.fillStyle = NEON_PINK;                          // the neon rocket
+    ctx.beginPath();
+    ctx.moveTo(cx, rY - 6);
+    ctx.quadraticCurveTo(cx + 3, rY - 1, cx + 2.4, rY + 4);
+    ctx.lineTo(cx - 2.4, rY + 4);
+    ctx.quadraticCurveTo(cx - 3, rY - 1, cx, rY - 6);
+    ctx.closePath(); ctx.fill();
+    ctx.shadowBlur = 0;
+    var flame = 3 + Math.abs(Math.sin(effT * 20)) * 4;  // flame
+    ctx.fillStyle = ORANGE;
+    ctx.beginPath(); ctx.moveTo(cx - 2, rY + 4); ctx.lineTo(cx, rY + 4 + flame); ctx.lineTo(cx + 2, rY + 4); ctx.closePath(); ctx.fill();
+    if (prog > 0.9) {                                   // launch burst at the top
+      ctx.strokeStyle = BRASS; ctx.lineWidth = 1.2; ctx.lineCap = 'round';
+      if (night) { ctx.shadowBlur = 6; ctx.shadowColor = BRASS; }
+      ctx.beginPath();
+      for (var s = 0; s < 8; s++) { var aa = s * Math.PI / 4; ctx.moveTo(cx, trackTop); ctx.lineTo(cx + Math.cos(aa) * 6, trackTop + Math.sin(aa) * 6); }
+      ctx.stroke(); ctx.shadowBlur = 0; ctx.lineCap = 'butt';
+    }
+  }
+
+  /* ---------------- per-era signature motifs ---------------------------- */
+
+  var styleCache = {};
+  function styleVignette(rgba1) {
+    var key = 'vig' + rgba1;
+    if (!styleCache[key]) {
+      var g = ctx.createRadialGradient(VIEW_W / 2, VIEW_H * 0.52, VIEW_H * 0.34, VIEW_W / 2, VIEW_H * 0.52, VIEW_W * 0.62);
+      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, rgba1);
+      styleCache[key] = g;
+    }
+    ctx.fillStyle = styleCache[key]; ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  }
+  function scanLines(alpha, tint) {
+    var key = 'scan' + tint;
+    if (!styleCache[key]) {
+      var pc = document.createElement('canvas'); pc.width = 3; pc.height = 3;
+      var p = pc.getContext('2d'); p.fillStyle = tint; p.fillRect(0, 2, 3, 1);
+      styleCache[key] = ctx.createPattern(pc, 'repeat');
+    }
+    ctx.globalAlpha = alpha; ctx.fillStyle = styleCache[key]; ctx.fillRect(0, 0, VIEW_W, VIEW_H); ctx.globalAlpha = 1;
+  }
+  function gridPat(alpha, tint, cell) {
+    var key = 'grid' + tint + cell;
+    if (!styleCache[key]) {
+      var pc = document.createElement('canvas'); pc.width = cell; pc.height = cell;
+      var p = pc.getContext('2d'); p.strokeStyle = tint; p.lineWidth = 1;
+      p.beginPath(); p.moveTo(0, 0); p.lineTo(cell, 0); p.moveTo(0, 0); p.lineTo(0, cell); p.stroke();
+      styleCache[key] = ctx.createPattern(pc, 'repeat');
+    }
+    ctx.globalAlpha = alpha; ctx.fillStyle = styleCache[key]; ctx.fillRect(0, 0, VIEW_W, VIEW_H); ctx.globalAlpha = 1;
+  }
+
+  function drawGear(cx, cy, r, teeth, rot, color) {
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot);
+    ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(0, 0, r * 0.6, 0, Math.PI * 2); ctx.stroke();
+    var i;
+    for (i = 0; i < teeth; i++) { ctx.save(); ctx.rotate(i / teeth * Math.PI * 2); ctx.fillRect(r * 0.6 - 1, -3, r * 0.42, 6); ctx.restore(); }
+    ctx.beginPath(); ctx.arc(0, 0, r * 0.16, 0, Math.PI * 2); ctx.stroke();
+    ctx.lineWidth = 2;
+    for (i = 0; i < 6; i++) { var a = i / 6 * Math.PI * 2; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * r * 0.55, Math.sin(a) * r * 0.55); ctx.stroke(); }
+    ctx.restore();
+  }
+
+  // sky-layer motifs (behind the skyline)
+  function drawStyleSky(skyLum) {
+    var s = STYLE, t = reducedMotion.matches ? 0 : effT, i, a;
+    if (s === 'steampunk') {
+      drawGear(150, 118 * SKY_K, 66, 12, t * 0.2, 'rgba(224,169,78,0.6)');
+      drawGear(VIEW_W - 150, 150 * SKY_K, 82, 16, -t * 0.15, 'rgba(198,96,42,0.5)');
+      drawGear(VIEW_W - 210, 96 * SKY_K, 40, 10, t * 0.28, 'rgba(224,169,78,0.46)');
+    } else if (s === 'clockpunk') {
+      a = VIEW_W * 0.5;
+      drawGear(a, 150 * SKY_K, 74, 14, t * 0.12, 'rgba(216,180,92,0.58)');
+      drawGear(a - 78, 110 * SKY_K, 40, 10, -t * 0.3, 'rgba(216,180,92,0.46)');
+      drawGear(a + 74, 122 * SKY_K, 48, 12, t * 0.22, 'rgba(216,180,92,0.5)');
+      ctx.strokeStyle = 'rgba(240,230,204,0.5)'; ctx.lineWidth = 2;   // clock hands on the big gear
+      ctx.beginPath(); ctx.moveTo(a, 150 * SKY_K); ctx.lineTo(a + Math.cos(t * 0.5) * 30, 150 * SKY_K + Math.sin(t * 0.5) * 30);
+      ctx.moveTo(a, 150 * SKY_K); ctx.lineTo(a + Math.cos(t * 0.1) * 44, 150 * SKY_K + Math.sin(t * 0.1) * 44); ctx.stroke();
+    } else if (s === 'artdeco' || s === 'decopunk') {
+      var cx = VIEW_W * 0.5, cy = GROUND_Y - 6;
+      ctx.save(); ctx.globalAlpha = s === 'decopunk' ? 0.22 : 0.16;
+      ctx.strokeStyle = BRASS; ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      for (i = 0; i <= 22; i++) { a = -Math.PI + i * (Math.PI / 22); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * 950, cy + Math.sin(a) * 950); }
+      ctx.stroke();
+      ctx.globalAlpha = s === 'decopunk' ? 0.3 : 0.2; ctx.lineWidth = 2;   // concentric deco arcs
+      for (i = 1; i <= 3; i++) { ctx.beginPath(); ctx.arc(cx, cy, 120 + i * 90, Math.PI, Math.PI * 2); ctx.stroke(); }
+      ctx.restore();
+    } else if (s === 'cyberpunk' || s === 'nanopunk') {
+      var hy = GROUND_Y - 3, vp = VIEW_W * 0.5;
+      ctx.save();
+      ctx.strokeStyle = s === 'cyberpunk' ? glowRGBA(NEON_CYAN, 0.42) : glowRGBA(NEON_CYAN, 0.28);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (i = -12; i <= 12; i++) { ctx.moveTo(vp, hy); ctx.lineTo(vp + i * 130, hy + 210); }
+      for (i = 1; i <= 7; i++) { var yy = hy + Math.pow(i / 7, 2) * 210; ctx.moveTo(vp - i * 320, yy); ctx.lineTo(vp + i * 320, yy); }
+      ctx.stroke(); ctx.restore();
+    } else if (s === 'solarpunk') {
+      ctx.save(); ctx.globalAlpha = 0.09; ctx.fillStyle = BRASS;
+      var sx = VIEW_W * 0.68, sy = 120 * SKY_K;
+      for (i = 0; i < 11; i++) { a = t * 0.015 + i * 0.57; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + Math.cos(a) * 820, sy + Math.sin(a) * 820); ctx.lineTo(sx + Math.cos(a + 0.09) * 820, sy + Math.sin(a + 0.09) * 820); ctx.closePath(); ctx.fill(); }
+      ctx.restore();
+    }
+  }
+
+  // drifting particle field used by several eras
+  function drawMotes(n, spd, up, color, size, glow) {
+    var t = reducedMotion.matches ? 0 : effT;
+    if (glow) { ctx.shadowBlur = 6; ctx.shadowColor = color; }
+    ctx.fillStyle = color;
+    for (var i = 0; i < n; i++) {
+      var sway = Math.sin(t * 0.6 + i * 1.3) * 30;
+      var x = (((i * 137.5) % VIEW_W) + sway + VIEW_W) % VIEW_W;
+      var range = GROUND_Y - 10;
+      var yy = up ? range - ((i * 61 + t * spd) % range) : (i * 47 + t * spd) % range;
+      var r = size * (0.6 + (i % 3) * 0.3);
+      ctx.beginPath(); ctx.arc(x, yy, r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+  }
+
+  function drawPetals(n, color) {
+    var t = reducedMotion.matches ? 0 : effT;
+    ctx.fillStyle = color;
+    for (var i = 0; i < n; i++) {
+      var x = (((i * 113.3) % VIEW_W) + Math.sin(t * 0.8 + i) * 46 + VIEW_W) % VIEW_W;
+      var yy = (i * 53 + t * (26 + (i % 4) * 8)) % (GROUND_Y + 20);
+      ctx.save(); ctx.translate(x, yy); ctx.rotate(t * 1.4 + i);
+      ctx.beginPath(); ctx.ellipse(0, 0, 3.4, 1.7, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  // full-frame overlays (on top of the scene)
+  function drawStyleOverlay(litLevel) {
+    var s = STYLE, i;
+    if (s === 'atompunk') return;
+    if (s === 'cyberpunk') {
+      scanLines(0.5, 'rgba(8,4,20,0.55)');
+      if (!reducedMotion.matches) {
+        var gy = ((effT * 90) % (VIEW_H + 160)) - 80;
+        ctx.fillStyle = glowRGBA(NEON_PINK, 0.05); ctx.fillRect(0, gy, VIEW_W, 28);
+        ctx.fillStyle = glowRGBA(NEON_CYAN, 0.04); ctx.fillRect(0, gy - 46, VIEW_W, 12);
+      }
+      styleVignette('rgba(18,4,40,0.5)');
+    } else if (s === 'nanopunk') {
+      gridPat(0.16, glowRGBA(NEON_CYAN, 0.5), 26);
+      drawMotes(18, 30, false, glowRGBA(NEON_CYAN, 0.8), 1.4, true);
+      styleVignette('rgba(12,18,26,0.45)');
+    } else if (s === 'biopunk') {
+      drawMotes(22, 20, true, glowRGBA(NEON_CYAN, 0.8), 1.8, true);
+      drawMotes(10, 12, true, glowRGBA(BRASS, 0.7), 1.4, true);
+      styleVignette('rgba(8,20,12,0.5)');
+    } else if (s === 'solarpunk') {
+      drawPetals(16, glowRGBA(BRASS, 0.5));
+      drawPetals(10, 'rgba(232,138,176,0.5)');
+    } else if (s === 'silkpunk') {
+      drawPetals(20, 'rgba(232,106,138,0.6)');
+      styleVignette('rgba(30,24,14,0.32)');
+    } else if (s === 'steampunk') {
+      drawMotes(14, 9, true, 'rgba(60,44,28,0.35)', 3, false);   // soot
+      styleVignette('rgba(28,16,6,0.5)');
+    } else if (s === 'dieselpunk') {
+      drawMotes(12, 7, true, 'rgba(40,38,30,0.4)', 3.5, false);
+      styleVignette('rgba(8,8,5,0.62)');
+    } else if (s === 'clockpunk') {
+      styleVignette('rgba(20,20,32,0.4)');
+    } else if (s === 'artdeco' || s === 'decopunk') {
+      var m = 12;
+      ctx.strokeStyle = glowRGBA(BRASS, s === 'decopunk' ? 0.6 : 0.45); ctx.lineWidth = 3;
+      ctx.strokeRect(m, m, VIEW_W - m * 2, VIEW_H - m * 2);
+      ctx.lineWidth = 1.2; ctx.strokeRect(m + 6, m + 6, VIEW_W - (m + 6) * 2, VIEH(VIEW_H, m));
+      var corners = [[m, m, 1, 1], [VIEW_W - m, m, -1, 1], [m, VIEW_H - m, 1, -1], [VIEW_W - m, VIEW_H - m, -1, -1]];
+      ctx.lineWidth = 2;
+      for (i = 0; i < corners.length; i++) {
+        var c = corners[i];
+        for (var k = 1; k <= 4; k++) { ctx.beginPath(); ctx.moveTo(c[0], c[1]); ctx.lineTo(c[0] + c[2] * k * 11, c[1] + c[3] * (5 - k) * 11); ctx.stroke(); }
+      }
+    }
+  }
+  function VIEH(H, m) { return H - (m + 6) * 2; }
+
+  /* ---------------- era-specific building architecture ------------------ */
+
+  function hashB(b) { return Math.abs(Math.floor(b.x * 13.7 + b.w * 3.1)); }
+  function mixHex(a, c, t) { return rgbStr(mixRgb(hexToRgb(a), hexToRgb(c), t == null ? 0.5 : t)); }
+  function litTest(wd, litLevel) { return (wd.threshold < litLevel) !== (wd.flickUntil > effT); }
+
+  // CYBERPUNK — dark megastructures, neon strips, holo billboards, antennae
+  function drawBuildingCyber(b, top, h, litLevel) {
+    var cx = b.x + b.w / 2, night = litLevel > 0.45, sub = hashB(b) % 4, i, wd, wy;
+    ctx.fillStyle = b.color; ctx.fillRect(b.x, top, b.w, h);
+    ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.fillRect(b.x + b.w - 4, top, 4, h);
+    ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.fillRect(b.x, top, 3, h);
+    if (!b.windows.length) { if (night) { ctx.fillStyle = glowRGBA(NEON_CYAN, 0.5); ctx.fillRect(b.x, top, b.w, 2); } return; }
+    var strips = Math.max(2, Math.round(b.w / 16));
+    for (var s = 1; s < strips; s++) {
+      var sx = b.x + b.w * s / strips;
+      ctx.fillStyle = (s % 2) ? glowRGBA(NEON_CYAN, night ? 0.5 : 0.16) : glowRGBA(NEON_PINK, night ? 0.4 : 0.12);
+      ctx.fillRect(sx - 0.8, top + 4, 1.6, h - 8);
+    }
+    for (i = 0; i < b.windows.length; i++) {
+      wd = b.windows[i]; wy = GROUND_Y + wd.y; if (wy < top + 5) continue;
+      if (litTest(wd, litLevel)) {
+        if (night) { ctx.shadowBlur = 4; ctx.shadowColor = wd.accent ? NEON_PINK : NEON_CYAN; }
+        ctx.fillStyle = wd.accent ? NEON_PINK : NEON_CYAN; ctx.fillRect(wd.x - 2, wy - 2.5, 4, 5); ctx.shadowBlur = 0;
+      } else { ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(wd.x - 2, wy - 2.5, 4, 5); }
+    }
+    if (sub === 0) {
+      var bw = Math.min(b.w * 0.72, 46), bh = Math.min(h * 0.32, 42), bx = cx - bw / 2, by = top - bh - 6;
+      ctx.fillStyle = glowRGBA(NEON_CYAN, 0.12); ctx.fillRect(bx, by, bw, bh);
+      if (night) { ctx.shadowBlur = 8; ctx.shadowColor = NEON_PINK; }
+      ctx.strokeStyle = glowRGBA(NEON_PINK, night ? 0.85 : 0.4); ctx.lineWidth = 1.4; ctx.strokeRect(bx, by, bw, bh); ctx.shadowBlur = 0;
+      if (!reducedMotion.matches) { var ly = by + ((effT * 20) % bh); ctx.fillStyle = glowRGBA(NEON_CYAN, 0.5); ctx.fillRect(bx, ly, bw, 1.5); }
+      ctx.fillStyle = TEAL_TRIM; ctx.fillRect(cx - 1, top - 6, 2, 6);
+    } else if (sub === 1) {
+      var mtY = top - Math.min(h * 0.4, 54);
+      ctx.strokeStyle = CREAM_HI; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(cx, top); ctx.lineTo(cx, mtY); ctx.stroke();
+      ctx.strokeStyle = glowRGBA(NEON_CYAN, 0.7); ctx.lineWidth = 1.2;
+      for (i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(cx, mtY, 6 + i * 5, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke(); }
+      if (night) { ctx.shadowBlur = 6; ctx.shadowColor = ORANGE; }
+      ctx.fillStyle = ORANGE; ctx.beginPath(); ctx.arc(cx, mtY, 2.4, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+    } else if (sub === 2) {
+      var tw = b.w * 0.6; ctx.fillStyle = b.color; ctx.fillRect(cx - tw / 2, top - 14, tw, 14);
+      ctx.fillStyle = glowRGBA(NEON_PINK, night ? 0.7 : 0.3); ctx.fillRect(cx - tw / 2, top - 14, tw, 2);
+    } else {
+      ctx.fillStyle = b.color; ctx.beginPath(); ctx.moveTo(b.x + 2, top); ctx.lineTo(cx, top - Math.min(h * 0.25, 30)); ctx.lineTo(b.x + b.w - 2, top); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = glowRGBA(NEON_CYAN, 0.6); ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(b.x + 2, top); ctx.lineTo(cx, top - Math.min(h * 0.25, 30)); ctx.lineTo(b.x + b.w - 2, top); ctx.stroke();
+    }
+  }
+
+  // STEAMPUNK — brick + brass pipes, arched windows, stacks, domes, clocks
+  function drawBuildingSteam(b, top, h, litLevel) {
+    var cx = b.x + b.w / 2, night = litLevel > 0.5, sub = hashB(b) % 4, i, wd, wy;
+    ctx.fillStyle = b.color; ctx.fillRect(b.x, top, b.w, h);
+    ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 1; ctx.beginPath();
+    for (var yy = top + 8; yy < GROUND_Y; yy += 8) { ctx.moveTo(b.x, yy); ctx.lineTo(b.x + b.w, yy); } ctx.stroke();
+    ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(b.x + b.w - 3, top, 3, h);
+    if (!b.windows.length) { ctx.fillStyle = BRASS; ctx.fillRect(b.x, top, b.w, 2); return; }
+    ctx.strokeStyle = BRASS; ctx.lineWidth = 2; ctx.globalAlpha = 0.8;
+    ctx.beginPath(); ctx.moveTo(b.x + 5, GROUND_Y); ctx.lineTo(b.x + 5, top + 10); ctx.moveTo(b.x + b.w - 5, GROUND_Y); ctx.lineTo(b.x + b.w - 5, top + 14); ctx.stroke(); ctx.globalAlpha = 1;
+    for (i = 0; i < b.windows.length; i++) {
+      wd = b.windows[i]; wy = GROUND_Y + wd.y; if (wy < top + 8) continue;
+      var lit = litTest(wd, litLevel);
+      if (lit && night) { ctx.shadowBlur = 4; ctx.shadowColor = BRASS; }
+      ctx.fillStyle = lit ? (night ? '#FFCF7A' : '#C98A4E') : 'rgba(0,0,0,0.3)';
+      ctx.beginPath(); ctx.moveTo(wd.x - 2.4, wy + 3); ctx.lineTo(wd.x - 2.4, wy - 1); ctx.arc(wd.x, wy - 1, 2.4, Math.PI, 0); ctx.lineTo(wd.x + 2.4, wy + 3); ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0;
+    }
+    if (sub === 0) {
+      var stx = cx + b.w * 0.22; ctx.fillStyle = '#3E2817'; ctx.fillRect(stx - 4, top - 22, 8, 22); ctx.fillStyle = BRASS; ctx.fillRect(stx - 5, top - 22, 10, 3);
+      if (!reducedMotion.matches) { ctx.fillStyle = 'rgba(232,222,200,0.3)'; for (var k = 0; k < 3; k++) { var sy = top - 24 - ((effT * 18 + k * 14) % 42); ctx.beginPath(); ctx.arc(stx + Math.sin(effT + k) * 3, sy, 4 + k, 0, Math.PI * 2); ctx.fill(); } }
+      ctx.fillStyle = TEAL_TRIM; ctx.fillRect(b.x, top - 6, b.w, 6);
+    } else if (sub === 1) {
+      var dh = Math.min(h * 0.3, 26), dr = Math.min(b.w * 0.4, 22);
+      ctx.fillStyle = mixHex(b.color, '#C6602A', 0.5); ctx.beginPath(); ctx.ellipse(cx, top, dr, dh, 0, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = BRASS; ctx.fillRect(cx - 1.5, top - dh - 8, 3, 8); ctx.beginPath(); ctx.arc(cx, top - dh - 9, 2.4, 0, Math.PI * 2); ctx.fill();
+    } else if (sub === 2) {
+      ctx.fillStyle = '#3E2817'; ctx.fillRect(b.x - 2, top - 16, b.w + 4, 16);
+      ctx.fillStyle = CREAM_HI; ctx.beginPath(); ctx.arc(cx, top - 8, 7, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 1.4; ctx.stroke();
+      ctx.strokeStyle = TEAL_TRIM; ctx.beginPath(); ctx.moveTo(cx, top - 8); ctx.lineTo(cx + 3, top - 8); ctx.moveTo(cx, top - 8); ctx.lineTo(cx, top - 12); ctx.stroke();
+    } else {
+      ctx.fillStyle = mixHex(b.color, '#241408', 0.5); ctx.fillRect(cx - 9, top - 16, 18, 12); ctx.fillStyle = BRASS; ctx.fillRect(cx - 9, top - 16, 18, 2);
+      ctx.fillStyle = TEAL_TRIM; ctx.fillRect(cx - 8, top - 4, 2, 4); ctx.fillRect(cx + 6, top - 4, 2, 4);
+    }
+    ctx.fillStyle = BRASS; ctx.globalAlpha = 0.6; for (var rx = b.x + 6; rx < b.x + b.w - 4; rx += 12) { ctx.beginPath(); ctx.arc(rx, GROUND_Y - 5, 1, 0, Math.PI * 2); ctx.fill(); } ctx.globalAlpha = 1;
+  }
+
+  // SOLARPUNK — rounded organic towers, planted terraces, turbines, domes
+  function drawBuildingSolar(b, top, h, litLevel) {
+    var cx = b.x + b.w / 2, night = litLevel > 0.5, hb = hashB(b), sub = hb % 4, i, wd, wy;
+    var r = Math.min(b.w * 0.5, 18);
+    ctx.fillStyle = b.color; ctx.beginPath();
+    ctx.moveTo(b.x, GROUND_Y); ctx.lineTo(b.x, top + r);
+    ctx.quadraticCurveTo(b.x, top, b.x + r, top); ctx.lineTo(b.x + b.w - r, top);
+    ctx.quadraticCurveTo(b.x + b.w, top, b.x + b.w, top + r); ctx.lineTo(b.x + b.w, GROUND_Y); ctx.closePath(); ctx.fill();
+    if (!b.windows.length) { ctx.fillStyle = mixHex(b.color, '#F7F3E0', 0.3); ctx.fillRect(b.x, top + r, b.w, 2); return; }
+    var terraces = 2 + (hb % 3);
+    for (var tI = 0; tI < terraces; tI++) {
+      var ty = top + r + (h - r) * (tI + 1) / (terraces + 1);
+      ctx.fillStyle = '#2E7D4F'; ctx.fillRect(b.x, ty, b.w, 3);
+      ctx.fillStyle = '#3E9A63'; for (var gx = b.x + 3; gx < b.x + b.w - 2; gx += 7) { ctx.beginPath(); ctx.arc(gx, ty, 2.5, Math.PI, 0); ctx.fill(); }
+    }
+    for (i = 0; i < b.windows.length; i++) {
+      wd = b.windows[i]; wy = GROUND_Y + wd.y; if (wy < top + r) continue;
+      ctx.fillStyle = litTest(wd, litLevel) ? (night ? '#FFE196' : glowRGBA(CREAM_HI, 0.55)) : 'rgba(90,200,224,0.3)';
+      ctx.fillRect(wd.x - 3, wy - 3, 6, 6);
+    }
+    if (sub === 0) {
+      var wy2 = top - Math.min(h * 0.3, 34); ctx.strokeStyle = CREAM_HI; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx, top); ctx.lineTo(cx, wy2); ctx.stroke();
+      var rot = reducedMotion.matches ? 0.5 : effT * 1.5; ctx.strokeStyle = CREAM_HI; ctx.lineWidth = 2.4;
+      for (var bl = 0; bl < 3; bl++) { var a = rot + bl * 2.094; ctx.beginPath(); ctx.moveTo(cx, wy2); ctx.lineTo(cx + Math.cos(a) * 12, wy2 + Math.sin(a) * 12); ctx.stroke(); }
+      ctx.fillStyle = BRASS; ctx.beginPath(); ctx.arc(cx, wy2, 2, 0, Math.PI * 2); ctx.fill();
+    } else if (sub === 1) {
+      ctx.fillStyle = mixHex(NEON_CYAN, '#123E28', 0.45); ctx.save(); ctx.translate(cx, top - 4); ctx.transform(1, -0.24, 0, 1, 0, 0); ctx.fillRect(-b.w * 0.3, -8, b.w * 0.6, 8); ctx.restore();
+      ctx.strokeStyle = glowRGBA(NEON_CYAN, 0.5); ctx.lineWidth = 1; ctx.strokeRect(cx - b.w * 0.3, top - 13, b.w * 0.6, 8);
+    } else if (sub === 2) {
+      var gd = Math.min(h * 0.3, 22), gw = Math.min(b.w * 0.42, 20);
+      ctx.fillStyle = glowRGBA(CREAM_HI, 0.25); ctx.beginPath(); ctx.ellipse(cx, top, gw, gd, 0, Math.PI, 0); ctx.fill();
+      ctx.strokeStyle = CREAM_HI; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(cx, top, gw, gd, 0, Math.PI, 0); ctx.stroke();
+      ctx.fillStyle = '#3E9A63'; ctx.beginPath(); ctx.arc(cx, top - 4, 4, Math.PI, 0); ctx.fill();
+    } else {
+      ctx.fillStyle = '#2E7D4F'; ctx.beginPath(); ctx.arc(cx - b.w * 0.2, top, 6, Math.PI, 0); ctx.arc(cx, top, 7, Math.PI, 0); ctx.arc(cx + b.w * 0.2, top, 6, Math.PI, 0); ctx.fill();
+      ctx.strokeStyle = 'rgba(46,125,79,0.6)'; ctx.lineWidth = 1.5;
+      for (var v = 0; v < 3; v++) { var vx = b.x + b.w * (0.25 + v * 0.25); ctx.beginPath(); ctx.moveTo(vx, top); ctx.quadraticCurveTo(vx + 4, top + 18, vx, top + 34); ctx.stroke(); }
+    }
+  }
+
+  // SILKPUNK — stacked pagoda tiers, curved vermilion eaves, lanterns
+  function drawBuildingSilk(b, top, h, litLevel) {
+    var cx = b.x + b.w / 2, night = litLevel > 0.5, sub = hashB(b) % 4, i, wd, wy;
+    ctx.fillStyle = b.color; ctx.fillRect(b.x, top, b.w, h);
+    ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(b.x + b.w - 3, top, 3, h);
+    if (!b.windows.length) { ctx.fillStyle = ORANGE; ctx.fillRect(b.x, top, b.w, 2); return; }
+    var tiers = Math.max(2, Math.min(5, Math.round(h / 40)));
+    for (var tI = 0; tI < tiers; tI++) {
+      var ey = top + h * tI / tiers, ew = b.w * 0.6 + b.w * 0.4 * (tI / tiers);
+      ctx.fillStyle = ORANGE;
+      ctx.beginPath();
+      ctx.moveTo(cx - ew / 2 - 6, ey + 4);
+      ctx.quadraticCurveTo(cx - ew / 4, ey - 3, cx, ey - 3);
+      ctx.quadraticCurveTo(cx + ew / 4, ey - 3, cx + ew / 2 + 6, ey + 4);
+      ctx.quadraticCurveTo(cx + ew / 4, ey + 1, cx, ey + 1);
+      ctx.quadraticCurveTo(cx - ew / 4, ey + 1, cx - ew / 2 - 6, ey + 4); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = BRASS; ctx.fillRect(cx - ew / 2, ey + 2, ew, 1.4);
+    }
+    for (i = 0; i < b.windows.length; i++) {
+      wd = b.windows[i]; wy = GROUND_Y + wd.y; if (wy < top + 6) continue;
+      if (litTest(wd, litLevel) && night) { ctx.shadowBlur = 5; ctx.shadowColor = BRASS; }
+      ctx.fillStyle = litTest(wd, litLevel) ? (night ? glowRGBA(BRASS, 0.9) : '#F4ECD6') : 'rgba(0,0,0,0.25)';
+      ctx.fillRect(wd.x - 2.5, wy - 3, 5, 6); ctx.shadowBlur = 0;
+    }
+    var tpk = Math.min(h * 0.2, 20);
+    ctx.fillStyle = ORANGE; ctx.beginPath(); ctx.moveTo(cx - b.w * 0.4, top + 2); ctx.quadraticCurveTo(cx, top - tpk, cx + b.w * 0.4, top + 2); ctx.quadraticCurveTo(cx, top - 2, cx - b.w * 0.4, top + 2); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = BRASS; ctx.fillRect(cx - 1, top - tpk - 6, 2, 8);
+    if (sub % 2 === 0) { if (night) { ctx.shadowBlur = 6; ctx.shadowColor = ORANGE; } ctx.fillStyle = night ? glowRGBA(ORANGE, 0.9) : ORANGE; ctx.beginPath(); ctx.ellipse(cx, top + 11, 3.5, 5, 0, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; }
+  }
+
+  // per-era road / ground-band treatment
+  function drawGroundEra(litLevel) {
+    var s = STYLE; if (s === 'atompunk') return;
+    var by = GROUND_Y, bh = VIEW_H - GROUND_Y, i, xx, yy;
+    var L = harbor && harbor.side === -1 ? harbor.shore : -80;
+    var R = harbor && harbor.side === 1 ? harbor.shore : VIEW_W + 80;
+    if (s === 'cyberpunk') {
+      ctx.fillStyle = 'rgba(6,4,16,0.5)'; ctx.fillRect(L, by, R - L, bh);
+      var vp = VIEW_W * 0.5;
+      ctx.strokeStyle = glowRGBA(NEON_CYAN, 0.5); ctx.lineWidth = 1; ctx.beginPath();
+      for (i = -8; i <= 8; i++) { ctx.moveTo(vp, by); ctx.lineTo(vp + i * 90, VIEW_H); } ctx.stroke();
+      ctx.strokeStyle = glowRGBA(NEON_PINK, 0.5);
+      for (i = 0; i < 4; i++) { var p = ((effT * 0.4 + i / 4) % 1); yy = by + p * p * bh; ctx.globalAlpha = p; ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(R, yy); ctx.stroke(); }
+      ctx.globalAlpha = 1;
+    } else if (s === 'steampunk') {
+      ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = 1.3;
+      for (yy = by + 8; yy < VIEW_H; yy += 10) { ctx.beginPath(); for (xx = L; xx < R; xx += 16) { ctx.moveTo(xx, yy); ctx.arc(xx + 8, yy, 8, Math.PI, 0); } ctx.stroke(); }
+      ctx.strokeStyle = glowRGBA(BRASS, 0.5); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(L, by + 16); ctx.lineTo(R, by + 16); ctx.moveTo(L, by + 30); ctx.lineTo(R, by + 30); ctx.stroke();
+    } else if (s === 'solarpunk') {
+      ctx.fillStyle = '#2E7D4F'; ctx.fillRect(L, by, R - L, bh);
+      ctx.fillStyle = '#3E9A63'; for (xx = L; xx < R; xx += 6) { ctx.beginPath(); ctx.arc(xx, by + 3, 2.5, Math.PI, 0); ctx.fill(); }
+      ctx.fillStyle = 'rgba(244,243,224,0.5)'; ctx.fillRect(L, by + 20, R - L, 8);
+      ctx.fillStyle = BRASS; for (i = 0; i < 10; i++) { var fx = L + (i * 197) % (R - L); ctx.beginPath(); ctx.arc(fx, by + 8, 1.5, 0, Math.PI * 2); ctx.fill(); }
+    } else if (s === 'silkpunk') {
+      ctx.strokeStyle = 'rgba(0,0,0,0.16)'; ctx.lineWidth = 1;
+      for (xx = L; xx < R; xx += 26) { ctx.strokeRect(xx, by + 4, 24, bh - 8); }
+      ctx.fillStyle = mixHex(TEALS[1], '#101C20', 0.35); ctx.fillRect(L, by + bh - 16, R - L, 16);
+      ctx.strokeStyle = 'rgba(242,236,214,0.3)'; ctx.lineWidth = 1;
+      for (i = 0; i < 3; i++) { yy = by + bh - 12 + i * 4; var dr = reducedMotion.matches ? 0 : (effT * (6 + i * 3)) % 40; ctx.beginPath(); for (xx = L - 40 + dr; xx < R; xx += 40) { ctx.moveTo(xx, yy); ctx.lineTo(xx + 16, yy); } ctx.stroke(); }
+    }
+  }
+
+  // per-era flying craft (replaces the Googie aircar for other eras)
+  function drawAircarEra(s, x, y, d, night) {
+    if (s === 'cyberpunk') {
+      ctx.fillStyle = glowRGBA(NEON_CYAN, 0.4); ctx.beginPath(); ctx.moveTo(x - d * 16, y - 2); ctx.lineTo(x - d * 46, y); ctx.lineTo(x - d * 16, y + 3); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#141326'; ctx.beginPath(); ctx.moveTo(x + d * 22, y); ctx.lineTo(x - d * 16, y - 6); ctx.lineTo(x - d * 18, y + 5); ctx.closePath(); ctx.fill();
+      if (night) { ctx.shadowBlur = 6; ctx.shadowColor = NEON_PINK; }
+      ctx.fillStyle = glowRGBA(NEON_PINK, 0.9); ctx.fillRect(Math.min(x - d * 16, x - d * 18), y + 4, 34, 1.4); ctx.shadowBlur = 0;
+      ctx.fillStyle = glowRGBA(NEON_CYAN, 0.9); ctx.beginPath(); ctx.arc(x + d * 18, y - 1, 1.6, 0, Math.PI * 2); ctx.fill();
+    } else if (s === 'steampunk') {
+      ctx.fillStyle = CREAM_HI; ctx.beginPath(); ctx.ellipse(x, y, 20, 7, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = ORANGE; ctx.fillRect(x - 16, y - 1.5, 32, 3);
+      ctx.fillStyle = TEAL_TRIM; ctx.fillRect(x - 5, y + 7, 10, 4);
+      ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - 5, y + 6); ctx.lineTo(x - 4, y + 7); ctx.moveTo(x + 5, y + 6); ctx.lineTo(x + 4, y + 7); ctx.stroke();
+      ctx.strokeStyle = BRASS; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(x - d * 20, y); ctx.lineTo(x - d * 24, y - 3 + (reducedMotion.matches ? 0 : Math.sin(effT * 20) * 3)); ctx.moveTo(x - d * 20, y); ctx.lineTo(x - d * 24, y + 3 - (reducedMotion.matches ? 0 : Math.sin(effT * 20) * 3)); ctx.stroke();
+    } else if (s === 'solarpunk') {
+      ctx.fillStyle = '#3E9A63'; ctx.beginPath(); ctx.ellipse(x, y, 16, 5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = CREAM_HI; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - 15, y); ctx.lineTo(x + 15, y); ctx.stroke();
+      ctx.fillStyle = glowRGBA(NEON_CYAN, 0.4); ctx.beginPath(); ctx.ellipse(x + d * 4, y - 3, 6, 3, 0, Math.PI, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = BRASS; ctx.beginPath(); ctx.arc(x + d * 14, y, 1.4, 0, Math.PI * 2); ctx.fill();
+    } else {
+      ctx.fillStyle = ORANGE; ctx.beginPath(); ctx.moveTo(x, y - 12); ctx.lineTo(x + d * 10, y - 2); ctx.lineTo(x, y); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = CREAM_HI; ctx.beginPath(); ctx.moveTo(x - 14, y); ctx.quadraticCurveTo(x, y + 6, x + 14, y); ctx.quadraticCurveTo(x, y + 3, x - 14, y); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = BRASS; ctx.fillRect(x - 14, y, 28, 1.2);
+      ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - 12); ctx.stroke();
+    }
+  }
+
+  function tubeCapCol() {
+    return STYLE === 'cyberpunk' ? '#1A1633' : STYLE === 'steampunk' ? mixHex(TEALS[0], '#3E2817', 0.4)
+      : STYLE === 'solarpunk' ? '#3E9A63' : STYLE === 'silkpunk' ? ORANGE : ORANGE;
+  }
+
+  // per-era street vehicle (replaces the tail-fin car)
+  function drawCarEra(s, p, night) {
+    var d = p.dir, L = p.len, x0 = p.x, cx = p.x + L / 2, gy = GROUND_Y;
+    if (s === 'cyberpunk') {
+      var y = gy - 7;
+      ctx.fillStyle = glowRGBA(NEON_PINK, 0.5); ctx.fillRect(x0, gy - 2, L, 2);
+      ctx.fillStyle = '#1A1633'; ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0 + L, y); ctx.lineTo(x0 + L - 4, y + 6); ctx.lineTo(x0 + 4, y + 6); ctx.closePath(); ctx.fill();
+      if (night) { ctx.shadowBlur = 4; ctx.shadowColor = NEON_CYAN; }
+      ctx.fillStyle = glowRGBA(NEON_CYAN, night ? 0.9 : 0.45); ctx.fillRect(x0 + 3, y + 1.5, L - 6, 1.8); ctx.shadowBlur = 0;
+      ctx.fillStyle = night ? glowRGBA(NEON_CYAN, 0.9) : NEON_CYAN; ctx.beginPath(); ctx.arc(d === 1 ? x0 + L : x0, y + 3, 1.4, 0, Math.PI * 2); ctx.fill();
+    } else if (s === 'steampunk') {
+      ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(x0 + 4, gy - 3, 3.2, 0, Math.PI * 2); ctx.moveTo(x0 + L - 0.5, gy - 4.5); ctx.arc(x0 + L - 5, gy - 4.5, 4.5, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = mixHex(TEALS[0], '#3E2817', 0.45); ctx.fillRect(x0 + 2, gy - 13, L - 6, 10);
+      ctx.fillStyle = TEAL_TRIM; ctx.fillRect(x0 + (d === 1 ? L * 0.48 : 3), gy - 18, L * 0.42, 6);
+      var fnx = d === 1 ? x0 + 4 : x0 + L - 4; ctx.fillStyle = '#3E2817'; ctx.fillRect(fnx - 1.5, gy - 19, 3, 7); ctx.fillStyle = BRASS; ctx.fillRect(fnx - 2, gy - 19, 4, 1.5);
+      if (!reducedMotion.matches) { ctx.fillStyle = 'rgba(230,220,200,0.3)'; var py = gy - 21 - ((effT * 14) % 16); ctx.beginPath(); ctx.arc(fnx, py, 3, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillStyle = BRASS; ctx.fillRect(x0 + 2, gy - 4.5, L - 6, 1);
+    } else if (s === 'solarpunk') {
+      ctx.fillStyle = TEAL_TRIM; ctx.beginPath(); ctx.arc(x0 + 5, gy - 2, 2, 0, Math.PI * 2); ctx.arc(x0 + L - 5, gy - 2, 2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#3E9A63'; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x0 + 2, gy - 12, L - 4, 10, 5); else ctx.rect(x0 + 2, gy - 12, L - 4, 10); ctx.fill();
+      ctx.fillStyle = glowRGBA(night ? CREAM_HI : NEON_CYAN, 0.5); ctx.beginPath(); ctx.ellipse(cx, gy - 9, L * 0.32, 4, 0, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = BRASS; ctx.fillRect(x0 + 2, gy - 5, L - 4, 1);
+    } else {
+      ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(cx - 6, gy - 4, 4.5, 0, Math.PI * 2); ctx.moveTo(cx + 10.5, gy - 4); ctx.arc(cx + 6, gy - 4, 4.5, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = mixHex(TEALS[1], '#145A4E', 0.2); ctx.fillRect(cx - 8, gy - 12, 16, 8);
+      ctx.fillStyle = ORANGE; ctx.beginPath(); ctx.moveTo(cx - 9, gy - 12); ctx.quadraticCurveTo(cx, gy - 20, cx + 9, gy - 12); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = BRASS; ctx.fillRect(cx - 9, gy - 12, 18, 1.2);
+      var hx = d === 1 ? cx + 12 : cx - 12; ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(cx + (d === 1 ? 8 : -8), gy - 6); ctx.lineTo(hx, gy - 8); ctx.stroke();
+      ctx.fillStyle = TEAL_TRIM; ctx.fillRect(hx - 1, gy - 11, 2, 7); ctx.beginPath(); ctx.arc(hx, gy - 12.5, 1.8, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // per-era monorail train
+  function drawTrainEra(s, x, d, night) {
+    var y = RAIL_Y - 26, wx, k;
+    if (s === 'cyberpunk') {
+      ctx.fillStyle = '#14122E';
+      ctx.beginPath();
+      ctx.moveTo(x + 8, y + 2); ctx.lineTo(x + TRAIN_LEN - 8, y + 2);
+      ctx.quadraticCurveTo(x + TRAIN_LEN, y + 2, x + TRAIN_LEN, y + 12); ctx.lineTo(x + TRAIN_LEN, y + 22); ctx.lineTo(x, y + 22); ctx.lineTo(x, y + 12);
+      ctx.quadraticCurveTo(x, y + 2, x + 8, y + 2); ctx.closePath(); ctx.fill();
+      if (night) { ctx.shadowBlur = 6; ctx.shadowColor = NEON_CYAN; }
+      ctx.fillStyle = glowRGBA(NEON_CYAN, 0.9); ctx.fillRect(x + 6, y + 8, TRAIN_LEN - 12, 2.4); ctx.shadowBlur = 0;
+      ctx.fillStyle = glowRGBA(NEON_PINK, 0.7); ctx.fillRect(x + 6, y + 21, TRAIN_LEN - 12, 1.5);
+    } else if (s === 'steampunk') {
+      var col = mixHex(TEALS[0], '#3E2817', 0.42);
+      ctx.fillStyle = col; ctx.fillRect(x + 10, y + 9, TRAIN_LEN - 20, 13);
+      ctx.beginPath(); ctx.arc(d === 1 ? x + TRAIN_LEN - 10 : x + 10, y + 15, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = TEAL_TRIM; ctx.fillRect(x + (d === 1 ? 16 : TRAIN_LEN * 0.42), y, TRAIN_LEN * 0.42, 11);
+      var fx = d === 1 ? x + TRAIN_LEN - 18 : x + 18; ctx.fillStyle = '#3E2817'; ctx.fillRect(fx - 3, y + 1, 6, 9); ctx.fillStyle = BRASS; ctx.fillRect(fx - 4, y, 8, 2);
+      if (!reducedMotion.matches) { ctx.fillStyle = 'rgba(230,220,200,0.35)'; for (k = 0; k < 3; k++) { var py = y - ((effT * 20 + k * 12) % 36); ctx.beginPath(); ctx.arc(fx + Math.sin(effT + k) * 4, py, 4 + k, 0, Math.PI * 2); ctx.fill(); } }
+      ctx.fillStyle = TEAL_TRIM; for (wx = x + 22; wx < x + TRAIN_LEN - 14; wx += 26) { ctx.beginPath(); ctx.arc(wx, y + 24, 4, 0, Math.PI * 2); ctx.fill(); }
+      ctx.strokeStyle = BRASS; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + 22, y + 24); ctx.lineTo(x + TRAIN_LEN - 16, y + 24); ctx.stroke();
+      ctx.fillStyle = night ? BRASS : '#16332F'; for (wx = x + 16; wx < x + TRAIN_LEN - 16; wx += 16) ctx.fillRect(wx, y + 12, 7, 6);
+    } else if (s === 'solarpunk') {
+      ctx.fillStyle = '#3E9A63'; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x + 4, y + 4, TRAIN_LEN - 8, 18, 9); else ctx.rect(x + 4, y + 4, TRAIN_LEN - 8, 18); ctx.fill();
+      ctx.fillStyle = night ? '#FFE196' : glowRGBA(CREAM_HI, 0.6); for (wx = x + 14; wx < x + TRAIN_LEN - 10; wx += 18) ctx.fillRect(wx, y + 9, 12, 8);
+      ctx.fillStyle = BRASS; ctx.fillRect(x + 4, y + 21, TRAIN_LEN - 8, 1.6);
+      ctx.fillStyle = '#2E7D4F'; ctx.beginPath(); ctx.arc(x + TRAIN_LEN * 0.5, y + 4, 5, Math.PI, 0); ctx.fill();
+    } else {
+      ctx.fillStyle = mixHex(TEALS[1], '#145A4E', 0.2); ctx.fillRect(x + 8, y + 11, TRAIN_LEN - 16, 11);
+      for (var seg = 0; seg < 3; seg++) { var sx = x + 20 + seg * (TRAIN_LEN - 40) / 2; ctx.fillStyle = ORANGE; ctx.beginPath(); ctx.moveTo(sx - 24, y + 11); ctx.quadraticCurveTo(sx, y + 1, sx + 24, y + 11); ctx.quadraticCurveTo(sx, y + 7, sx - 24, y + 11); ctx.closePath(); ctx.fill(); ctx.fillStyle = BRASS; ctx.fillRect(sx - 22, y + 10, 44, 1.2); }
+      ctx.fillStyle = night ? glowRGBA(BRASS, 0.9) : '#F4ECD6'; for (wx = x + 16; wx < x + TRAIN_LEN - 12; wx += 16) ctx.fillRect(wx, y + 14, 6, 6);
+      var hx = d === 1 ? x + TRAIN_LEN : x; ctx.fillStyle = ORANGE; ctx.beginPath(); ctx.arc(hx, y + 16, 5, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = BRASS; ctx.beginPath(); ctx.arc(hx + d * 2, y + 15, 1.4, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = TEAL_TRIM; ctx.fillRect(x + TRAIN_LEN * 0.18, y + 24, 16, 4); ctx.fillRect(x + TRAIN_LEN * 0.72, y + 24, 16, 4);
+  }
+
+  // per-era airship
+  function drawAirshipEra(s, x, y, d, night) {
+    if (s === 'cyberpunk') {
+      ctx.fillStyle = '#141330'; ctx.beginPath(); ctx.ellipse(x, y, 64, 16, 0, 0, Math.PI * 2); ctx.fill();
+      if (night) { ctx.shadowBlur = 8; ctx.shadowColor = NEON_CYAN; }
+      ctx.strokeStyle = glowRGBA(NEON_CYAN, 0.85); ctx.lineWidth = 1.6; ctx.beginPath(); ctx.ellipse(x, y, 64, 16, 0, 0, Math.PI * 2); ctx.stroke(); ctx.shadowBlur = 0;
+      ctx.fillStyle = glowRGBA(NEON_PINK, 0.7); ctx.fillRect(x - 60, y + 8, 120, 2);
+      ctx.fillStyle = glowRGBA(NEON_CYAN, 0.9); for (var k = -2; k <= 2; k++) { ctx.beginPath(); ctx.arc(x + k * 24, y + 14, 1.6, 0, Math.PI * 2); ctx.fill(); }
+    } else if (s === 'steampunk') {
+      ctx.fillStyle = CREAM_HI; ctx.beginPath(); ctx.ellipse(x, y, 66, 18, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(6,37,35,0.25)'; ctx.lineWidth = 1.4; for (var k2 = -2; k2 <= 2; k2++) { ctx.beginPath(); ctx.moveTo(x + k2 * 22, y - 15); ctx.lineTo(x + k2 * 22, y + 15); ctx.stroke(); }
+      ctx.fillStyle = ORANGE; ctx.fillRect(x - 66, y - 3, 132, 6);
+      ctx.fillStyle = BRASS; ctx.beginPath(); ctx.ellipse(x + d * 66, y, 13, 18, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = mixHex(TEALS[0], '#3E2817', 0.4); ctx.beginPath(); ctx.ellipse(x, y + 26, 16, 6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = BRASS; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - 10, y + 16); ctx.lineTo(x - 8, y + 22); ctx.moveTo(x + 10, y + 16); ctx.lineTo(x + 8, y + 22); ctx.stroke();
+      var pr = reducedMotion.matches ? 4 : Math.sin(effT * 18) * 5; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(x - d * 66, y - 5); ctx.lineTo(x - d * 72, y - 5 + pr); ctx.moveTo(x - d * 66, y + 5); ctx.lineTo(x - d * 72, y + 5 - pr); ctx.stroke();
+    } else if (s === 'solarpunk') {
+      ctx.fillStyle = '#3E9A63'; ctx.beginPath(); ctx.moveTo(x - 40, y); ctx.bezierCurveTo(x - 40, y - 30, x + 40, y - 30, x + 50, y); ctx.bezierCurveTo(x + 40, y + 26, x - 40, y + 26, x - 40, y); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = CREAM_HI; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - 38, y); ctx.lineTo(x + 48, y); ctx.stroke();
+      ctx.fillStyle = BRASS; ctx.beginPath(); ctx.ellipse(x, y + 24, 14, 5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(46,125,79,0.7)'; ctx.lineWidth = 1.2; for (var v = 0; v < 3; v++) { ctx.beginPath(); ctx.moveTo(x - 10 + v * 10, y + 22); ctx.quadraticCurveTo(x - 8 + v * 10, y + 34, x - 12 + v * 10, y + 40); ctx.stroke(); }
+    } else {
+      ctx.fillStyle = mixHex(TEALS[1], '#145A4E', 0.2); ctx.beginPath(); ctx.moveTo(x - 40, y); ctx.quadraticCurveTo(x, y + 16, x + 44, y); ctx.quadraticCurveTo(x, y + 8, x - 40, y); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = ORANGE; ctx.beginPath(); ctx.moveTo(x - 6, y - 2); ctx.lineTo(x - 6, y - 34); ctx.quadraticCurveTo(x + 20, y - 24, x + 22, y - 4); ctx.lineTo(x + 18, y - 2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = BRASS; ctx.fillRect(x - 40, y, 84, 1.4);
+      ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(x - 6, y); ctx.lineTo(x - 6, y - 34); ctx.stroke();
+      if (night) { ctx.shadowBlur = 6; ctx.shadowColor = ORANGE; } ctx.fillStyle = night ? glowRGBA(ORANGE, 0.9) : ORANGE; ctx.beginPath(); ctx.ellipse(x + 30, y + 2, 3, 5, 0, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+    }
+  }
+
+  var curLit = 0;   // latest computed light level, for helpers without the param
+
+  // per-era citizen (replaces the swing-coat figure)
+  function drawPersonEra(s, x, gy, stride, d, night) {
+    var y = gy - Math.abs(stride) * 0.9, hipY = y - 6, coat, accent;
+    if (s === 'cyberpunk') { coat = '#1A1633'; accent = NEON_CYAN; }
+    else if (s === 'steampunk') { coat = mixHex(TEALS[0], '#3E2817', 0.4); accent = BRASS; }
+    else if (s === 'solarpunk') { coat = '#3E9A63'; accent = CREAM_HI; }
+    else { coat = mixHex(TEALS[1], '#145A4E', 0.2); accent = ORANGE; }
+    ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 1.8; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x, hipY); ctx.lineTo(x + stride * 2.6, y); ctx.moveTo(x, hipY); ctx.lineTo(x - stride * 2.6, y); ctx.stroke(); ctx.lineCap = 'butt';
+    ctx.fillStyle = coat;                          // coat/torso
+    ctx.beginPath(); ctx.moveTo(x - 2.8, hipY + 1); ctx.lineTo(x + 2.8, hipY + 1); ctx.lineTo(x + 2.2, y - 12.5); ctx.lineTo(x - 2.2, y - 12.5); ctx.closePath(); ctx.fill();
+    if (s === 'silkpunk') { ctx.fillStyle = accent; ctx.fillRect(x - 2.6, y - 8, 5.2, 1.6); }
+    else if (s === 'cyberpunk') { if (night) { ctx.shadowBlur = 4; ctx.shadowColor = accent; } ctx.strokeStyle = accent; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - 1.8, y - 12); ctx.lineTo(x - 1.8, hipY); ctx.stroke(); ctx.shadowBlur = 0; }
+    else if (s === 'steampunk') { ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x + 3, y - 6); ctx.lineTo(x + 3, y); ctx.stroke(); }   // cane
+    var headY = y - 14.6;
+    ctx.fillStyle = SKIN; ctx.beginPath(); ctx.arc(x, headY, 2.1, 0, Math.PI * 2); ctx.fill();
+    if (s === 'steampunk') { ctx.fillStyle = '#241408'; ctx.fillRect(x - 3.2, headY - 1.4, 6.4, 1); ctx.fillRect(x - 2.2, headY - 5.4, 4.4, 4.2); }
+    else if (s === 'cyberpunk') { if (night) { ctx.shadowBlur = 5; ctx.shadowColor = accent; } ctx.fillStyle = accent; ctx.fillRect(x - 2.2, headY - 0.6, 4.4, 1.4); ctx.shadowBlur = 0; }
+    else if (s === 'solarpunk') { ctx.fillStyle = CREAM_HI; ctx.fillRect(x - 3.4, headY - 1.8, 6.8, 1); ctx.beginPath(); ctx.arc(x, headY - 2, 2.4, Math.PI, 0); ctx.fill(); }
+    else { ctx.fillStyle = ORANGE; ctx.beginPath(); ctx.moveTo(x - 3.4, headY - 1.4); ctx.lineTo(x, headY - 5.6); ctx.lineTo(x + 3.4, headY - 1.4); ctx.closePath(); ctx.fill(); }
+    return y;
+  }
+
   function drawBuilding(b, litLevel) {
     if (b.progress <= 0) return;
     var h = b.h * easeOutCubic(b.progress);
@@ -4048,8 +5578,50 @@
 
     litLevel = Math.max(0, Math.min(1, litLevel + (b.litBias || 0)));
 
+    if (STYLE === 'cyberpunk') { drawBuildingCyber(b, top, h, litLevel); return; }
+    if (STYLE === 'steampunk') { drawBuildingSteam(b, top, h, litLevel); return; }
+    if (STYLE === 'solarpunk') { drawBuildingSolar(b, top, h, litLevel); return; }
+    if (STYLE === 'silkpunk')  { drawBuildingSilk(b, top, h, litLevel); return; }
+
     ctx.fillStyle = b.color;
     ctx.fillRect(b.x, top, b.w, h);
+
+    if (b.windows.length && h > 8) {              // near-row towers get real detail
+      ctx.fillStyle = 'rgba(251, 243, 222, 0.09)';   // lit left flank
+      ctx.fillRect(b.x, top, 2.5, h);
+      ctx.fillStyle = 'rgba(6, 37, 35, 0.28)';       // shaded right flank
+      ctx.fillRect(b.x + b.w - 3, top, 3, h);
+      ctx.fillStyle = 'rgba(6, 30, 28, 0.16)';       // vertical structural striations
+      var fins = Math.max(2, Math.round(b.w / 15));
+      for (var vf = 1; vf < fins; vf++) {
+        ctx.fillRect(b.x + b.w * vf / fins - 0.6, top + 3, 1.2, h - 3);
+      }
+      ctx.fillStyle = calendar.month === 9 ? 'rgba(255,107,61,0.6)' : ACC_BAND[b.accent || 0];
+      ctx.fillRect(b.x, top + 3.5, b.w, 1.6);        // bright crown band
+      ctx.fillStyle = 'rgba(6, 30, 28, 0.4)';        // shaded base plinth
+      ctx.fillRect(b.x, GROUND_Y - 6, b.w, 6);
+    } else if (h > 20) {                          // distant back row: faint relief only
+      ctx.fillStyle = 'rgba(6, 30, 28, 0.10)';
+      var bf = Math.max(2, Math.round(b.w / 18));
+      for (var vb = 1; vb < bf; vb++) ctx.fillRect(b.x + b.w * vb / bf - 0.5, top + 2, 1, h - 2);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+      ctx.fillRect(b.x, top, b.w, 1.4);
+      var bh2 = Math.abs(Math.floor(b.x * 7.3)) % 4;   // quiet back-row roof variety
+      if (bh2 === 1) {                            // shallow peak
+        ctx.fillStyle = b.color;
+        ctx.beginPath();
+        ctx.moveTo(b.x, top);
+        ctx.lineTo(b.x + b.w / 2, top - Math.min(13, b.w * 0.2));
+        ctx.lineTo(b.x + b.w, top);
+        ctx.closePath(); ctx.fill();
+      } else if (bh2 === 2) {                     // stepped parapet
+        ctx.fillStyle = b.color;
+        ctx.fillRect(b.x + b.w * 0.28, top - 6, b.w * 0.44, 6);
+      } else if (bh2 === 3) {                     // slim mid fin
+        ctx.fillStyle = b.color;
+        ctx.fillRect(b.x + b.w / 2 - 1, top - 10, 2, 10);
+      }
+    }
 
     // a burnt-orange safety cordon crowns any works in progress, and the
     // risen portion shows its floors going in
@@ -4071,6 +5643,9 @@
         ctx.fillStyle = TEAL_TRIM;
         ctx.fillRect(b.x - 4, top, b.w + 8, 7);
       }
+      var plainTop = b.windows.length && !b.mast && !b.sign && !b.chimney && !b.clock;
+      if (b.spectacular) drawSpectacular(b, top, h, litLevel);
+      else drawRoof(b, top, h, litLevel);
       if (b.chimney) {                            // rooftop stack
         ctx.fillStyle = TEAL_TRIM;
         ctx.fillRect(b.x + b.chimney * b.w - 4.5, top - 12, 9, 12);
@@ -4098,106 +5673,257 @@
         ctx.fillRect(b.x - 1, top - 3, b.w + 2, 4);
         ctx.globalAlpha = 1;
       }
-      if (b.mast) {                               // tapered lattice mast with
-        var mx = b.x + b.w / 2;                   // a blinking aviation beacon
-        ctx.strokeStyle = BRASS;
-        ctx.lineWidth = 1.4;
-        ctx.lineCap = 'round';
+      if (b.mast) {                               // sleek chrome spire + beacon
+        var mx = b.x + b.w / 2;
+        ctx.fillStyle = CREAM_HI;                 // tapered spire
         ctx.beginPath();
-        ctx.moveTo(mx - 5, top);
-        ctx.lineTo(mx, top - 40);
-        ctx.moveTo(mx + 5, top);
-        ctx.lineTo(mx, top - 40);
-        for (var mr = 1; mr <= 3; mr++) {         // cross-braces, narrowing
-          var mhalf = 5 * (1 - mr * 0.24);
-          ctx.moveTo(mx - mhalf, top - mr * 10);
-          ctx.lineTo(mx + mhalf, top - mr * 10);
-        }
-        ctx.stroke();
-        ctx.lineCap = 'butt';
+        ctx.moveTo(mx - 4, top);
+        ctx.lineTo(mx - 1, top - 48);
+        ctx.lineTo(mx + 1, top - 48);
+        ctx.lineTo(mx + 4, top);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = BRASS;                    // collars
+        ctx.fillRect(mx - 4, top - 15, 8, 2);
+        ctx.fillRect(mx - 3, top - 30, 6, 2);
         var blink = litLevel > 0.55 && Math.sin(effT * 2.6) > -0.25;
         if (blink) {
+          ctx.shadowBlur = 10; ctx.shadowColor = ORANGE;
           ctx.fillStyle = GLOW_ORANGE;
-          ctx.beginPath(); ctx.arc(mx, top - 42.5, 6, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(mx, top - 52, 5.5, 0, Math.PI * 2); ctx.fill();
+          ctx.shadowBlur = 0;
         }
         ctx.fillStyle = ORANGE;
-        ctx.beginPath(); ctx.arc(mx, top - 42.5, 2.2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(mx, top - 52, 2.6, 0, Math.PI * 2); ctx.fill();
       }
-      if (b.sign && !b.mast) {                    // rooftop Googie starburst
+      if (b.sign && !b.mast) {                    // clean atomic starburst
         var sx = b.x + b.w / 2;
-        var sy2 = top - 36;
+        var sy2 = top - 34;
         var night = litLevel > 0.55;
-        ctx.fillStyle = BRASS;
-        ctx.fillRect(sx - 1.5, top - 22, 3, 22);
-        ctx.strokeStyle = BRASS;                  // twelve spokes, long and short
-        ctx.lineWidth = 2;
+        ctx.fillStyle = CREAM_HI;                 // chrome support pole
+        ctx.fillRect(sx - 1.5, top - 18, 3, 18);
+        ctx.strokeStyle = BRASS;                  // 16 rays, alternating length
+        ctx.lineWidth = 2.4;
         ctx.lineCap = 'round';
+        if (night) { ctx.shadowBlur = 8; ctx.shadowColor = BRASS; }
         ctx.beginPath();
-        for (var sp = 0; sp < 12; sp++) {
-          var sa = sp * Math.PI / 6 + Math.PI / 12;
-          var sl = sp % 2 ? 9 : 16;
-          ctx.moveTo(sx + Math.cos(sa) * 4, sy2 + Math.sin(sa) * 4);
+        for (var sp = 0; sp < 16; sp++) {
+          var sa = sp * Math.PI / 8;
+          var sl = sp % 2 ? 8 : 16;
+          ctx.moveTo(sx + Math.cos(sa) * 3.5, sy2 + Math.sin(sa) * 3.5);
           ctx.lineTo(sx + Math.cos(sa) * sl, sy2 + Math.sin(sa) * sl);
         }
         ctx.stroke();
+        ctx.shadowBlur = 0;
         ctx.lineCap = 'butt';
-        for (var tp = 0; tp < 12; tp += 2) {      // tip balls twinkle after dark
-          var ta = tp * Math.PI / 6 + Math.PI / 12;
-          var tx = sx + Math.cos(ta) * 16;
-          var ty = sy2 + Math.sin(ta) * 16;
-          if (night && (tp / 2 + Math.floor(effT * 2.5)) % 3 !== 0) {
-            ctx.fillStyle = GLOW_BRASS;
-            ctx.beginPath(); ctx.arc(tx, ty, 4.5, 0, Math.PI * 2); ctx.fill();
-          }
-          ctx.fillStyle = BRASS;
-          ctx.beginPath(); ctx.arc(tx, ty, 2.2, 0, Math.PI * 2); ctx.fill();
-        }
-        ctx.fillStyle = ORANGE;                   // orange heart, cream pin
-        ctx.beginPath(); ctx.arc(sx, sy2, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = ORANGE;                   // core
+        ctx.beginPath(); ctx.arc(sx, sy2, 5, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = CREAM_HI;
-        ctx.beginPath(); ctx.arc(sx, sy2, 1.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(sx, sy2, 2, 0, Math.PI * 2); ctx.fill();
       }
     }
 
-    // four batched passes built in ONE sweep of the panes: round halo
-    // glows for scheduled-lit panes first, then every pane on top —
-    // upright rounded-corner windows now, real architecture instead of
-    // dots (brass, plus rare orange accents). A pane whose flicker
-    // override is running shows the opposite of its schedule — someone
-    // in there just hit the switch. October swaps the whole city's
-    // halos to burnt orange (harvest festival custom). Sizes ride
-    // CITY_K so a shrunken skyline keeps its window rhythm.
+    // ---- glazed facade: ribbon windows grouped into floor bands, crisp
+    // glass with ONE soft grouped glow (no more fuzzy per-dot halos) ----
     var wy;
     var wk = Math.max(0.72, CITY_K);
-    var pw = 6.4 * wk, ph = 9.4 * wk;             // pane width / height
-    var wg = 7.5 * wk;                            // glow radius
-    var glowPlain = new Path2D(), glowAccent = new Path2D();
-    var panePlain = new Path2D(), paneAccent = new Path2D();
+    var cw = 5.2 * wk, ch = 8.4 * wk;
+    if (b._rowsFor !== b.windows) {               // cache floor extents per pane set
+      var mm = {};
+      for (i = 0; i < b.windows.length; i++) {
+        wd = b.windows[i];
+        var ky = Math.round(wd.y);
+        if (!mm[ky]) mm[ky] = [wd.x, wd.x];
+        else { if (wd.x < mm[ky][0]) mm[ky][0] = wd.x; if (wd.x > mm[ky][1]) mm[ky][1] = wd.x; }
+      }
+      b._rows = [];
+      for (var kk in mm) b._rows.push({ y: parseInt(kk, 10), x0: mm[kk][0], x1: mm[kk][1] });
+      b._rowsFor = b.windows;
+    }
+
+    ctx.fillStyle = 'rgba(5, 26, 24, 0.55)';      // recessed floor glazing bands
+    for (i = 0; i < b._rows.length; i++) {
+      wy = GROUND_Y + b._rows[i].y;
+      if (wy < top + 6) continue;
+      ctx.fillRect(b._rows[i].x0 - cw / 2 - 1.5, wy - ch / 2 - 1,
+                   (b._rows[i].x1 - b._rows[i].x0) + cw + 3, ch + 2);
+    }
+
+    var litPath = new Path2D(), litAccent = new Path2D(), unlit = new Path2D();
+    var anyGlow = false;
     for (i = 0; i < b.windows.length; i++) {
       wd = b.windows[i];
       wy = GROUND_Y + wd.y;
       if (wy < top + 6) continue;                 // above the built portion
       var lit = (wd.threshold < litLevel) !== (wd.flickUntil > effT);
-      panePath(wd.accent ? paneAccent : panePlain, wd.x, wy, pw, ph);
-      if (lit) {
-        var glows = wd.accent ? glowAccent : glowPlain;
-        glows.moveTo(wd.x + wg, wy);
-        glows.arc(wd.x, wy, wg, 0, Math.PI * 2);
-      }
+      var rx = wd.x - cw / 2, ry = wy - ch / 2;
+      if (lit) { anyGlow = true; (wd.accent ? litAccent : litPath).rect(rx, ry, cw, ch); }
+      else unlit.rect(rx, ry, cw, ch);
     }
-    ctx.fillStyle = calendar.month === 9 ? GLOW_ORANGE : GLOW_BRASS;
-    ctx.fill(glowPlain);
-    ctx.fillStyle = GLOW_ORANGE;
-    ctx.fill(glowAccent);
-    ctx.fillStyle = BRASS;
-    ctx.fill(panePlain);
-    ctx.fillStyle = ORANGE;
-    ctx.fill(paneAccent);
+    ctx.fillStyle = 'rgba(24, 66, 60, 0.7)';      // dark unlit panes
+    ctx.fill(unlit);
+    var bloom = (reducedMotion.matches || !anyGlow) ? 0 : 6 * wk;
+    ctx.shadowBlur = bloom;
+    ctx.shadowColor = calendar.month === 9 ? ORANGE : BRASS;
+    ctx.fillStyle = calendar.month === 9 ? '#FFD98A' : '#FFE196';   // warm lit glass
+    ctx.fill(litPath);
+    ctx.shadowColor = ORANGE;
+    ctx.fillStyle = '#FFC08A';
+    ctx.fill(litAccent);
+    ctx.shadowBlur = 0;
 
     if (b.door && h > 26) {
       ctx.fillStyle = ORANGE;
       ctx.fillRect(b.x + Math.round(b.w / 2) - 7, GROUND_Y - 20, 14, 20);
     }
+    if (b.canopy && b.progress === 1 && h > 40) drawCanopy(b);
+  }
+
+  /* ---------------- Googie neon signage, aircars, ringed planet ---------- */
+
+  var SIGN_NAMES = ['COSMIC CAFE', 'STARLITE LODGE', 'ATOM CITY', 'ORBIT ROOM',
+    'ROCKET DINER', 'SPUTNIK CLUB', 'GALAXY LANES', 'METEOR INN', 'THE SATELLITE',
+    'LUNAR LOUNGE', 'NEON MOTOR LODGE', 'JET AGE BOWL'];
+  var SIGN_COLORS = ['#3FE0D8', '#FF5A96', '#FF8A3C', '#FFC94A'];
+  var SIGN_ICONS = ['atom', 'rocket', 'saucer', 'star'];
+  var AIRCAR_TONES = [
+    { body: '#D98A6A', accent: '#FBF3DE', glow: 'rgba(255,140,80,0.5)' },
+    { body: '#7FBFC0', accent: '#FBF3DE', glow: 'rgba(63,224,216,0.5)' },
+    { body: '#C29AC4', accent: '#FBF3DE', glow: 'rgba(255,90,150,0.5)' }
+  ];
+
+  function drawSignIcon(kind, x, y, r, color, lit) {
+    ctx.save();
+    if (lit) { ctx.shadowBlur = 6; ctx.shadowColor = color; }
+    ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1.3;
+    if (kind === 'atom') {
+      ctx.beginPath(); ctx.arc(x, y, r * 0.28, 0, Math.PI * 2); ctx.fill();
+      for (var a = 0; a < 3; a++) {
+        ctx.save(); ctx.translate(x, y); ctx.rotate(a * Math.PI / 3);
+        ctx.beginPath(); ctx.ellipse(0, 0, r, r * 0.42, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+      }
+    } else if (kind === 'rocket') {
+      ctx.beginPath();
+      ctx.moveTo(x, y - r);
+      ctx.quadraticCurveTo(x + r * 0.5, y - r * 0.2, x + r * 0.4, y + r * 0.55);
+      ctx.lineTo(x - r * 0.4, y + r * 0.55);
+      ctx.quadraticCurveTo(x - r * 0.5, y - r * 0.2, x, y - r);
+      ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x - r * 0.4, y + r * 0.25); ctx.lineTo(x - r * 0.82, y + r * 0.8); ctx.lineTo(x - r * 0.4, y + r * 0.6); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x + r * 0.4, y + r * 0.25); ctx.lineTo(x + r * 0.82, y + r * 0.8); ctx.lineTo(x + r * 0.4, y + r * 0.6); ctx.closePath(); ctx.fill();
+    } else if (kind === 'saucer') {
+      ctx.beginPath(); ctx.ellipse(x, y + r * 0.18, r, r * 0.34, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(x, y - r * 0.04, r * 0.44, r * 0.36, 0, Math.PI, Math.PI * 2); ctx.fill();
+    } else {
+      ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (var s2 = 0; s2 < 8; s2++) {
+        var sa2 = s2 * Math.PI / 4, rr = s2 % 2 ? r * 0.5 : r;
+        ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(sa2) * rr, y + Math.sin(sa2) * rr);
+      }
+      ctx.stroke(); ctx.lineCap = 'butt';
+    }
+    ctx.restore();
+  }
+
+  // a rooftop Googie marquee: chrome posts, dark backing, neon tube border,
+  // a glowing icon and the establishment's name in neon
+  function drawNeonSign(cx, roofY, bw, hash, lit) {
+    var name = SIGN_NAMES[hash % SIGN_NAMES.length];
+    var neon = SIGN_COLORS[(hash >> 2) % SIGN_COLORS.length];
+    var icon = SIGN_ICONS[(hash >> 4) % SIGN_ICONS.length];
+    var fs = Math.max(6.5, Math.min(11, (bw - 14) / (name.length * 0.6)));
+    ctx.font = '700 ' + fs.toFixed(1) + 'px Jost, Futura, sans-serif';
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '0.4px';
+    var tw = ctx.measureText(name).width;
+    var ph2 = fs * 1.9, iconW = ph2 * 0.95;
+    var pw2 = tw + iconW + fs * 1.3;
+    var top2 = roofY - 11 - ph2;
+    var lx = cx - pw2 / 2;
+    ctx.fillStyle = 'rgba(158,168,172,0.9)';      // chrome support posts
+    ctx.fillRect(cx - pw2 * 0.3, top2 + ph2, 2, 11);
+    ctx.fillRect(cx + pw2 * 0.3 - 2, top2 + ph2, 2, 11);
+    ctx.fillStyle = 'rgba(9,20,22,0.92)';         // dark backing panel
+    ctx.fillRect(lx, top2, pw2, ph2);
+    ctx.strokeStyle = neon; ctx.lineWidth = 1.6;  // neon tube border
+    if (lit) { ctx.shadowBlur = 9; ctx.shadowColor = neon; }
+    ctx.strokeRect(lx + 1.2, top2 + 1.2, pw2 - 2.4, ph2 - 2.4);
+    ctx.shadowBlur = 0;
+    drawSignIcon(icon, lx + iconW * 0.55 + 3, top2 + ph2 / 2, ph2 * 0.32, neon, lit);
+    ctx.fillStyle = lit ? neon : 'rgba(205,214,214,0.85)';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    if (lit) { ctx.shadowBlur = 7; ctx.shadowColor = neon; }
+    ctx.fillText(name, lx + iconW + 5, top2 + ph2 / 2 + 0.5);
+    ctx.shadowBlur = 0;
+    ctx.textBaseline = 'alphabetic';
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+  }
+
+  function drawAircars(litLevel) {
+    if (reducedMotion.matches) return;
+    for (var i = 0; i < aircars.length; i++) {
+      var ac = aircars[i];
+      if (!ac.active) continue;
+      var d = ac.dir;
+      var x = ac.x, y = ac.y + Math.sin(effT * 1.8 + ac.lane) * 3;
+      var tone = AIRCAR_TONES[ac.tone];
+      if (STYLE !== 'atompunk') { drawAircarEra(STYLE, x, y, d, litLevel > 0.5); continue; }
+      ctx.fillStyle = tone.glow;                  // ion trail
+      ctx.globalAlpha = 0.45;
+      ctx.beginPath();
+      ctx.moveTo(x - d * 18, y - 2); ctx.lineTo(x - d * 52, y);
+      ctx.lineTo(x - d * 18, y + 3); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = tone.body;                  // swept tail fin
+      ctx.beginPath();
+      ctx.moveTo(x - d * 12, y - 1); ctx.lineTo(x - d * 23, y - 12);
+      ctx.lineTo(x - d * 8, y - 1); ctx.closePath(); ctx.fill();
+      ctx.beginPath();                            // teardrop body
+      ctx.moveTo(x + d * 25, y);
+      ctx.quadraticCurveTo(x, y - 7.5, x - d * 20, y - 3);
+      ctx.quadraticCurveTo(x - d * 25, y + 1, x - d * 19, y + 5.5);
+      ctx.quadraticCurveTo(x, y + 7, x + d * 25, y);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = tone.accent;                // chrome belt
+      ctx.fillRect(Math.min(x - d * 19, x + d * 22), y + 1.4, 41, 1.3);
+      ctx.fillStyle = 'rgba(63,224,216,0.5)';     // bubble canopy
+      ctx.beginPath(); ctx.ellipse(x + d * 5, y - 2.5, 8, 5, 0, Math.PI, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = CREAM_HI; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(x + d * 5, y - 2.5, 8, 5, 0, Math.PI, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = ORANGE;                     // nose light
+      ctx.beginPath(); dotPath(x + d * 23, y, 1.4); ctx.fill();
+      ctx.fillStyle = GLOW_CYAN;                  // underglow jets
+      ctx.beginPath(); dotPath(x - d * 6, y + 5, 2); dotPath(x + d * 8, y + 5, 2); ctx.fill();
+    }
+  }
+
+  // a distant ringed planet low in the night sky
+  function drawPlanet(alpha) {
+    if (alpha <= 0.03) return;
+    var px = VIEW_W * planet.fx, py = planet.fy * SKY_K, pr = planet.r;
+    ctx.globalAlpha = alpha * 0.9;
+    ctx.save();
+    ctx.translate(px, py); ctx.rotate(planet.tilt);
+    ctx.strokeStyle = 'rgba(255,201,74,0.4)'; ctx.lineWidth = 3.2;   // ring, far half
+    ctx.beginPath(); ctx.ellipse(0, 0, pr * 1.95, pr * 0.5, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = planet.color;                                    // body
+    ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2); ctx.fill();
+    ctx.save();
+    ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2); ctx.clip();
+    ctx.fillStyle = 'rgba(255,255,255,0.10)';
+    ctx.fillRect(px - pr, py - pr * 0.42, pr * 2, pr * 0.2);
+    ctx.fillStyle = 'rgba(0,0,0,0.14)';
+    ctx.fillRect(px - pr, py + pr * 0.12, pr * 2, pr * 0.26);
+    ctx.fillStyle = 'rgba(0,0,0,0.12)';                              // soft terminator
+    ctx.beginPath(); ctx.arc(px + pr * 0.55, py - pr * 0.35, pr * 0.95, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.translate(px, py); ctx.rotate(planet.tilt);
+    ctx.strokeStyle = 'rgba(255,222,120,0.72)'; ctx.lineWidth = 3.2; // ring, near half over body
+    ctx.beginPath(); ctx.ellipse(0, 0, pr * 1.95, pr * 0.5, 0, 0.2, Math.PI - 0.2); ctx.stroke();
+    ctx.restore();
+    ctx.globalAlpha = 1;
   }
 
   function drawScene() {
@@ -4234,6 +5960,7 @@
     }
     skyRgb = [skyRgb[0] / wSum, skyRgb[1] / wSum, skyRgb[2] / wSum];
     litLevel /= wSum;
+    curLit = litLevel;
     starLevel /= wSum;
 
     // weather pulls the sky toward its tint; aurora also brings out stars
@@ -4271,15 +5998,39 @@
     ctx.save();                                   // ---- far sky ----
     ctx.translate(parX * 0.25, 0);
 
+    // dusk/dawn horizon glow — a warm low band under the cool upper sky,
+    // fading orange → magenta → violet as it climbs (the Atom-City look);
+    // the daytime hours keep a gentler version of the same warm horizon
+    var warm = Math.min(1, timeLevel[1] + timeLevel[5] + timeLevel[6] * 0.5
+                           + (timeLevel[2] + timeLevel[3] + timeLevel[4]) * 0.28);
+    warm *= 1 - 0.55 * Math.max(weatherLevel[1], weatherLevel[2]);
+    if (warm > 0.01) {
+      var hgTop = GROUND_Y - 320 * SKY_K;
+      var hg = ctx.createLinearGradient(0, GROUND_Y, 0, hgTop);
+      hg.addColorStop(0, 'rgba(255, 140, 66, ' + (0.5 * warm).toFixed(3) + ')');
+      hg.addColorStop(0.45, 'rgba(255, 96, 120, ' + (0.24 * warm).toFixed(3) + ')');
+      hg.addColorStop(1, 'rgba(120, 80, 150, 0)');
+      ctx.fillStyle = hg;
+      ctx.fillRect(-80, hgTop, VIEW_W + 160, GROUND_Y - hgTop);
+    }
+
     if (starLevel > 0.01) {
       ctx.fillStyle = CREAM_HI;
       ctx.beginPath();
       for (var s = 0; s < stars.length; s++) dotPath(stars[s].x, stars[s].y * SKY_K, stars[s].r);
-      ctx.globalAlpha = 0.75 * starLevel;
+      ctx.globalAlpha = 0.6 * starLevel;
+      ctx.fill();
+      ctx.beginPath();                              // twinkle: a shifting subset flares
+      for (s = 0; s < stars.length; s++) {
+        var tk = Math.sin(effT * stars[s].ts + stars[s].tw);
+        if (tk > 0.62) dotPath(stars[s].x, stars[s].y * SKY_K, stars[s].r * (1.15 + tk * 0.55));
+      }
+      ctx.globalAlpha = 0.95 * starLevel;
       ctx.fill();
       ctx.globalAlpha = 1;
     }
 
+    drawPlanet(starLevel);
     drawAurora(weatherLevel[3]);
 
     // overcast weather veils the sun/moon
@@ -4304,12 +6055,15 @@
     drawSputnik(starLevel);
     drawShootingStar(starLevel);
     drawClouds(cloudColor);
+    drawStyleSky(skyLum);
     ctx.restore();
 
     ctx.save();                                   // ---- high traffic ----
     ctx.translate(parX * 0.4, 0);
     drawHill(litLevel);
     drawAirship(litLevel);
+    drawAircars(litLevel);
+    drawJetpacks(litLevel);
     drawRegatta(litLevel);
     drawUfo();
     drawBirds(skyLum);
@@ -4318,6 +6072,7 @@
     ctx.save();                                   // ---- back row ----
     ctx.translate(parX * 0.55, 0);
     for (i = 0; i < bgCity.length; i++) drawBuilding(bgCity[i], litLevel);
+    drawTower(litLevel);
     ctx.restore();
 
     ctx.save();                                   // ---- the street ----
@@ -4325,14 +6080,18 @@
     drawSearchlights(starLevel);
     for (i = 0; i < landmarks.length; i++) drawLandmark(landmarks[i], litLevel);
     drawPark(litLevel);
+    drawKineticSculpture(litLevel);
     drawNotes();
     drawKite();
     drawDriveIn(litLevel);
     for (i = 0; i < city.length; i++) drawBuilding(city[i], litLevel);
+    drawFutureHouse(litLevel);
+    drawTube(litLevel);
     drawLeaves();
     drawSmoke(smokeColor);
     drawStreetlamps(litLevel);
     drawFolks();
+    drawRobot(litLevel);
     for (i = 0; i < city.length; i++) drawCrane(city[i]);
     drawStringLights(litLevel);
     drawDust();
@@ -4341,6 +6100,9 @@
     drawMilk(litLevel);
     drawParade();
     drawMonorail(litLevel);
+    drawWelcome(litLevel);                        // roadside signs ride in front of the beam
+    drawKiosk(litLevel);
+    drawTaxi(litLevel);
     drawFireworks();
 
     drawRain(weatherLevel[1], skyLum);
@@ -4360,6 +6122,7 @@
     var brassL = harbor && harbor.side === -1 ? harbor.shore : -80;
     var brassR = harbor && harbor.side === 1 ? harbor.shore : VIEW_W + 80;
     ctx.fillRect(brassL, GROUND_Y, brassR - brassL, 3);
+    drawGroundEra(litLevel);
 
     // wet-street reflections: lamps and doorways smear into the asphalt
     var wet = weatherLevel[1];
@@ -4386,11 +6149,18 @@
     var plateColor = rgbStr(mixRgb(hexToRgb(BRASS), TRIM_RGB, weatherLevel[2] * 0.7));
     var bandMid = GROUND_Y + (VIEW_H - GROUND_Y) / 2 + 2;
     var plateX = LAND_L > 0 ? LAND_L + 22 : 22;
-    ctx.font = '600 15px Jost, Futura, sans-serif';
-    if ('letterSpacing' in ctx) ctx.letterSpacing = '3px';
+    var eF = '600 15px Jost, Futura, sans-serif', eBF = '600 13px Jost, Futura, sans-serif', eP = 'CITY OF ', eS = '☆ ', eLS = '3px', eGlow = null;
+    if (STYLE === 'cyberpunk') { eF = '700 13px "Courier New", monospace'; eBF = '700 12px "Courier New", monospace'; eP = '// '; eS = '> '; eLS = '2px'; eGlow = NEON_CYAN; plateColor = NEON_CYAN; }
+    else if (STYLE === 'steampunk') { eF = '600 17px Georgia, serif'; eBF = '600 14px Georgia, serif'; eP = 'Ye Towne of '; eS = '✦ '; eLS = '1px'; }
+    else if (STYLE === 'solarpunk') { eF = '600 15px "Trebuchet MS", sans-serif'; eBF = '600 13px "Trebuchet MS", sans-serif'; eP = 'Commons of '; eS = '❀ '; eLS = '2px'; }
+    else if (STYLE === 'silkpunk') { eF = '600 17px Georgia, serif'; eBF = '600 14px Georgia, serif'; eP = 'Port of '; eS = '✿ '; eLS = '1px'; }
+    if (eGlow) { ctx.shadowBlur = 6; ctx.shadowColor = eGlow; }
+    ctx.font = eF;
+    if ('letterSpacing' in ctx) ctx.letterSpacing = eLS;
     ctx.textBaseline = 'middle';
     ctx.fillStyle = plateColor;
-    ctx.fillText('CITY OF ' + CITY_NAME, plateX, bandMid);
+    ctx.fillText(eP + CITY_NAME, plateX, bandMid);
+    ctx.shadowBlur = 0;
 
     // the municipal bulletin wire, right-aligned, fading in and out
     if (bulletin.current) {
@@ -4398,10 +6168,12 @@
       var left = bulletin.until - bulletin.clock;
       var fade = Math.min(1, age / 0.4, left / 0.4);
       ctx.globalAlpha = Math.max(0, fade) * 0.9;
-      ctx.font = '600 13px Jost, Futura, sans-serif';
+      if (eGlow) { ctx.shadowBlur = 5; ctx.shadowColor = eGlow; }
+      ctx.font = eBF;
       ctx.textAlign = 'right';
       ctx.fillStyle = plateColor;
-      ctx.fillText('☆ ' + bulletin.current, LAND_R < VIEW_W ? LAND_R - 22 : VIEW_W - 22, bandMid);
+      ctx.fillText(eS + bulletin.current, LAND_R < VIEW_W ? LAND_R - 22 : VIEW_W - 22, bandMid);
+      ctx.shadowBlur = 0;
       ctx.textAlign = 'left';
       ctx.globalAlpha = 1;
     }
@@ -4417,6 +6189,7 @@
       ctx.fillRect(0, 0, VIEW_W, VIEW_H);
     }
 
+    drawStyleOverlay(litLevel);
     drawMail();                                   // the sister city's postcard
     drawTelecast();                               // the tube, if we're on the air
     drawTestPattern();                            // calibration card covers all
@@ -4435,6 +6208,84 @@
     window.requestAnimationFrame(frame);
   }
   window.requestAnimationFrame(frame);
+
+  /* ---------------- art direction: swap the whole palette ------------- */
+  /* Each theme re-skins the dominant colors — buildings, windows, neon,
+     accents and the eight sky palettes — and remaps every generated
+     building through its palette slot so the city changes era live. */
+
+  var THEMES = {
+    atompunk:   { label: 'ATOMPUNK',   teals: ['#0F4F4B','#166A61','#0A3C39'], trim: '#082B29', brass: '#FFC94A', orange: '#FF6B3D', cream: '#FBF3DE', cyan: '#3FE0D8', pink: '#FF5A96', ground: '#E8DCC0', skies: ['#0F1230','#F4995F','#F0CBA0','#F6DEC0','#F2C592','#6E3F66','#3A2E6E','#141636'] },
+    cyberpunk:  { label: 'CYBERPUNK',  teals: ['#241A3A','#38265C','#1A1230'], trim: '#0E0820', brass: '#F5E663', orange: '#FF4D6D', cream: '#E9E6FF', cyan: '#28E7F0', pink: '#FF2E88', ground: '#141026', skies: ['#080510','#2A1240','#3B1D57','#4A2A6B','#341E52','#5A1E5A','#1B1030','#0A0618'] },
+    steampunk:  { label: 'STEAMPUNK',  teals: ['#5A3A24','#6E4A2E','#3E2817'], trim: '#241408', brass: '#E0A94E', orange: '#C6602A', cream: '#EFE2C4', cyan: '#4FA38C', pink: '#B5713C', ground: '#8A6A44', skies: ['#1E160E','#C98A4E','#D8B27E','#E4CFA6','#D2A96E','#8A5A3C','#4A3524','#160E08'] },
+    artdeco:    { label: 'ART DECO',   teals: ['#0E4A3E','#14352E','#0A2A22'], trim: '#061A14', brass: '#E7C36B', orange: '#D2683C', cream: '#F3E9CE', cyan: '#3FB89A', pink: '#C46A86', ground: '#12332A', skies: ['#0C1420','#D9A46A','#E4C79A','#F0DDBC','#E0BC88','#7A4A55','#2A2E4A','#10141F'] },
+    dieselpunk: { label: 'DIESELPUNK', teals: ['#3E4632','#4E5A3E','#2A3022'], trim: '#161A10', brass: '#C9A24B', orange: '#D2601F', cream: '#DAD4BE', cyan: '#5E8A76', pink: '#A85E3C', ground: '#5E5A44', skies: ['#161812','#9A7A54','#B4A588','#C4BCA0','#A89878','#5E4E3E','#33362E','#101208'] },
+    clockpunk:  { label: 'CLOCKPUNK',  teals: ['#2E4A5A','#3A5E6E','#20343E'], trim: '#12222A', brass: '#D8B45C', orange: '#B5763C', cream: '#F0E6CC', cyan: '#6BB0B8', pink: '#B58AA0', ground: '#2A4048', skies: ['#161E2C','#C79A6E','#D8C29A','#EADDBE','#CBB088','#7A5A66','#33405A','#141C28'] },
+    decopunk:   { label: 'DECOPUNK',   teals: ['#106A64','#16857C','#0C4A45'], trim: '#062E2A', brass: '#F2CE5E', orange: '#F07A3C', cream: '#F6ECD2', cyan: '#46E0D6', pink: '#F06A9A', ground: '#0E403A', skies: ['#101838','#F0A25E','#F4CE9C','#F8E6C4','#F0C888','#8A3F70','#3A3070','#151640'] },
+    solarpunk:  { label: 'SOLARPUNK',  teals: ['#2E7D4F','#3E9A63','#206A3E'], trim: '#123E28', brass: '#F2C94C', orange: '#F09A3C', cream: '#F7F3E0', cyan: '#5AC8E0', pink: '#E88AB0', ground: '#3E7A52', skies: ['#16323E','#F5B36A','#CDE8E0','#DFF2E8','#BFE0D6','#E8946A','#3A6A7A','#12303A'] },
+    biopunk:    { label: 'BIOPUNK',    teals: ['#2A4A38','#38614A','#1E3428'], trim: '#0E2018', brass: '#B6E85A', orange: '#E06A4A', cream: '#E6EAD2', cyan: '#4FE0B0', pink: '#C86ACA', ground: '#243A2A', skies: ['#0E1812','#7A8A4E','#9EAE6E','#B0BE86','#8A9E5E','#4A3A5A','#22322A','#0C160F'] },
+    nanopunk:   { label: 'NANOPUNK',   teals: ['#3A4650','#4E5E6A','#28323A'], trim: '#161E24', brass: '#B8C6D0', orange: '#4AB0FF', cream: '#EEF3F7', cyan: '#3FE0F0', pink: '#7A8AFF', ground: '#2E3A44', skies: ['#0E141C','#8AA0B4','#BCD0DE','#D6E4EE','#AEC4D4','#5A6A8A','#2A3446','#0C1218'] },
+    silkpunk:   { label: 'SILKPUNK',   teals: ['#1E7A6A','#2A9684','#145A4E'], trim: '#0A342C', brass: '#E8C25A', orange: '#E24A32', cream: '#F4ECD6', cyan: '#4FD0C0', pink: '#E86A8A', ground: '#166054', skies: ['#101C20','#E0A46A','#EAD2A2','#F2E4C6','#DDBE8E','#9A4A4A','#2E4A4A','#0E181C'] }
+  };
+
+  var STYLE = 'atompunk';
+
+  function glowRGBA(hex, a) { var c = hexToRgb(hex); return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
+
+  function applyTheme(id) {
+    var th = THEMES[id]; if (!th) return;
+    STYLE = id;
+    var oldTeals = TEALS.slice(), oldBg = BG_TEALS.slice(), i, k, b;
+    TEALS = th.teals.slice();
+    TEAL_TRIM = th.trim; BRASS = th.brass; ORANGE = th.orange;
+    CREAM_HI = th.cream; NEON_CYAN = th.cyan; NEON_PINK = th.pink;
+    GLOW_BRASS = glowRGBA(BRASS, 0.55); GLOW_ORANGE = glowRGBA(ORANGE, 0.55);
+    GLOW_CYAN = glowRGBA(NEON_CYAN, 0.5); GLOW_PINK = glowRGBA(NEON_PINK, 0.5);
+    CREAM_RGB = hexToRgb(th.ground);
+    TRIM_RGB = hexToRgb(TEAL_TRIM);
+    CREAMHI_RGB = hexToRgb(CREAM_HI);
+    BG_TEALS = [];
+    for (i = 0; i < TEALS.length; i++) BG_TEALS.push(rgbStr(mixRgb(hexToRgb(TEALS[i]), CREAM_RGB, 0.32)));
+    ACCENTS = [NEON_CYAN, NEON_PINK, ORANGE];
+    ACC_GLOW = [GLOW_CYAN, GLOW_PINK, GLOW_ORANGE];
+    ACC_BAND = [glowRGBA(NEON_CYAN, 0.55), glowRGBA(NEON_PINK, 0.55), glowRGBA(ORANGE, 0.55)];
+    SIGN_COLORS = [NEON_CYAN, NEON_PINK, ORANGE, BRASS];
+    FW_COLORS = id === 'cyberpunk' ? [NEON_CYAN, NEON_PINK, CREAM_HI] : id === 'solarpunk' ? [BRASS, '#3E9A63', CREAM_HI] : id === 'silkpunk' ? [ORANGE, BRASS, NEON_PINK] : [BRASS, ORANGE, CREAM_HI];
+    HILL_FILL = hill ? rgbStr(mixRgb(hexToRgb(TEALS[1]), CREAM_RGB, 0.42)) : null;
+    HILL_TRACK = hill ? rgbStr(mixRgb(TRIM_RGB, CREAM_RGB, 0.3)) : null;
+    for (i = 0; i < TIMES.length; i++) {
+      TIMES[i].sky = th.skies[i];
+      TIMES[i].skyRgb = hexToRgb(th.skies[i]);
+      var cel = TIMES[i].cel;
+      cel.color = cel.kind === 'sun' ? (i === 1 ? ORANGE : BRASS) : CREAM_HI;
+      cel.rgb = hexToRgb(cel.color);
+    }
+    for (i = 0; i < allBuildings.length; i++) {
+      b = allBuildings[i];
+      if ((k = oldTeals.indexOf(b.color)) >= 0) b.color = TEALS[k];
+      else if ((k = oldBg.indexOf(b.color)) >= 0) b.color = BG_TEALS[k];
+      if (b.next && (k = oldTeals.indexOf(b.next.color)) >= 0) b.next.color = TEALS[k];
+    }
+  }
+
+  var STYLE_KEY = 'municitron-style';
+  var _styleParams = new URLSearchParams(window.location.search);
+  var styleId = _styleParams.get('style');
+  if (!styleId) { try { styleId = localStorage.getItem(STYLE_KEY); } catch (e) {} }
+  if (!styleId || !THEMES[styleId]) styleId = 'atompunk';
+  applyTheme(styleId);
+  (function () {
+    var sel = document.getElementById('style-select');
+    if (!sel) return;
+    sel.value = styleId;
+    sel.addEventListener('change', function () {
+      var v = sel.value;
+      if (!THEMES[v]) return;
+      applyTheme(v);
+      try { localStorage.setItem(STYLE_KEY, v); } catch (e) {}
+      postBulletin('ART DIRECTION — ' + THEMES[v].label + ' ENGAGED');
+    });
+  })();
 
   /* ---------------- debug surface ---------------- */
 
