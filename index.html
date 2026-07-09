@@ -44,8 +44,12 @@
         <span style="color:#C9A227;font-size:10px;font-weight:600;letter-spacing:2px;">ERA</span>
         <select id="style-select" title="Nazarban through the ages" style="appearance:none;-webkit-appearance:none;background:#0F2E2A;color:#F2E9D2;border:1px solid rgba(242,233,210,0.4);border-radius:3px;padding:3px 22px 3px 8px;font-family:inherit;font-size:12px;font-weight:600;letter-spacing:1px;cursor:pointer;background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2210%22><path d=%22M1 3l4 4 4-4%22 fill=%22none%22 stroke=%22%23C9A227%22 stroke-width=%221.6%22/></svg>');background-repeat:no-repeat;background-position:right 6px center;">
           <option value="steampunk">1858 · STEAMPUNK</option>
+          <option value="artdeco">1928 · ART DECO</option>
           <option value="atompunk">1958 · ATOMPUNK</option>
+          <option value="cassette">1984 · CASSETTE</option>
           <option value="cyberpunk">1999 · CYBERPUNK</option>
+          <option value="present">2026 · PRESENT DAY</option>
+          <option value="orbital">2050 · ORBITAL</option>
           <option value="solarpunk">2077 · SOLARPUNK</option>
           <option value="silkpunk">2140 · SILKPUNK</option>
         </select>
@@ -274,6 +278,21 @@
     </div>
   </div>
 
+  <!-- ============ POSTCARD ALBUM (the commissioner's collection) ============ -->
+  <div class="hatch-overlay album-overlay" id="album-overlay" hidden>
+    <div class="hatch-plate album-plate">
+      <div class="screw screw-tl"><i></i></div>
+      <div class="screw screw-tr"><i></i></div>
+      <div class="screw screw-bl"><i></i></div>
+      <div class="screw screw-br"><i></i></div>
+      <div class="hatch-title">POSTCARD ALBUM</div>
+      <div class="hatch-sub">EVERY CARD THIS CONSOLE HAS TRANSMITTED · NEWEST FIRST · A DOZEN KEPT</div>
+      <div class="album-grid" id="album-grid"></div>
+      <div class="hatch-foot">FORM PC-1 ARCHIVE · CLICK A CARD TO REVISIT ITS CITY</div>
+      <button class="hatch-close" id="album-close">CLOSE ALBUM</button>
+    </div>
+  </div>
+
   <!-- ============ POSTCARD OVERLAY (machine output) ============ -->
   <div class="postcard-overlay" id="postcard-overlay" hidden>
     <div class="postcard">
@@ -305,6 +324,7 @@
 <script src="js/city.js"></script>
 <script src="js/postcard-frame-data.js"></script>
 <script src="js/postcard.js"></script>
+<script src="js/album.js"></script>
 <script src="js/certificate.js"></script>
 <script src="js/almanac.js"></script>
 <script src="js/newsreel.js"></script>

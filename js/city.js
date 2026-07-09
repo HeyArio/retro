@@ -329,6 +329,26 @@
     obstacles.push({ x: parkX, half: PARK_HALF });
     obstacles.push({ x: driveIn.x, half: DRIVEIN_HALF });
 
+    // ---- river towns: a canal crosses Main Street under a stone bridge.
+    // Rivers draw on their own rng stream so every harbor and hill seed
+    // keeps its exact skyline; the flat seeds that gain a river redevelop
+    // once, deterministically, around the water.
+    var rngR = mulberry32(seed ^ 0x63641362);
+    var river = null;
+    if (!harbor && !hill && rngR() < 0.5) {
+      var RIVER_HALF = 46;
+      for (i = 0; i < 24; i++) {
+        var rvx = landL + span * (0.18 + rngR() * 0.64);
+        var rOK = Math.abs(rvx - parkX) > PARK_HALF + RIVER_HALF + 12 &&
+                  Math.abs(rvx - driveIn.x) > DRIVEIN_HALF + RIVER_HALF + 12;
+        for (var rz = 0; rz < zones.length && rOK; rz++) {
+          if (Math.abs(rvx - zones[rz]) < ZONE_HALVES[rz] + RIVER_HALF + 12) rOK = false;
+        }
+        if (rOK) { river = { x: rvx, half: RIVER_HALF }; break; }
+      }
+      if (river) obstacles.push({ x: river.x, half: river.half + 14 });
+    }
+
     function clearOfPlazas(px, pw) {
       for (var z = 0; z < obstacles.length; z++) {
         if (px < obstacles[z].x + obstacles[z].half && px + pw > obstacles[z].x - obstacles[z].half) {
@@ -398,6 +418,10 @@
     while (true) {
       var w2 = 55 + Math.floor(rng() * 60);       // 55–114
       if (x + w2 > landR - 20) break;
+      if (river && x + w2 > river.x - river.half - 6 && x < river.x + river.half + 6) {
+        x = river.x + river.half + 10;            // the back row parts for the water
+        continue;
+      }
       bg.push({
         x: x,
         w: w2,
@@ -573,7 +597,7 @@
     // a pneumatic-tube transit line strung across the skyline
     var tube = { x0: -80, x1: VIEW_W + 80 };
 
-    return { lots: lots, bg: bg, queue: queue, densify: densify, stars: stars, landmarks: landmarks, park: park, driveIn: driveIn, harbor: harbor, hill: hill, welcome: welcome, tower: tower, kiosk: kiosk, futureHouse: futureHouse, tube: tube, landL: landL, landR: landR };
+    return { lots: lots, bg: bg, queue: queue, densify: densify, stars: stars, landmarks: landmarks, park: park, driveIn: driveIn, harbor: harbor, hill: hill, river: river, welcome: welcome, tower: tower, kiosk: kiosk, futureHouse: futureHouse, tube: tube, landL: landL, landR: landR };
   }
 
   var plan = generatePlan();
@@ -588,6 +612,7 @@
   var kiosk = plan.kiosk;
   var harbor = plan.harbor;
   var hill = plan.hill;
+  var river = plan.river;
   var LAND_L = plan.landL;
   var LAND_R = plan.landR;
   var allBuildings = city.concat(bgCity);
@@ -741,6 +766,10 @@
       bird: pick(BIRDS),
       dish: pick(DISHES),
       rainfall: (22 + rng3() * 20).toFixed(1) + ' INCHES (DISPUTED)',
+      situation: harbor ? 'HARBOR TOWN — MIND THE GULLS'
+        : hill ? 'HILL TOWN — FUNICULAR SERVED'
+        : river ? 'RIVER TOWN — MIND THE BRIDGE'
+        : 'PRAIRIE TOWN — UNINTERRUPTED SKY',
       sister: SISTER_CITY,
       sisterSeed: SISTER_SEED
     };
@@ -868,6 +897,14 @@
   var robot = { active: false, timer: 16 + rng6() * 34, x: 0, dir: 1, v: 15 + rng6() * 6, ph: 0 };   // MECHANICAL MAN
   var taxi = { phase: 0, timer: 24 + rng4() * 40, t: 0, x: 0, y: 0, dir: 1, padX: 0 };   // flying-saucer taxi
 
+  /* ---------------- civic incidents ----------------------------------- */
+  /* Small emergencies the town handles itself: a rooftop fire brings the
+     brigade (bell, ladder truck, hose arc — rain helps), and a power
+     outage drops every window at once, then restores block by block in
+     a wave. Both leave a record and a bulletin; neither leaves a mark. */
+  var fire = { phase: 0, timer: 110 + rng6() * 150, t: 0, b: null, truckX: 0, dir: 1, burn: 0 };
+  var outage = { phase: 0, timer: 160 + rng6() * 240, t: 0, frontX: 0 };
+
   // harbor towns keep their traffic on the land side of the quay
   var CAR_L = harbor && harbor.side === -1 ? harbor.shore + 10 : -30;
   var CAR_R = harbor && harbor.side === 1 ? harbor.shore - 10 : VIEW_W + 30;
@@ -927,6 +964,24 @@
   // autumn leaves off the park trees, and the odd falling star
   var leaves = [];
   var shoot = { t: 0, x: 0, y: 0, dx: 0, dy: 0, timer: 50 + rng6() * 90 };
+
+  /* ---------------- the sky calendar --------------------------------- */
+  /* Larger skies on their own seeded stream (rng7): August and December
+     bring meteor showers (the falling stars come in flurries), every
+     town has a named comet on a long civic orbit, the moon keeps
+     phases, and once in a great while the moon crosses the sun and the
+     whole town stops to watch. */
+  var rng7 = mulberry32(seed ^ 0x94D049BB);
+  var COMET_NAME = 'COMET ' + CITY_NAME.split(/[ -]/)[0].toUpperCase();
+  var comet = { active: false, timer: 140 + rng7() * 200, x: 0, y: 0, vx: 0, vy: 0, dur: 0, t: 0 };
+  var eclipse = { active: false, timer: 200 + rng7() * 260, t: 0, dur: 16 };
+  var meteorTimer = 2 + rng7() * 6;
+
+  function eclipseCover() {
+    if (!eclipse.active) return 0;
+    var p = eclipse.t / eclipse.dur;              // 0 → 1 across the pass
+    return Math.max(0, 1 - Math.abs(p - 0.5) * 4);   // full cover mid-pass
+  }
 
   // mail from the sister city: a little postcard of THEIR skyline,
   // sketched from the sister seed, slides in now and then
@@ -1052,12 +1107,39 @@
   // Layers translate by parX × their depth factor in drawScene.
   var parX = 0;
   var parTarget = 0;
+  var parY = 0;
+  var parTargetY = 0;
   var lastPointer = -100;
   window.addEventListener('pointermove', function (e) {
     var w = window.innerWidth || 1;
+    var h = window.innerHeight || 1;
     parTarget = ((e.clientX / w) - 0.5) * 24;
+    parTargetY = ((e.clientY / h) - 0.5) * 9;
     lastPointer = effT;
   }, { passive: true });
+
+  // a low prairie wind: rain slants, snow drifts and the puddles ring
+  // with the same slow gusts, so the whole sky agrees about the weather
+  var gust = 0;
+
+  // ceremonies lean the camera in: a slight push on the breathing zoom
+  // whenever the town has something to watch, decaying over a few beats
+  var camPush = 0;
+  var camPushSm = 0;
+  ['municitron:parade', 'municitron:salute', 'municitron:concert',
+   'municitron:whistle'].forEach(function (ev) {
+    document.addEventListener(ev, function () { camPush = 1; });
+  });
+
+  // the era retune: swapping ages rolls the picture like a set being
+  // struck — static, one pass of the vertical hold, a flash, then the
+  // new age settles (drawEraFX; applyTheme arms it)
+  var eraFX = { t: 0, dur: 0.9 };
+  var themeBooted = false;
+
+  // the newsreel leader: a film-style title card the camera records
+  // over the first moments of every reel (drawNewsreelCard)
+  var newsreelCard = 0;
 
   /* ---------------- civic calendar ---------------- */
   /* Sixteen real seconds to a civic month; the seasons turn even while
@@ -1084,12 +1166,17 @@
       postBulletin('FOUNDERS’ DAY JULY 4 — FIREWORKS ORDERED');
       foundersTimer = MONTH_LEN * 0.2;
       startParade('FOUNDERS’ DAY PARADE ON MAIN STREET — WAVE');
+    } else if (calendar.month === 7) {
+      postBulletin('METEOR SHOWER THIS MONTH — BLANKETS ON THE HILL');
     } else if (calendar.month === 11) {
       postBulletin('MUNICIPAL LIGHT-UP — CREWS STRINGING THE STREET');
+      postBulletin('GEMINID METEORS EXPECTED — DRESS WARM');
       if (harbor) postBulletin('HARBOR ICED — FERRY SUSPENDED UNTIL THAW');
+      if (river) postBulletin('RIVER ICED OVER — SKATES SHARPENED');
     } else if (calendar.month === 2) {
       postBulletin('PARK BLOSSOMS REPORTED — BRING A CAMERA');
       if (harbor) postBulletin('THAW REPORTED — FERRY SERVICE RESUMES');
+      if (river) postBulletin('RIVER RUNNING FREE — BARGE RESUMES');
     } else if (calendar.month === 8) {
       postBulletin('SCHOOL RESUMES — STREETS QUIET UNTIL THREE O’CLOCK');
     } else if (calendar.month === 10) {
@@ -1459,6 +1546,7 @@
   });
   document.addEventListener('municitron:newsreel', function () {
     postBulletin('NEWSREEL CAMERA ROLLING — LOOK CIVIC');
+    newsreelCard = 1.5;                           // the reel opens on its title
   });
   document.addEventListener('municitron:newsreel-done', function () {
     postBulletin('NEWSREEL DEVELOPED — SCREENING IN THE LOBBY');
@@ -1672,7 +1760,79 @@
           robot.active = true; robot.ph = 0;
           robot.dir = rng6() < 0.5 ? -1 : 1;
           robot.x = robot.dir === 1 ? CAR_L - 16 : CAR_R + 16;
-          if (rng6() < 0.5) postBulletin('MECHANICAL MAN DEMONSTRATION ON MAIN STREET \u2014 QUITE SAFE');
+          if (rng6() < 0.5 && eraHas('robot')) postBulletin('MECHANICAL MAN DEMONSTRATION ON MAIN STREET \u2014 QUITE SAFE');
+        }
+      }
+
+      // ---- civic incidents ----
+      // a rooftop fire: smolder → the brigade rides → the hose arcs → out.
+      // Rain does half the brigade's work for it.
+      if (fire.phase === 0) {
+        fire.timer -= dt;
+        if (fire.timer <= 0 && lastEmitted > 3000) {
+          var fb = null, fg = 0;
+          while (fg++ < 20 && !fb) {
+            var cand2 = city[Math.floor(rng6() * city.length)];
+            if (cand2.progress === 1 && !cand2.nazarban && cand2.h > 60 &&
+                cand2.x > CAR_L + 40 && cand2.x + cand2.w < CAR_R - 40) fb = cand2;
+          }
+          if (fb) {
+            fire.phase = 1; fire.t = 0; fire.b = fb; fire.burn = 0;
+            var fcx = fb.x + fb.w / 2;
+            fire.dir = fcx > (CAR_L + CAR_R) / 2 ? 1 : -1;
+            fire.truckX = fire.dir === 1 ? CAR_L - 40 : CAR_R + 40;
+            postBulletin('FIRE ON THE ROOFLINE — BRIGADE TURNING OUT');
+            recordFirst('fire', 'FIRST FIRE ATTENDED — NO LOSSES');
+            document.dispatchEvent(new CustomEvent('municitron:fire'));
+          } else fire.timer = 30;
+        }
+      } else {
+        fire.t += dt;
+        var douse = 1 + weatherLevel[1] * 1.6;      // rain fights the fire too
+        if (fire.phase === 1) {                     // smolder while the truck rides
+          fire.burn = Math.min(1, fire.burn + dt * 0.55);
+          var fdest = fire.b.x + (fire.dir === 1 ? -18 : fire.b.w + 18);
+          fire.truckX += fire.dir * 120 * dt;
+          if ((fire.dir === 1 && fire.truckX >= fdest) ||
+              (fire.dir === -1 && fire.truckX <= fdest)) {
+            fire.truckX = fdest; fire.phase = 2; fire.t = 0;
+          }
+        } else if (fire.phase === 2) {              // the hose does its work
+          fire.burn = Math.max(0, fire.burn - dt * 0.3 * douse);
+          if (fire.burn <= 0) {
+            fire.phase = 3; fire.t = 0;
+            postBulletin('FIRE OUT — BRIGADE COMMENDED, KETTLE ON');
+          }
+        } else if (fire.phase === 3 && fire.t > 2.5) {   // the brigade rolls home
+          fire.phase = 0; fire.b = null;
+          fire.timer = 200 + rng6() * 260;
+        }
+      }
+
+      // a power outage: the grid drops all at once after dark, then
+      // comes back block by block, west to east
+      if (outage.phase === 0) {
+        outage.timer -= dt;
+        if (outage.timer <= 0) {
+          if (curLit > 0.6 && lastEmitted > 4000) {
+            outage.phase = 1; outage.t = 0;
+            postBulletin('GRID FAULT — CITY DARK — CREWS DISPATCHED');
+            recordFirst('outage', 'FIRST OUTAGE WEATHERED');
+            document.dispatchEvent(new CustomEvent('municitron:outage'));
+          } else outage.timer = 20;                 // try again when it's dark
+        }
+      } else if (outage.phase === 1) {
+        outage.t += dt;
+        if (outage.t > 2.4) {
+          outage.phase = 2; outage.t = 0;
+          outage.frontX = LAND_L > 0 ? LAND_L - 20 : -20;
+        }
+      } else if (outage.phase === 2) {
+        outage.frontX += 170 * dt;                  // the restore wave
+        if (outage.frontX > (LAND_R > 0 ? LAND_R : VIEW_W) + 40) {
+          outage.phase = 0;
+          outage.timer = 380 + rng6() * 420;
+          postBulletin('POWER RESTORED BLOCK BY BLOCK — NAZARBAN HOUSE NEVER BLINKED');
         }
       }
 
@@ -1727,11 +1887,14 @@
         }
       }
 
+      // the iced months freeze whatever water the town has — harbor or
+      // river — easing in and out so the freeze reads as weather, not a cut
+      var iced = calendar.month === 11 || calendar.month <= 1;
+      icedLevel += ((iced ? 1 : 0) - icedLevel) * Math.min(1, dt / 2);
+
       // the harbor ferry crosses the bay on its own schedule — except in
       // the iced months, when it stays tied up until the thaw
       if (harbor) {
-        var iced = calendar.month === 11 || calendar.month <= 1;
-        icedLevel += ((iced ? 1 : 0) - icedLevel) * Math.min(1, dt / 2);
         var waterL = harbor.side === 1 ? harbor.shore + 30 : -50;
         var waterR = harbor.side === 1 ? VIEW_W + 50 : harbor.shore - 30;
         if (ferry.active) {
@@ -1809,7 +1972,7 @@
       if (smokeTimer <= 0) {
         smokeTimer = 0.35 + rng6() * 0.5;
         var sb = city[Math.floor(rng6() * city.length)];
-        if (sb.chimney && sb.progress === 1 && smoke.length < SMOKE_MAX) {
+        if (sb.chimney && sb.progress === 1 && smoke.length < SMOKE_MAX && eraHas('smoke')) {
           smoke.push({
             x: sb.x + sb.chimney * sb.w,
             y: GROUND_Y - sb.h - 14,
@@ -1844,8 +2007,17 @@
 
       // parallax follows the pointer; after six idle seconds the camera
       // wanders on its own so the scene breathes untouched
-      if (effT - lastPointer > 6) parTarget = Math.sin(effT * 0.06) * 7;
+      if (effT - lastPointer > 6) {
+        parTarget = Math.sin(effT * 0.06) * 7;
+        parTargetY = Math.sin(effT * 0.043) * 3;
+      }
       parX += (parTarget - parX) * Math.min(1, dt * 2.5);
+      parY += (parTargetY - parY) * Math.min(1, dt * 2.5);
+      gust = Math.sin(effT * 0.13) * 0.6 + Math.sin(effT * 0.047) * 0.4;
+      if (camPush > 0) camPush = Math.max(0, camPush - dt / 3.2);
+      camPushSm += (camPush - camPushSm) * Math.min(1, dt * 2.2);
+      if (eraFX.t > 0) eraFX.t = Math.max(0, eraFX.t - dt);
+      if (newsreelCard > 0) newsreelCard = Math.max(0, newsreelCard - dt);
 
       // the parade marches until its tail clears the far edge
       if (parade.active) {
@@ -1919,7 +2091,7 @@
 
       // citizens stroll while the town is awake — and stop for fireworks
       // (or wherever they stand when the noon whistle blows)
-      var gawking = fw.show > 0 || fw.sparks.length > 0 || whistleT > 0;
+      var gawking = fw.show > 0 || fw.sparks.length > 0 || whistleT > 0 || eclipseCover() > 0.4;
       var wantFolks = Math.max(1, Math.min(folks.length, 1 + Math.floor(lastEmitted / 6000)));
       if (timeTo === 0 || timeTo === 6 || timeTo === 7) wantFolks = Math.min(wantFolks, 2);
       var walking = 0;
@@ -2003,10 +2175,16 @@
         if (p.life > p.max) notes.splice(i, 1);
       }
 
-      // once in a while, a falling star
+      // once in a while, a falling star — and in the shower months
+      // (August, December) they come in flurries a few seconds apart
+      var showerMonth = calendar.month === 7 || calendar.month === 11;
       if (shoot.t > 0) shoot.t -= dt;
       else {
         shoot.timer -= dt;
+        if (showerMonth) {
+          meteorTimer -= dt;
+          if (meteorTimer <= 0) { meteorTimer = 2.5 + rng7() * 6; shoot.timer = 0; }
+        }
         if (shoot.timer <= 0) {
           shoot.timer = 60 + rng6() * 120;
           shoot.t = 0.5;
@@ -2014,6 +2192,52 @@
           shoot.y = (40 + rng6() * 120) * SKY_K;
           shoot.dx = (rng6() < 0.5 ? -1 : 1) * (200 + rng6() * 90);
           shoot.dy = 70 + rng6() * 50;
+        }
+      }
+
+      // the town's own comet, on its long civic orbit
+      if (comet.active) {
+        comet.t += dt;
+        comet.x += comet.vx * dt;
+        comet.y += comet.vy * dt;
+        if (comet.t >= comet.dur) {
+          comet.active = false;
+          comet.timer = 300 + rng7() * 400;
+        }
+      } else {
+        comet.timer -= dt;
+        if (comet.timer <= 0) {
+          comet.active = true;
+          comet.t = 0;
+          comet.dur = 70 + rng7() * 30;
+          var fromL = rng7() < 0.5;
+          comet.x = fromL ? -60 : VIEW_W + 60;
+          comet.y = (46 + rng7() * 60) * SKY_K;
+          comet.vx = (fromL ? 1 : -1) * (VIEW_W + 120) / comet.dur;
+          comet.vy = 8 / comet.dur;
+          postBulletin(COMET_NAME + ' VISIBLE TONIGHT — ONCE A GENERATION');
+          recordFirst('comet', 'FIRST COMET OBSERVED — ' + COMET_NAME);
+        }
+      }
+
+      // and once in a great while, the moon crosses the sun
+      if (eclipse.active) {
+        eclipse.t += dt;
+        if (eclipse.t >= eclipse.dur) {
+          eclipse.active = false;
+          eclipse.timer = 500 + rng7() * 500;
+          postBulletin('ECLIPSE CONCLUDED — COMMERCE RESUMES');
+        }
+      } else {
+        eclipse.timer -= dt;
+        // only begin in full day and fair weather, so the covered sun shows
+        if (eclipse.timer <= 0 && timeTo === 3 && timeLevel[3] > 0.9 &&
+            weatherLevel[1] < 0.3 && weatherLevel[2] < 0.3) {
+          eclipse.active = true;
+          eclipse.t = 0;
+          postBulletin('SOLAR ECLIPSE IN PROGRESS — DO NOT LOOK DIRECTLY');
+          recordFirst('eclipse', 'FIRST ECLIPSE STOOD UNDER');
+          document.dispatchEvent(new CustomEvent('municitron:eclipse'));
         }
       }
 
@@ -2147,7 +2371,12 @@
     wireTimer -= dt;
     if (wireTimer <= 0) {
       wireTimer = 24 + rng5() * 36;
-      if (!bulletin.queue.length) postBulletin(nextWireLine());
+      if (!bulletin.queue.length) {
+        var eraPool = ERA_WIRE[STYLE];               // the wire speaks the age
+        postBulletin(eraPool && rng5() < 0.4
+          ? eraPool[Math.floor(rng5() * eraPool.length)]
+          : nextWireLine());
+      }
     }
 
     // rotate the bulletin wire (its own clock — runs even in DORMANT)
@@ -2294,7 +2523,7 @@
     }
     for (var s = 0; s < city.length; s++) {
       var sb = city[s];
-      if (!sb.chimney || sb.progress !== 1) continue;
+      if (!sb.chimney || sb.progress !== 1 || !eraHas('smoke')) continue;
       for (var n = 0; n < 3 && smoke.length < SMOKE_MAX; n++) {
         smoke.push({
           x: sb.x + sb.chimney * sb.w,
@@ -2312,6 +2541,12 @@
   // the WIRE PHOTO desk acknowledges its order (js/wirephoto.js prints)
   document.addEventListener('municitron:wirephoto', function () {
     postBulletin('WIRE PHOTO DISPATCHED — HOLD FOR THE EVENING EDITION');
+  });
+
+  // the FORMS dial's fifth detent: the postcard album (js/album.js opens
+  // the book; the wire just notes the occasion)
+  document.addEventListener('municitron:album', function () {
+    postBulletin('POSTCARD ALBUM OPENED — EVERY CARD ACCOUNTED FOR');
   });
 
   // the canvas lives inside the CSS transform-scaled machine, so the
@@ -2363,11 +2598,34 @@
     ctx.beginPath();
     ctx.arc(cel.x, cel.y, cel.r, 0, Math.PI * 2);
     ctx.fill();
-    if (cel.kind === 'moon') {                    // crescent: punch with sky color
-      ctx.fillStyle = sky;
-      ctx.beginPath();
-      ctx.arc(cel.x + cel.r * 0.38, cel.y - cel.r * 0.22, cel.r * 0.86, 0, Math.PI * 2);
-      ctx.fill();
+    if (cel.kind === 'moon') {                    // phases: punch with sky color
+      // the punch disc slides with the calendar — new crescent, quarter,
+      // gibbous, and clear of the face entirely on full-moon months
+      var ph = ((calendar.month % 4) + calendar.t) / 4;   // 0→1 lunation
+      var off = 0.38 + ph * 1.9;                  // slides off to the right
+      if (off < 1.86) {
+        ctx.fillStyle = sky;
+        ctx.beginPath();
+        ctx.arc(cel.x + cel.r * off, cel.y - cel.r * 0.22, cel.r * 0.86, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    if (cel.kind === 'sun') {                     // the eclipse, when it comes
+      var cov = eclipseCover();
+      if (cov > 0.01) {
+        var p = eclipse.t / eclipse.dur;
+        ctx.fillStyle = sky;
+        ctx.beginPath();                          // the moon disc crossing
+        ctx.arc(cel.x + cel.r * 2.4 * (0.5 - p) * 2, cel.y - cel.r * 0.1, cel.r * 0.98, 0, Math.PI * 2);
+        ctx.fill();
+        if (cov > 0.75) {                         // corona at totality
+          ctx.strokeStyle = 'rgba(242, 233, 210, ' + ((cov - 0.75) * 2.4).toFixed(3) + ')';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(cel.x, cel.y, cel.r + 3, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
     }
     ctx.globalAlpha = 1;
   }
@@ -2406,7 +2664,7 @@
       var p = rain[i];
       if (p.y < -30) continue;
       ctx.moveTo(p.x, p.y);
-      ctx.lineTo(p.x - 0.22 * p.l, p.y + p.l);
+      ctx.lineTo(p.x - (0.22 + gust * 0.34) * p.l, p.y + p.l);
     }
     ctx.stroke();
     ctx.globalAlpha = 1;
@@ -2419,7 +2677,7 @@
     ctx.beginPath();
     for (var i = 0; i < snow.length; i++) {
       var p = snow[i];
-      var sway = Math.sin(effT * p.f + p.ph) * p.amp;
+      var sway = Math.sin(effT * p.f + p.ph) * p.amp + gust * 26;
       dotPath(((p.x + sway) % VIEW_W + VIEW_W) % VIEW_W, p.y, p.r);
     }
     ctx.fill();
@@ -2635,7 +2893,7 @@
   // the drive-in: a cleared lot, a big screen, and on good nights a
   // picture nobody in the front row will describe the same way twice
   function drawDriveIn(litLevel) {
-    if (!driveIn) return;
+    if (!driveIn || !eraHas('driveIn')) return;
     var x = driveIn.x;
     var showing = litLevel > 0.6;
     var wheelUp = landmarks[3].progress > 0;      // the fairground took the lot
@@ -3330,6 +3588,40 @@
     ctx.globalAlpha = 1;
   }
 
+  // the town's comet: a bright head, a long two-part tail, always
+  // pointed away from where the sun would be
+  function drawComet(starLevel) {
+    if (!comet.active || starLevel <= 0.3 || reducedMotion.matches) return;
+    var a = Math.min(1, comet.t / 4, (comet.dur - comet.t) / 4) * starLevel;
+    var dir = comet.vx > 0 ? -1 : 1;              // tail trails the motion
+    ctx.globalAlpha = a * 0.85;
+    var tg = ctx.createLinearGradient(comet.x, comet.y, comet.x + dir * 90, comet.y - 14);
+    tg.addColorStop(0, 'rgba(242, 233, 210, 0.8)');
+    tg.addColorStop(1, 'rgba(242, 233, 210, 0)');
+    ctx.strokeStyle = tg;
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(comet.x, comet.y);
+    ctx.lineTo(comet.x + dir * 90, comet.y - 14);
+    ctx.stroke();
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = a * 0.5;
+    ctx.beginPath();
+    ctx.moveTo(comet.x, comet.y);
+    ctx.lineTo(comet.x + dir * 70, comet.y + 6);
+    ctx.stroke();
+    ctx.lineCap = 'butt';
+    ctx.globalAlpha = a;
+    ctx.shadowBlur = 9; ctx.shadowColor = CREAM_HI;
+    ctx.fillStyle = CREAM_HI;
+    ctx.beginPath();
+    ctx.arc(comet.x, comet.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+  }
+
   function drawNotes() {
     if (reducedMotion.matches || !notes.length) return;
     ctx.font = '600 15px Jost, Futura, sans-serif';
@@ -3409,6 +3701,124 @@
 
   // the bay: water in the ground band, a pier, a moored sloop, the
   // lighthouse on its rock, and the ferry when it runs
+  /* ---------------- the river (fourth terrain) ------------------------- */
+  /* A canal crosses Main Street under a stone bridge: a current that
+     runs toward the fore, a moored barge that bobs, lamp glints after
+     dark — and in the iced months the water freezes and the skaters
+     come out. Rendered after the era ground so the water always wins. */
+
+  var skaters = [
+    { r: 14, sp: 0.9, ph: 0 },
+    { r: 9,  sp: -1.3, ph: 2.1 }
+  ];
+
+  function drawRiver(skyRgb, starLevel) {
+    if (!river) return;
+    var L = river.x - river.half, R = river.x + river.half;
+    var by = GROUND_Y, bh = VIEW_H - GROUND_Y + 26;
+    var i;
+
+    var waterRgb = mixRgb(hexToRgb('#1D4E52'), skyRgb, 0.14);
+    waterRgb = mixRgb(waterRgb, CREAMHI_RGB, icedLevel * 0.3);
+    ctx.fillStyle = rgbStr(waterRgb);
+    ctx.fillRect(L, by, R - L, bh);
+
+    ctx.save();
+    ctx.beginPath(); ctx.rect(L, by, R - L, bh); ctx.clip();
+
+    if (icedLevel < 0.98) {                       // the current, running to the fore
+      ctx.strokeStyle = 'rgba(242, 233, 210, 0.38)';
+      ctx.lineWidth = 1.4;
+      ctx.globalAlpha = 1 - icedLevel;
+      ctx.beginPath();
+      for (i = 0; i < 5; i++) {
+        var colX = L + 8 + i * ((R - L - 16) / 4);
+        var drift = reducedMotion.matches ? 0 : (effT * (10 + (i % 3) * 5)) % 24;
+        for (var wy3 = by + 2 + drift - 24; wy3 < by + bh; wy3 += 24) {
+          if (wy3 < by + 2) continue;
+          ctx.moveTo(colX - 5, wy3);
+          ctx.lineTo(colX + 5, wy3);
+        }
+      }
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    if (starLevel > 0.3 && icedLevel < 0.5) {     // lamp glints on open water
+      ctx.globalAlpha = 0.3 * starLevel;
+      ctx.fillStyle = BRASS;
+      ctx.fillRect(river.x - 18, by + 4, 2.4, 20);
+      ctx.fillStyle = ORANGE;
+      ctx.fillRect(river.x + 14, by + 6, 2.4, 16);
+      ctx.globalAlpha = 1;
+    }
+
+    if (icedLevel > 0.02) {                       // frozen over
+      ctx.fillStyle = CREAM_HI;
+      ctx.globalAlpha = icedLevel * 0.8;
+      ctx.fillRect(L, by, R - L, bh);
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = 'rgba(30, 71, 68, 0.25)'; // skate tracks
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.ellipse(river.x, by + 22, river.half * 0.5, 8, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(river.x - 6, by + 30, river.half * 0.3, 5, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      if (icedLevel > 0.6 && !reducedMotion.matches && starLevel < 0.5) {
+        for (i = 0; i < skaters.length; i++) {    // the skaters, mid-glide
+          var sk = skaters[i];
+          var a = effT * sk.sp + sk.ph;
+          var sx3 = river.x + Math.cos(a) * sk.r * 1.6;
+          var sy4 = by + 22 + (i ? 8 : 0) + Math.sin(a) * sk.r * 0.4;
+          ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(sx3, sy4 - 4); ctx.lineTo(sx3 - Math.cos(a) * 3, sy4);
+          ctx.stroke(); ctx.lineCap = 'butt';
+          ctx.fillStyle = ORANGE;
+          ctx.fillRect(sx3 - 1.6, sy4 - 9.5, 3.2, 6);
+          ctx.fillStyle = SKIN;
+          ctx.beginPath(); ctx.arc(sx3, sy4 - 11, 1.8, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+    }
+    ctx.restore();
+
+    if (icedLevel < 0.5) {                        // the barge, moored off the bridge
+      var bob = reducedMotion.matches ? 0 : Math.sin(effT * 0.9) * 1.2;
+      var bx2 = river.x + river.half * 0.35, byb = by + 26 + bob;
+      ctx.fillStyle = mixHex(TEALS[0], '#101010', 0.2);
+      ctx.beginPath();
+      ctx.moveTo(bx2 - 16, byb); ctx.lineTo(bx2 + 16, byb);
+      ctx.lineTo(bx2 + 12, byb + 7); ctx.lineTo(bx2 - 12, byb + 7);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = ORANGE; ctx.fillRect(bx2 - 16, byb, 32, 1.6);
+      ctx.fillStyle = TEAL_TRIM; ctx.fillRect(bx2 - 4, byb - 5, 8, 5);
+      ctx.fillStyle = curLit > 0.55 ? glowRGBA(BRASS, 0.9) : CREAM_HI;
+      ctx.fillRect(bx2 - 2.4, byb - 3.8, 2, 2);
+    }
+
+    // the stone bridge carries Main Street over the water
+    ctx.fillStyle = 'rgba(6, 20, 18, 0.55)';      // arch shadow under the deck
+    ctx.beginPath();
+    ctx.moveTo(river.x - river.half * 0.6, by + 4);
+    ctx.quadraticCurveTo(river.x, by + 26, river.x + river.half * 0.6, by + 4);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = TEAL_TRIM;                    // the deck
+    ctx.fillRect(L - 6, by - 2, R - L + 12, 6);
+    ctx.fillStyle = BRASS;                        // the brass course carries through
+    ctx.fillRect(L - 6, by - 3, R - L + 12, 1.4);
+    ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 1.4;   // the railing
+    ctx.beginPath();
+    ctx.moveTo(L - 4, by - 9); ctx.lineTo(R + 4, by - 9);
+    for (i = 0; i <= 6; i++) {
+      var px2 = L - 4 + (R - L + 8) * i / 6;
+      ctx.moveTo(px2, by - 9); ctx.lineTo(px2, by - 2);
+    }
+    ctx.stroke();
+  }
+
   function drawHarbor(skyRgb, starLevel) {
     if (!harbor) return;
     var wL = harbor.side === 1 ? harbor.shore : -80;
@@ -3580,7 +3990,7 @@
   // the milk truck: a cream panel van on the dawn round — rounded roof,
   // snub cab, dairy stripe, wheels that actually meet the road
   function drawMilk(litLevel) {
-    if (!milk.active || reducedMotion.matches) return;
+    if (!milk.active || reducedMotion.matches || !eraHas('milk')) return;
     var d = milk.dir;
     var y = GROUND_Y - 12;
     var L2 = d === 1 ? milk.x : milk.x + 26;      // rear of the box
@@ -3691,7 +4101,7 @@
   }
 
   function drawSearchlights(starLevel) {
-    if (starLevel <= 0.35) return;
+    if (starLevel <= 0.35 || !eraHas('searchlights')) return;
     var beacon = null;
     for (var i = 0; i < city.length; i++) {
       if (city[i].mast && city[i].progress === 1) { beacon = city[i]; break; }
@@ -3716,7 +4126,7 @@
   }
 
   function drawSputnik(starLevel) {
-    if (!sputnik.active || reducedMotion.matches || starLevel <= 0.05) return;
+    if (!sputnik.active || reducedMotion.matches || starLevel <= 0.05 || !eraHas('sputnik')) return;
     var x = -40 + sputnik.p * (VIEW_W + 80);
     var y = (84 + sputnik.p * 52) * SKY_K;
     ctx.globalAlpha = Math.min(1, starLevel) * 0.9;
@@ -4155,7 +4565,7 @@
   // that pour flat cones of light onto the street after dark
   function drawStreetlamps(litLevel) {
     if (!streetlamps) return;
-    var glowing = litLevel > 0.55;
+    var glowing = litLevel > 0.55 && outage.phase !== 1;
     var x;
     if (glowing) {                                // light cones first, batched
       ctx.fillStyle = 'rgba(242, 233, 210, 0.09)';
@@ -4307,6 +4717,95 @@
     ctx.fillText('KNAZ-TV · MUNICIPAL TELECAST', 44, 37);
     if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
   }
+
+  /* ---------------- the fire brigade ----------------------------------- */
+  // flames on the roofline, the ladder truck at the curb, and a hose
+  // arc that does honest work — all flat poster shapes, no gradients
+  function drawFire(litLevel) {
+    if (fire.phase === 0 || !fire.b) return;
+    var b = fire.b;
+    var top = GROUND_Y - b.h;
+    var fcx = b.x + b.w / 2;
+    var i;
+
+    if (fire.burn > 0.02 && !reducedMotion.matches) {   // the flames
+      var tongues = Math.max(2, Math.round(b.w / 16));
+      for (i = 0; i < tongues; i++) {
+        var tx = b.x + b.w * (i + 0.5) / tongues;
+        var fl2 = (Math.sin(effT * 9 + i * 2.6) * 0.5 + 0.5);
+        var fh = (10 + fl2 * 14) * fire.burn;
+        ctx.fillStyle = ORANGE;
+        ctx.beginPath();
+        ctx.moveTo(tx - 5, top);
+        ctx.quadraticCurveTo(tx - 2, top - fh * 0.6, tx + Math.sin(effT * 7 + i) * 3, top - fh);
+        ctx.quadraticCurveTo(tx + 3, top - fh * 0.5, tx + 5, top);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = BRASS;                          // hot core
+        ctx.beginPath();
+        ctx.moveTo(tx - 2.4, top);
+        ctx.quadraticCurveTo(tx, top - fh * 0.55, tx + Math.sin(effT * 8 + i) * 1.6, top - fh * 0.62);
+        ctx.quadraticCurveTo(tx + 1.6, top - fh * 0.3, tx + 2.4, top);
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.globalAlpha = fire.burn * 0.5;                // smoke over the flames
+      ctx.fillStyle = 'rgba(30, 30, 30, 0.6)';
+      for (i = 0; i < 3; i++) {
+        var sp2 = (effT * 14 + i * 17) % 46;
+        ctx.beginPath();
+        ctx.arc(fcx + Math.sin(effT + i * 2) * 8 - sp2 * 0.24, top - 14 - sp2, 5 + sp2 * 0.16, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // the ladder truck (the town's own burnt-orange)
+    var txx = fire.truckX, gy2 = GROUND_Y + 20;
+    var night2 = litLevel > 0.55;
+    ctx.fillStyle = TEAL_TRIM;
+    ctx.beginPath();
+    ctx.arc(txx - 12, gy2 - 3, 3.4, 0, Math.PI * 2);
+    ctx.arc(txx + 12, gy2 - 3, 3.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = ORANGE;
+    ctx.fillRect(txx - 18, gy2 - 14, 36, 10);
+    ctx.fillRect(fire.dir === 1 ? txx + 12 : txx - 18, gy2 - 19, 6, 5);   // cab
+    ctx.fillStyle = CREAM_HI;
+    ctx.fillRect(txx - 14, gy2 - 12, 28, 1.6);          // coach line
+    var beacon = Math.sin(effT * 10) > 0;               // the gumball light
+    if (beacon) { ctx.shadowBlur = 7; ctx.shadowColor = ORANGE; }
+    ctx.fillStyle = beacon ? ORANGE : mixHex(ORANGE, TEAL_TRIM, 0.5);
+    ctx.fillRect(txx - 2, gy2 - 22, 4, 3.4);
+    ctx.shadowBlur = 0;
+    // the ladder goes up once the truck has stopped at the curb
+    if (fire.phase >= 2) {
+      ctx.strokeStyle = BRASS; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(txx, gy2 - 15);
+      ctx.lineTo(fcx + (fire.dir === 1 ? -b.w * 0.3 : b.w * 0.3), top + 6);
+      ctx.stroke();
+    }
+
+    if (fire.phase === 2 && !reducedMotion.matches) {   // the hose arc
+      var hx0 = txx, hy0 = gy2 - 16;
+      var hx1 = fcx, hy1 = top - 6;
+      var mx = (hx0 + hx1) / 2, my = Math.min(hy0, hy1) - 34;
+      ctx.strokeStyle = 'rgba(140, 190, 200, 0.75)';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(hx0, hy0);
+      ctx.quadraticCurveTo(mx, my, hx1, hy1);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(140, 190, 200, 0.8)';       // droplets off the crest
+      for (i = 0; i < 4; i++) {
+        var dp = ((effT * 1.7 + i * 0.23) % 1);
+        var ox = hx0 + (hx1 - hx0) * dp + (hx1 - hx0) * 0.02;
+        var oy = (1 - dp) * (1 - dp) * hy0 + 2 * (1 - dp) * dp * my + dp * dp * hy1;
+        ctx.fillRect(ox - 1, oy + 3, 2, 2);
+      }
+    }
+  }
+
+  /* ---------------- the fire brigade ends ------------------------------ */
 
   // factory calibration card, straight from the Nazarban service manual
   function drawTestPattern() {
@@ -4652,7 +5151,7 @@
 
   // the town's Googie welcome sign, a boomerang panel on two raked poles
   function drawWelcome(litLevel) {
-    if (!welcome) return;
+    if (!welcome || !eraHas('welcome')) return;
     var x = welcome.x, night = litLevel > 0.55;
     var pw = 152, ph = 46, poleH = 56;
     var py = GROUND_Y - poleH - ph, px = x - pw / 2;
@@ -4709,7 +5208,7 @@
   // observation deck and a spoked gyro-wheel crown; the World-of-Tomorrow
   // centrepiece, standing behind the skyline
   function drawTower(litLevel) {
-    if (!tower) return;
+    if (!tower || !eraHas('tower')) return;
     var x = tower.x, h = tower.h, night = litLevel > 0.55;
     var topY = GROUND_Y - h;
     var baseHalf = tower.baseW / 2, topHalf = 6;
@@ -4823,7 +5322,7 @@
   // rocket-belt commuters: little figures under bubble helmets, twin
   // exhaust flames trailing, arms thrust into the World of Tomorrow
   function drawJetpacks(litLevel) {
-    if (reducedMotion.matches || !jets.length) return;
+    if (reducedMotion.matches || !jets.length || !eraHas('jetpacks')) return;
     var night = litLevel > 0.55;
     for (var i = 0; i < jets.length; i++) {
       var jp = jets[i], d = jp.dir;
@@ -4857,7 +5356,7 @@
 
   // a glowing exhibit kiosk — a domed booth with a cyan neon sign
   function drawKiosk(litLevel) {
-    if (!kiosk) return;
+    if (!kiosk || !eraHas('kiosk')) return;
     var x = kiosk.x, night = litLevel > 0.55;
     var w = 34, bodyTop = GROUND_Y - 34;
     ctx.fillStyle = TEALS[1];                     // booth body
@@ -4898,7 +5397,7 @@
   // the House of the Future: a Monsanto-style cluster of rounded pods
   // cantilevered off a central stalk, big ribbon windows aglow
   function drawFutureHouse(litLevel) {
-    if (!futureHouse) return;
+    if (!futureHouse || !eraHas('futureHouse')) return;
     var x = futureHouse.x, night = litLevel > 0.55;
     var podY = GROUND_Y - 40;
     ctx.fillStyle = TEAL_TRIM;                     // stalk
@@ -4937,7 +5436,7 @@
   // a pneumatic-tube transit line: a translucent glass tube on pylons
   // with capsules whooshing through it above the street
   function drawTube(litLevel) {
-    if (!tube) return;
+    if (!tube || !eraHas('tube')) return;
     var y = RAIL_Y - 118, night = litLevel > 0.55;
     var x0 = tube.x0, x1 = tube.x1, px;
     ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 3;   // support pylons
@@ -4977,7 +5476,7 @@
 
   // MECHANICAL MAN: a boxy retro robot clanking down Main Street
   function drawRobot(litLevel) {
-    if (!robot.active || reducedMotion.matches) return;
+    if (!robot.active || reducedMotion.matches || !eraHas('robot')) return;
     var d = robot.dir, x = robot.x, gy = GROUND_Y, night = litLevel > 0.55;
     var step = Math.sin(robot.ph * 6);
     ctx.fillStyle = TEAL_TRIM;                        // legs + feet
@@ -5005,7 +5504,7 @@
 
   // a flying-saucer taxi descending to its rooftop pad
   function drawTaxi(litLevel) {
-    if (taxi.phase === 0 || reducedMotion.matches) return;
+    if (taxi.phase === 0 || reducedMotion.matches || !eraHas('taxi')) return;
     var night = litLevel > 0.55, padY = GROUND_Y - 84;
     ctx.fillStyle = TEAL_TRIM; ctx.fillRect(taxi.padX - 3, padY, 6, GROUND_Y - padY);   // pad post
     ctx.fillStyle = BRASS; ctx.fillRect(taxi.padX - 18, padY - 3, 36, 4);               // deck
@@ -5034,7 +5533,7 @@
 
   // a kinetic atomic sculpture turning on the park lawn
   function drawKineticSculpture(litLevel) {
-    if (!park) return;
+    if (!park || !eraHas('sculpture')) return;
     var x = park.x + 60, gy = GROUND_Y, night = litLevel > 0.55;
     ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 2.5;
     ctx.beginPath(); ctx.moveTo(x, gy); ctx.lineTo(x, gy - 30); ctx.stroke();
@@ -5147,7 +5646,7 @@
   }
 
   // sky-layer motifs (behind the skyline)
-  function drawStyleSky(skyLum) {
+  function drawStyleSky(skyLum, starLevel) {
     var s = STYLE, t = reducedMotion.matches ? 0 : effT, i, a;
     if (s === 'steampunk') {
       drawGear(150, 118 * SKY_K, 66, 12, t * 0.2, 'rgba(224,169,78,0.6)');
@@ -5185,6 +5684,110 @@
       var sx = VIEW_W * 0.68, sy = 120 * SKY_K;
       for (i = 0; i < 11; i++) { a = t * 0.015 + i * 0.57; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + Math.cos(a) * 820, sy + Math.sin(a) * 820); ctx.lineTo(sx + Math.cos(a + 0.09) * 820, sy + Math.sin(a + 0.09) * 820); ctx.closePath(); ctx.fill(); }
       ctx.restore();
+    } else if (s === 'present') {
+      // a contrail crosses the high sky, its jet a bright pinhead
+      var span = VIEW_W + 500;
+      var hx4 = ((t * 26) % span) - 250;
+      var hy4 = 70 * SKY_K + Math.sin(hx4 * 0.002) * 10;
+      var tg = ctx.createLinearGradient(hx4 - 380, hy4 + 14, hx4, hy4);
+      tg.addColorStop(0, 'rgba(255,255,255,0)');
+      tg.addColorStop(1, 'rgba(255,255,255,0.35)');
+      ctx.strokeStyle = tg; ctx.lineWidth = 2.6;
+      ctx.beginPath(); ctx.moveTo(hx4 - 380, hy4 + 14); ctx.lineTo(hx4, hy4); ctx.stroke();
+      ctx.fillStyle = CREAM_HI;
+      ctx.fillRect(hx4, hy4 - 1, 4, 2);
+    } else if (s === 'cassette') {
+      // the smog bank: a warm haze lying on the rooftops, and the
+      // evening airliner blinking through it
+      ctx.fillStyle = 'rgba(200, 150, 90, ' + (0.1 + skyLum * 0.1).toFixed(3) + ')';
+      ctx.fillRect(0, GROUND_Y - 190, VIEW_W, 120);
+      ctx.fillStyle = 'rgba(200, 150, 90, 0.08)';
+      ctx.fillRect(0, GROUND_Y - 230, VIEW_W, 60);
+      var ax = ((t * 34) % (VIEW_W + 400)) - 200;
+      var ay = 58 * SKY_K + Math.sin(ax * 0.003) * 6;
+      ctx.fillStyle = 'rgba(239, 230, 212, 0.8)';
+      ctx.fillRect(ax - 5, ay - 1, 10, 2);
+      ctx.fillRect(ax - 1.4, ay - 3, 2.8, 6);
+      if (Math.sin(t * 5) > 0.4) {
+        ctx.fillStyle = glowRGBA('#FF4A4A', 0.9);
+        ctx.fillRect(ax - 6.5, ay - 1, 1.6, 1.6);
+      }
+    } else if (s === 'orbital') {
+      // the space elevator: a hair-thin ribbon from the horizon to the
+      // top of the sky, with a climber on its long patient way up
+      var ex = VIEW_W * 0.84;
+      ctx.strokeStyle = 'rgba(240, 242, 238, ' + (0.28 + 0.25 * (1 - skyLum)).toFixed(3) + ')';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(ex, GROUND_Y); ctx.lineTo(ex + 14, -20); ctx.stroke();
+      var cp = reducedMotion.matches ? 0.4 : (t * 0.012) % 1;
+      var cy2 = GROUND_Y - cp * (GROUND_Y + 30);
+      ctx.fillStyle = CREAM_HI;
+      ctx.fillRect(ex + (GROUND_Y - cy2) / (GROUND_Y + 20) * 14 - 2.4, cy2 - 4, 4.8, 8);
+      ctx.fillStyle = glowRGBA(ORANGE, 0.9);
+      ctx.fillRect(ex + (GROUND_Y - cy2) / (GROUND_Y + 20) * 14 - 2.4, cy2 + 4, 4.8, 1.6);
+      ctx.fillStyle = mixHex(TEALS[0], '#F0F2EE', 0.2);   // the anchor works
+      ctx.fillRect(ex - 10, GROUND_Y - 16, 22, 16);
+      ctx.fillStyle = glowRGBA(ORANGE, 0.7);
+      ctx.fillRect(ex - 10, GROUND_Y - 17.6, 22, 1.8);
+    }
+
+    // night signatures: each age owns its own sky after dark
+    var sl = starLevel || 0;
+    if (sl > 0.25) {
+      if (s === 'present' || s === 'orbital') {
+        // a satellite train, evenly spaced pinpoints on one track
+        var st = ((t * 18) % (VIEW_W + 700)) - 350;
+        ctx.fillStyle = 'rgba(255,255,255,' + (0.75 * sl).toFixed(3) + ')';
+        for (i = 0; i < (s === 'orbital' ? 9 : 6); i++) {
+          var sx2 = st - i * 24;
+          ctx.fillRect(sx2, (92 + sx2 * 0.012) * SKY_K, 2, 2);
+        }
+        if (s === 'orbital') {                     // and the station itself
+          var stx = ((t * 9) % (VIEW_W + 300)) - 150;
+          ctx.fillStyle = 'rgba(255,255,255,' + (0.9 * sl).toFixed(3) + ')';
+          ctx.fillRect(stx - 3, 46 * SKY_K, 6, 2.4);
+          ctx.fillRect(stx - 1, 44 * SKY_K, 2, 7);
+        }
+      } else if (s === 'clockpunk') {
+        // the astronomers have drawn their figures on the night
+        ctx.strokeStyle = 'rgba(240,230,204,' + (0.28 * sl).toFixed(3) + ')';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (i = 0; i + 1 < stars.length && i < 12; i++) {
+          if (i % 4 === 3) continue;               // break into figures
+          ctx.moveTo(stars[i].x, stars[i].y * SKY_K);
+          ctx.lineTo(stars[i + 1].x, stars[i + 1].y * SKY_K);
+        }
+        ctx.stroke();
+      } else if (s === 'solarpunk') {
+        // air this clean shows the milky way
+        ctx.save();
+        ctx.translate(VIEW_W * 0.5, 130 * SKY_K);
+        ctx.rotate(-0.32);
+        var mg = ctx.createLinearGradient(0, -70, 0, 70);
+        mg.addColorStop(0, 'rgba(247,243,224,0)');
+        mg.addColorStop(0.5, 'rgba(247,243,224,' + (0.1 * sl).toFixed(3) + ')');
+        mg.addColorStop(1, 'rgba(247,243,224,0)');
+        ctx.fillStyle = mg;
+        ctx.fillRect(-VIEW_W, -70, VIEW_W * 2, 140);
+        ctx.fillStyle = 'rgba(247,243,224,' + (0.5 * sl).toFixed(3) + ')';
+        for (i = 0; i < 40; i++) {
+          ctx.fillRect(((i * 97.3) % (VIEW_W * 1.6)) - VIEW_W * 0.8, ((i * 37.7) % 90) - 45, 1.2, 1.2);
+        }
+        ctx.restore();
+      } else if (s === 'silkpunk') {
+        // paper lanterns rise from the festival quarter
+        for (i = 0; i < 8; i++) {
+          var lp = (t * (7 + (i % 3) * 3) + i * 143) % (GROUND_Y + 60);
+          var lx = ((i * 211.7) % VIEW_W) + Math.sin(t * 0.5 + i) * 18;
+          var ly2 = GROUND_Y - 40 - lp;
+          if (ly2 < 20) continue;
+          ctx.shadowBlur = 8; ctx.shadowColor = ORANGE;
+          ctx.fillStyle = glowRGBA(ORANGE, 0.75 * sl);
+          ctx.beginPath(); ctx.ellipse(lx, ly2, 2.6, 3.4, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.shadowBlur = 0;
+        }
+      }
     }
   }
 
@@ -5269,7 +5872,11 @@
 
   function hashB(b) { return Math.abs(Math.floor(b.x * 13.7 + b.w * 3.1)); }
   function mixHex(a, c, t) { return rgbStr(mixRgb(hexToRgb(a), hexToRgb(c), t == null ? 0.5 : t)); }
-  function litTest(wd, litLevel) { return (wd.threshold < litLevel) !== (wd.flickUntil > effT); }
+  function litTest(wd, litLevel) {
+    if (outage.phase === 1) return false;         // the whole grid is down
+    if (outage.phase === 2 && wd.x > outage.frontX) return false;
+    return (wd.threshold < litLevel) !== (wd.flickUntil > effT);
+  }
 
   // CYBERPUNK — dark megastructures, neon strips, holo billboards, antennae
   function drawBuildingCyber(b, top, h, litLevel) {
@@ -5420,6 +6027,295 @@
     if (sub % 2 === 0) { if (night) { ctx.shadowBlur = 6; ctx.shadowColor = ORANGE; } ctx.fillStyle = night ? glowRGBA(ORANGE, 0.9) : ORANGE; ctx.beginPath(); ctx.ellipse(cx, top + 11, 3.5, 5, 0, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; }
   }
 
+  // CASSETTE 1984 — precast concrete panels, CRT-amber windows, aerials,
+  // dishes and one arcade sign that refuses to be tasteful
+  function drawBuildingCassette(b, top, h, litLevel) {
+    var cx = b.x + b.w / 2, night = litLevel > 0.5, hb = hashB(b), sub = hb % 4, i, wd, wy;
+    ctx.fillStyle = b.color;
+    ctx.fillRect(b.x, top, b.w, h);
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    ctx.fillRect(b.x + b.w - 3, top, 3, h);
+    if (!b.windows.length) {
+      ctx.fillStyle = 'rgba(0,0,0,0.2)';
+      for (wy = top + 12; wy < GROUND_Y - 8; wy += 14) ctx.fillRect(b.x, wy, b.w, 1.2);
+      return;
+    }
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';            // precast panel joints
+    for (wy = top + 12; wy < GROUND_Y - 8; wy += 14) ctx.fillRect(b.x + 1, wy, b.w - 2, 1.2);
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    ctx.fillRect(b.x, top, 2.5, h);
+    for (i = 0; i < b.windows.length; i++) {       // square panes, CRT amber
+      wd = b.windows[i]; wy = GROUND_Y + wd.y; if (wy < top + 7) continue;
+      var lit = litTest(wd, litLevel);
+      if (lit && night) { ctx.shadowBlur = 3; ctx.shadowColor = '#FFB25E'; }
+      ctx.fillStyle = lit ? (wd.accent ? '#8CF0B4' : '#FFC076') : 'rgba(10, 8, 6, 0.4)';
+      ctx.fillRect(wd.x - 2.6, wy - 2.6, 5.2, 5.2);
+      ctx.shadowBlur = 0;
+    }
+    if (h > 30) {                                  // shopfront + awning
+      ctx.fillStyle = night ? 'rgba(255, 190, 110, 0.7)' : 'rgba(240, 230, 210, 0.25)';
+      ctx.fillRect(b.x + 2, GROUND_Y - 11, b.w - 4, 11);
+      ctx.fillStyle = mixHex(ORANGE, TEAL_TRIM, 0.15);
+      ctx.fillRect(b.x + 2, GROUND_Y - 13, b.w - 4, 3);
+    }
+    if (sub === 0) {                               // TV aerial cluster
+      ctx.strokeStyle = 'rgba(239,230,212,0.7)'; ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(cx - 4, top); ctx.lineTo(cx - 4, top - 16);
+      ctx.moveTo(cx - 9, top - 13); ctx.lineTo(cx + 1, top - 13);
+      ctx.moveTo(cx - 8, top - 9); ctx.lineTo(cx, top - 9);
+      ctx.moveTo(cx + 6, top); ctx.lineTo(cx + 6, top - 10);
+      ctx.moveTo(cx + 2, top - 8); ctx.lineTo(cx + 10, top - 8);
+      ctx.stroke();
+    } else if (sub === 1) {                        // rooftop satellite dish
+      ctx.fillStyle = mixHex(b.color, '#FFFFFF', 0.25);
+      ctx.beginPath();
+      ctx.ellipse(cx, top - 6, 7, 5.4, -0.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(cx, top); ctx.lineTo(cx, top - 4); ctx.stroke();
+      ctx.fillStyle = TEAL_TRIM;
+      ctx.beginPath(); ctx.arc(cx - 3, top - 8, 1.2, 0, Math.PI * 2); ctx.fill();
+    } else if (sub === 2) {                        // the arcade sign, buzzing pink
+      var buzz = !reducedMotion.matches && Math.sin(effT * 13 + hb) > -0.7;
+      if (night && buzz) { ctx.shadowBlur = 8; ctx.shadowColor = NEON_PINK; }
+      ctx.strokeStyle = glowRGBA(NEON_PINK, night ? (buzz ? 0.95 : 0.35) : 0.45);
+      ctx.lineWidth = 2;
+      ctx.strokeRect(cx - Math.min(14, b.w * 0.3), top - 12, Math.min(28, b.w * 0.6), 9);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = glowRGBA(NEON_CYAN, night ? 0.85 : 0.4);
+      ctx.fillRect(cx - Math.min(10, b.w * 0.22), top - 9.4, Math.min(20, b.w * 0.44), 3.6);
+    } else {                                       // microwave relay drum
+      ctx.fillStyle = mixHex(b.color, '#FFFFFF', 0.18);
+      ctx.fillRect(cx - 2, top - 12, 4, 12);
+      ctx.fillStyle = CREAM_HI;
+      ctx.beginPath(); ctx.arc(cx, top - 13, 3.4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.beginPath(); ctx.arc(cx + 1, top - 13, 1.6, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // ORBITAL 2050 — composite towers, hazard bands, pad rings, radomes
+  // and gantry masts; a port city that happens to point upward
+  function drawBuildingOrbital(b, top, h, litLevel) {
+    var cx = b.x + b.w / 2, night = litLevel > 0.5, hb = hashB(b), sub = hb % 4, i, wd, wy;
+    ctx.fillStyle = b.color;
+    ctx.fillRect(b.x, top, b.w, h);
+    ctx.fillStyle = 'rgba(240, 242, 238, 0.07)';   // composite sheen
+    ctx.fillRect(b.x, top, b.w * 0.3, h);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.fillRect(b.x + b.w - 3, top, 3, h);
+    if (!b.windows.length) {
+      ctx.fillStyle = glowRGBA(ORANGE, 0.5);
+      ctx.fillRect(b.x, top, b.w, 1.8);
+      return;
+    }
+    for (i = 0; i < b.windows.length; i++) {       // wide low ports, cool white
+      wd = b.windows[i]; wy = GROUND_Y + wd.y; if (wy < top + 7) continue;
+      var lit = litTest(wd, litLevel);
+      if (lit && night) { ctx.shadowBlur = 3; ctx.shadowColor = '#BEE0FF'; }
+      ctx.fillStyle = lit ? (wd.accent ? glowRGBA(ORANGE, 0.95) : '#D8ECFF') : 'rgba(6, 12, 20, 0.45)';
+      ctx.fillRect(wd.x - 3.2, wy - 2, 6.4, 4);
+      ctx.shadowBlur = 0;
+    }
+    ctx.save();                                    // hazard chevrons at the base
+    ctx.beginPath(); ctx.rect(b.x + 2, GROUND_Y - 8, b.w - 4, 8); ctx.clip();
+    ctx.fillStyle = 'rgba(6, 12, 20, 0.5)';
+    ctx.fillRect(b.x + 2, GROUND_Y - 8, b.w - 4, 8);
+    ctx.fillStyle = glowRGBA(ORANGE, 0.75);
+    for (var zx2 = b.x - 6; zx2 < b.x + b.w + 6; zx2 += 12) {
+      ctx.beginPath();
+      ctx.moveTo(zx2, GROUND_Y); ctx.lineTo(zx2 + 5, GROUND_Y - 8);
+      ctx.lineTo(zx2 + 9, GROUND_Y - 8); ctx.lineTo(zx2 + 4, GROUND_Y);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+    if (sub === 0) {                               // rooftop pad ring
+      ctx.strokeStyle = glowRGBA(ORANGE, night ? 0.9 : 0.55);
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.ellipse(cx, top - 1, Math.min(b.w * 0.36, 15), 3.4, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      if (night && Math.sin(effT * 3 + hb) > 0.4) {
+        ctx.shadowBlur = 6; ctx.shadowColor = ORANGE;
+        ctx.fillStyle = glowRGBA(ORANGE, 0.95);
+        ctx.fillRect(cx - 1, top - 3, 2, 2);
+        ctx.shadowBlur = 0;
+      }
+    } else if (sub === 1) {                        // radome
+      ctx.fillStyle = mixHex(b.color, '#F0F2EE', 0.4);
+      ctx.beginPath(); ctx.arc(cx, top, Math.min(b.w * 0.3, 10), Math.PI, 0); ctx.fill();
+      ctx.strokeStyle = 'rgba(6, 12, 20, 0.3)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(cx, top, Math.min(b.w * 0.3, 10) * 0.6, Math.PI, 0); ctx.stroke();
+    } else if (sub === 2) {                        // gantry mast, guyed
+      ctx.strokeStyle = 'rgba(240, 242, 238, 0.7)'; ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(cx, top); ctx.lineTo(cx, top - 24);
+      ctx.moveTo(cx, top - 22); ctx.lineTo(cx - 8, top);
+      ctx.moveTo(cx, top - 22); ctx.lineTo(cx + 8, top);
+      ctx.moveTo(cx, top - 16); ctx.lineTo(cx + 6, top - 16);
+      ctx.stroke();
+      ctx.fillStyle = glowRGBA('#FF5A5A', night ? 0.95 : 0.5);
+      ctx.beginPath(); ctx.arc(cx, top - 25, 1.5, 0, Math.PI * 2); ctx.fill();
+    } else {                                       // paired solar wings
+      ctx.fillStyle = mixHex('#1A3A5E', NEON_CYAN, 0.25);
+      ctx.fillRect(cx - b.w * 0.4, top - 7, b.w * 0.34, 6);
+      ctx.fillRect(cx + b.w * 0.06, top - 7, b.w * 0.34, 6);
+      ctx.strokeStyle = 'rgba(240,242,238,0.4)'; ctx.lineWidth = 1;
+      ctx.strokeRect(cx - b.w * 0.4, top - 7, b.w * 0.34, 6);
+      ctx.strokeRect(cx + b.w * 0.06, top - 7, b.w * 0.34, 6);
+      ctx.fillStyle = CREAM_HI;
+      ctx.fillRect(cx - 1, top - 5, 2, 5);
+    }
+  }
+
+  // ART DECO / DECOPUNK — setback ziggurats, gilt fluting, sunburst crowns
+  function drawBuildingDeco(b, top, h, litLevel) {
+    var cx = b.x + b.w / 2, night = litLevel > 0.5, sub = hashB(b) % 4, i, wd, wy;
+    var stepped = h > 70 && b.w > 26;
+    var h3 = stepped ? Math.min(h * 0.14, 26) : 0;       // crown tier
+    var h2 = stepped ? Math.min(h * 0.26, 52) : 0;       // shoulder tier
+    var w2 = b.w * 0.72, w3 = b.w * 0.46;
+    ctx.fillStyle = b.color;
+    ctx.fillRect(b.x, top + h2 + h3, b.w, h - h2 - h3);  // base mass
+    if (stepped) {
+      ctx.fillRect(cx - w2 / 2, top + h3, w2, h2 + 1);
+      ctx.fillRect(cx - w3 / 2, top, w3, h3 + 1);
+    }
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    ctx.fillRect(b.x + b.w - 3, top + h2 + h3, 3, h - h2 - h3);
+    if (!b.windows.length) {                             // back row: gilt crown + faint flutes
+      ctx.fillStyle = glowRGBA(BRASS, 0.55);
+      ctx.fillRect(stepped ? cx - w3 / 2 : b.x, top, stepped ? w3 : b.w, 2);
+      ctx.fillStyle = glowRGBA(BRASS, night ? 0.28 : 0.14);
+      var bf = Math.max(2, Math.round(b.w / 18));
+      for (i = 1; i < bf; i++) {
+        ctx.fillRect(b.x + b.w * i / bf - 0.6, top + h2 + h3 + 2, 1.2, h - h2 - h3 - 6);
+      }
+      return;
+    }
+    ctx.fillStyle = glowRGBA(BRASS, night ? 0.5 : 0.32); // gilt fluting
+    var flutes = Math.max(3, Math.round(b.w / 12));
+    for (i = 1; i < flutes; i++) {
+      ctx.fillRect(b.x + b.w * i / flutes - 0.7, top + h2 + h3 + 3, 1.4, h - h2 - h3 - 8);
+    }
+    ctx.fillStyle = BRASS;                               // bright setback shoulders
+    ctx.fillRect(b.x, top + h2 + h3, b.w, 2);
+    if (stepped) {
+      ctx.fillRect(cx - w2 / 2, top + h3, w2, 2);
+      ctx.fillRect(cx - w3 / 2, top, w3, 2);
+    }
+    for (i = 0; i < b.windows.length; i++) {             // tall lancet panes
+      wd = b.windows[i]; wy = GROUND_Y + wd.y; if (wy < top + h2 + h3 + 6) continue;
+      var lit = litTest(wd, litLevel);
+      if (lit && night) { ctx.shadowBlur = 4; ctx.shadowColor = BRASS; }
+      ctx.fillStyle = lit ? (night ? '#FFD98A' : '#E0BC88') : 'rgba(0,0,0,0.3)';
+      ctx.fillRect(wd.x - 1.8, wy - 4, 3.6, 8);
+      ctx.shadowBlur = 0;
+    }
+    var crownY = top, crownW = stepped ? w3 : b.w;
+    if (sub === 0) {                                     // the sunburst fan
+      if (night) { ctx.shadowBlur = 7; ctx.shadowColor = BRASS; }
+      ctx.strokeStyle = glowRGBA(BRASS, night ? 0.9 : 0.6);
+      ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (i = 0; i <= 6; i++) {
+        var fa = Math.PI + i * (Math.PI / 6);
+        var fr = Math.min(crownW * 0.9, 24);
+        ctx.moveTo(cx, crownY);
+        ctx.lineTo(cx + Math.cos(fa) * fr, crownY + Math.sin(fa) * fr);
+      }
+      ctx.stroke(); ctx.shadowBlur = 0; ctx.lineCap = 'butt';
+    } else if (sub === 1) {                              // stepped chrome spire
+      ctx.fillStyle = CREAM_HI;
+      ctx.fillRect(cx - 3, crownY - 8, 6, 8);
+      ctx.fillRect(cx - 1.5, crownY - 20, 3, 12);
+      ctx.fillStyle = BRASS;
+      ctx.beginPath(); ctx.arc(cx, crownY - 22, 2, 0, Math.PI * 2); ctx.fill();
+    } else if (sub === 2) {                              // chevron parapet
+      ctx.strokeStyle = BRASS; ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      for (var zx = cx - crownW / 2 + 2; zx < cx + crownW / 2 - 2; zx += 8) {
+        ctx.moveTo(zx, crownY); ctx.lineTo(zx + 4, crownY - 5); ctx.lineTo(zx + 8, crownY);
+      }
+      ctx.stroke();
+    } else {                                             // flagpole and pennant
+      ctx.strokeStyle = CREAM_HI; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(cx, crownY); ctx.lineTo(cx, crownY - 18); ctx.stroke();
+      ctx.fillStyle = ORANGE;
+      var fl = reducedMotion.matches ? 0 : Math.sin(effT * 3 + b.x) * 2;
+      ctx.beginPath(); ctx.moveTo(cx, crownY - 18); ctx.lineTo(cx + 11, crownY - 15 + fl); ctx.lineTo(cx, crownY - 12); ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(6, 26, 20, 0.4)';              // shaded plinth
+    ctx.fillRect(b.x, GROUND_Y - 6, b.w, 6);
+  }
+
+  // PRESENT DAY — glass curtain walls, floor ribbons, comm masts, LED crowns
+  function drawBuildingPresent(b, top, h, litLevel) {
+    var cx = b.x + b.w / 2, night = litLevel > 0.5, hb = hashB(b), sub = hb % 4, i, wd, wy;
+    ctx.fillStyle = b.color;
+    ctx.fillRect(b.x, top, b.w, h);
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';            // the sky in the glass
+    ctx.beginPath();
+    ctx.moveTo(b.x, top); ctx.lineTo(b.x + b.w * 0.45, top);
+    ctx.lineTo(b.x + b.w * 0.2, GROUND_Y); ctx.lineTo(b.x, GROUND_Y);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    ctx.fillRect(b.x + b.w - 3, top, 3, h);
+    if (!b.windows.length) {
+      ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.fillRect(b.x, top, b.w, 1.6);
+      return;
+    }
+    ctx.fillStyle = 'rgba(10, 16, 22, 0.4)';             // curtain-wall floor ribbons
+    for (wy = top + 8; wy < GROUND_Y - 6; wy += 9) ctx.fillRect(b.x + 1, wy, b.w - 2, 1.1);
+    for (i = 0; i < b.windows.length; i++) {             // wide office panes
+      wd = b.windows[i]; wy = GROUND_Y + wd.y; if (wy < top + 7) continue;
+      var lit = litTest(wd, litLevel);
+      if (lit) {
+        if (night) { ctx.shadowBlur = 3; ctx.shadowColor = wd.accent ? BRASS : '#CFE8FF'; }
+        ctx.fillStyle = wd.accent ? '#FFD98A' : (night ? '#DDEFFF' : 'rgba(255,255,255,0.55)');
+      } else {
+        ctx.fillStyle = 'rgba(160, 200, 230, 0.14)';
+      }
+      ctx.fillRect(wd.x - 3, wy - 2.5, 6, 5);
+      ctx.shadowBlur = 0;
+    }
+    if (h > 30) {                                        // double-height glass lobby
+      ctx.fillStyle = night ? 'rgba(255, 216, 138, 0.75)' : 'rgba(255,255,255,0.25)';
+      ctx.fillRect(b.x + 2, GROUND_Y - 13, b.w - 4, 13);
+      ctx.fillStyle = TEAL_TRIM;
+      ctx.fillRect(cx - 1.2, GROUND_Y - 13, 2.4, 13);
+    }
+    if (sub === 0) {                                     // comm mast + dishes
+      ctx.strokeStyle = CREAM_HI; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(cx, top); ctx.lineTo(cx, top - 26); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fillRect(cx - 5, top - 4, 3, 4); ctx.fillRect(cx + 2, top - 6, 3, 6);
+      if (night && Math.sin(effT * 2.2 + hb) > 0) { ctx.shadowBlur = 8; ctx.shadowColor = ORANGE; }
+      ctx.fillStyle = ORANGE;
+      ctx.beginPath(); ctx.arc(cx, top - 28, 2, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+    } else if (sub === 1) {                              // LED crown band, breathing
+      var pulse = reducedMotion.matches ? 0.5 : 0.5 + 0.35 * Math.sin(effT * 1.6 + hb);
+      if (night) { ctx.shadowBlur = 8; ctx.shadowColor = NEON_CYAN; }
+      ctx.fillStyle = glowRGBA(NEON_CYAN, (night ? 0.55 : 0.2) + 0.25 * pulse);
+      ctx.fillRect(b.x + 2, top, b.w - 4, 3);
+      ctx.shadowBlur = 0;
+    } else if (sub === 2) {                              // rooftop plant + screen
+      ctx.fillStyle = mixHex(b.color, '#101820', 0.4);
+      ctx.fillRect(cx - b.w * 0.32, top - 8, b.w * 0.3, 8);
+      ctx.fillRect(cx + b.w * 0.06, top - 5, b.w * 0.2, 5);
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(b.x + 2, top - 10); ctx.lineTo(b.x + b.w - 2, top - 10); ctx.stroke();
+    } else {                                             // angled glass crown
+      var ah = Math.min(h * 0.16, 18);
+      ctx.fillStyle = b.color;
+      ctx.beginPath(); ctx.moveTo(b.x + 1, top); ctx.lineTo(b.x + b.w - 1, top - ah); ctx.lineTo(b.x + b.w - 1, top); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(b.x + 1, top); ctx.lineTo(b.x + b.w - 1, top - ah); ctx.stroke();
+    }
+  }
+
   // per-era road / ground-band treatment
   function drawGroundEra(litLevel) {
     var s = STYLE; if (s === 'atompunk') return;
@@ -5444,6 +6340,46 @@
       ctx.fillStyle = '#3E9A63'; for (xx = L; xx < R; xx += 6) { ctx.beginPath(); ctx.arc(xx, by + 3, 2.5, Math.PI, 0); ctx.fill(); }
       ctx.fillStyle = 'rgba(244,243,224,0.5)'; ctx.fillRect(L, by + 20, R - L, 8);
       ctx.fillStyle = BRASS; for (i = 0; i < 10; i++) { var fx = L + (i * 197) % (R - L); ctx.beginPath(); ctx.arc(fx, by + 8, 1.5, 0, Math.PI * 2); ctx.fill(); }
+    } else if (s === 'artdeco' || s === 'decopunk') {
+      // polished terrazzo: gilt border courses and a chevron inlay
+      ctx.strokeStyle = glowRGBA(BRASS, 0.55); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(L, by + 14); ctx.lineTo(R, by + 14); ctx.stroke();
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (xx = L; xx < R; xx += 22) { ctx.moveTo(xx, by + 26); ctx.lineTo(xx + 11, by + 20); ctx.lineTo(xx + 22, by + 26); }
+      ctx.stroke();
+    } else if (s === 'present') {
+      // fresh asphalt: crisp lane dashes and a protected cycle lane
+      ctx.fillStyle = 'rgba(10,14,18,0.45)'; ctx.fillRect(L, by, R - L, bh);
+      ctx.fillStyle = 'rgba(238,243,247,0.6)';
+      for (xx = L; xx < R; xx += 34) ctx.fillRect(xx, by + 16, 16, 2.4);
+      ctx.fillStyle = glowRGBA(NEON_CYAN, 0.16); ctx.fillRect(L, by + 30, R - L, 7);
+    } else if (s === 'cassette') {
+      // sun-bleached asphalt: a double yellow center line, patch seams
+      ctx.fillStyle = 'rgba(20, 16, 12, 0.4)'; ctx.fillRect(L, by, R - L, bh);
+      ctx.fillStyle = glowRGBA(BRASS, 0.55);
+      ctx.fillRect(L, by + 15, R - L, 1.8);
+      ctx.fillRect(L, by + 19, R - L, 1.8);
+      ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1.2;   // tar seams
+      ctx.beginPath();
+      for (xx = L + 60; xx < R; xx += 170) {
+        ctx.moveTo(xx, by + 2); ctx.lineTo(xx + 24, by + bh - 4);
+      }
+      ctx.stroke();
+    } else if (s === 'orbital') {
+      // the pad apron: sealed grey, orange chevrons, one landing ring
+      ctx.fillStyle = 'rgba(6, 12, 20, 0.4)'; ctx.fillRect(L, by, R - L, bh);
+      ctx.fillStyle = glowRGBA(ORANGE, 0.5);
+      for (xx = L; xx < R; xx += 46) {
+        ctx.beginPath();
+        ctx.moveTo(xx, by + 24); ctx.lineTo(xx + 9, by + 14);
+        ctx.lineTo(xx + 13, by + 14); ctx.lineTo(xx + 4, by + 24);
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.strokeStyle = glowRGBA(ORANGE, 0.4); ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.ellipse(L + (R - L) * 0.72, by + 30, 34, 7, 0, 0, Math.PI * 2);
+      ctx.stroke();
     } else if (s === 'silkpunk') {
       ctx.strokeStyle = 'rgba(0,0,0,0.16)'; ctx.lineWidth = 1;
       for (xx = L; xx < R; xx += 26) { ctx.strokeRect(xx, by + 4, 24, bh - 8); }
@@ -5472,6 +6408,95 @@
       ctx.strokeStyle = CREAM_HI; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - 15, y); ctx.lineTo(x + 15, y); ctx.stroke();
       ctx.fillStyle = glowRGBA(NEON_CYAN, 0.4); ctx.beginPath(); ctx.ellipse(x + d * 4, y - 3, 6, 3, 0, Math.PI, Math.PI * 2); ctx.fill();
       ctx.fillStyle = BRASS; ctx.beginPath(); ctx.arc(x + d * 14, y, 1.4, 0, Math.PI * 2); ctx.fill();
+    } else if (s === 'present') {
+      // a parcel drone: crossed rotors, nav lights, cargo underneath
+      var spin = reducedMotion.matches ? 0 : effT * 30;
+      ctx.strokeStyle = 'rgba(238,243,247,0.5)'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x - 8 - 4 * Math.cos(spin), y - 3); ctx.lineTo(x - 8 + 4 * Math.cos(spin), y - 3);
+      ctx.moveTo(x + 8 - 4 * Math.cos(spin + 2), y - 3); ctx.lineTo(x + 8 + 4 * Math.cos(spin + 2), y - 3);
+      ctx.stroke();
+      ctx.fillStyle = '#2A333C';
+      ctx.fillRect(x - 9, y - 3, 18, 2.4);
+      ctx.fillRect(x - 3, y - 1, 6, 4);
+      ctx.fillStyle = BRASS; ctx.fillRect(x - 2.4, y + 3, 4.8, 3.4);          // the parcel
+      ctx.fillStyle = glowRGBA('#4AE07A', 0.9); ctx.beginPath(); ctx.arc(x - 9, y - 4.5, 1, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = glowRGBA('#FF5A5A', 0.9); ctx.beginPath(); ctx.arc(x + 9, y - 4.5, 1, 0, Math.PI * 2); ctx.fill();
+    } else if (s === 'artdeco' || s === 'decopunk' || s === 'dieselpunk') {
+      // a prop monoplane, silver in any light
+      ctx.fillStyle = CREAM_HI;
+      ctx.beginPath(); ctx.ellipse(x, y, 16, 3.4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillRect(x - 9 - d * 3, y - 0.5, 18, 2.2);                          // wing
+      ctx.beginPath(); ctx.moveTo(x - d * 15, y); ctx.lineTo(x - d * 19, y - 6); ctx.lineTo(x - d * 13, y); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(238,231,206,0.5)'; ctx.lineWidth = 1;
+      var pr2 = reducedMotion.matches ? 3 : 5 + Math.sin(effT * 30) * 2;
+      ctx.beginPath(); ctx.moveTo(x + d * 16, y - pr2); ctx.lineTo(x + d * 16, y + pr2); ctx.stroke();
+      ctx.fillStyle = ORANGE; ctx.fillRect(x - 4, y - 3.4, 8, 1.4);           // livery stripe
+    } else if (s === 'cassette') {
+      // the traffic helicopter, watching the smog roll in
+      var rot = reducedMotion.matches ? 4 : 10 * Math.abs(Math.cos(effT * 22));
+      ctx.fillStyle = mixHex(TEALS[0], '#EFE6D4', 0.2);
+      ctx.beginPath(); ctx.ellipse(x, y, 8, 4.4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(10, 8, 6, 0.5)';
+      ctx.beginPath(); ctx.ellipse(x + d * 4, y - 0.8, 3.2, 2.4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 1.3;
+      ctx.beginPath(); ctx.moveTo(x - d * 6, y); ctx.lineTo(x - d * 17, y - 1); ctx.stroke();   // tail boom
+      ctx.fillStyle = ORANGE; ctx.fillRect(x - d * 18, y - 4, 2, 6);
+      ctx.strokeStyle = 'rgba(239,230,212,0.65)';
+      ctx.beginPath(); ctx.moveTo(x - rot, y - 6); ctx.lineTo(x + rot, y - 6); ctx.stroke();    // rotor
+      ctx.beginPath(); ctx.moveTo(x, y - 6); ctx.lineTo(x, y - 4); ctx.stroke();
+      if (night) {
+        ctx.fillStyle = glowRGBA('#FF4A4A', Math.sin(effT * 6) > 0 ? 0.95 : 0.2);
+        ctx.beginPath(); ctx.arc(x, y + 5, 1.2, 0, Math.PI * 2); ctx.fill();
+      }
+    } else if (s === 'orbital') {
+      // a cargo pod on thrust, parcels for the pads
+      var flick = reducedMotion.matches ? 0.7 : 0.55 + 0.45 * Math.sin(effT * 26 + x);
+      ctx.fillStyle = mixHex(TEALS[1], '#F0F2EE', 0.35);
+      ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x - 9, y - 6, 18, 12, 4); else ctx.rect(x - 9, y - 6, 18, 12); ctx.fill();
+      ctx.fillStyle = glowRGBA(ORANGE, 0.85);
+      ctx.fillRect(x - 9, y - 1.2, 18, 2.4);        // hazard belt
+      ctx.fillStyle = 'rgba(6, 12, 20, 0.5)';
+      ctx.fillRect(x + d * 3, y - 4.5, 4, 3);       // sensor face
+      ctx.shadowBlur = 6; ctx.shadowColor = NEON_CYAN;
+      ctx.fillStyle = glowRGBA(NEON_CYAN, flick);
+      ctx.fillRect(x - 5, y + 6.5, 3, 2.6);
+      ctx.fillRect(x + 2, y + 6.5, 3, 2.6);
+      ctx.shadowBlur = 0;
+    } else if (s === 'clockpunk') {
+      // an ornithopter, wings beating like a heron's
+      var flap = reducedMotion.matches ? 2 : Math.sin(effT * 7 + x) * 6;
+      ctx.fillStyle = mixHex(TEALS[0], '#241408', 0.35);
+      ctx.beginPath(); ctx.ellipse(x, y, 9, 2.6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = BRASS; ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(x - 3, y - 1); ctx.quadraticCurveTo(x - 12, y - 6 - flap, x - 20, y - 2 - flap);
+      ctx.moveTo(x + 3, y - 1); ctx.quadraticCurveTo(x + 12, y - 6 - flap, x + 20, y - 2 - flap);
+      ctx.stroke();
+      ctx.fillStyle = TEAL_TRIM; ctx.fillRect(x - d * 10 - 1, y - 1, 2, 4);
+    } else if (s === 'biopunk') {
+      // a courier moth, all wing and glow
+      var beat = reducedMotion.matches ? 3 : Math.sin(effT * 11 + x) * 5;
+      ctx.fillStyle = 'rgba(182,232,90,0.4)';
+      ctx.beginPath();
+      ctx.ellipse(x - 6, y - 2 - beat * 0.4, 7, 3.4, -0.4, 0, Math.PI * 2);
+      ctx.ellipse(x + 6, y - 2 + beat * 0.4, 7, 3.4, 0.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = mixHex(TEALS[1], '#B6E85A', 0.25);
+      ctx.beginPath(); ctx.ellipse(x, y, 4.5, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+      if (night) { ctx.shadowBlur = 5; ctx.shadowColor = NEON_CYAN; }
+      ctx.fillStyle = glowRGBA(NEON_CYAN, 0.9);
+      ctx.beginPath(); ctx.arc(x + d * 4, y, 1.2, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+    } else if (s === 'nanopunk') {
+      // a courier swarm holding a chevron
+      ctx.fillStyle = glowRGBA(NEON_CYAN, night ? 0.85 : 0.5);
+      for (var sw2 = 0; sw2 < 7; sw2++) {
+        var back = Math.ceil(sw2 / 2) * 7;
+        var side = sw2 === 0 ? 0 : (sw2 % 2 ? -1 : 1) * Math.ceil(sw2 / 2) * 4;
+        var jx = reducedMotion.matches ? 0 : Math.sin(effT * 5 + sw2 * 1.7) * 1.4;
+        ctx.beginPath(); ctx.arc(x + d * 8 - d * back + jx, y + side, 1.3, 0, Math.PI * 2); ctx.fill();
+      }
     } else {
       ctx.fillStyle = ORANGE; ctx.beginPath(); ctx.moveTo(x, y - 12); ctx.lineTo(x + d * 10, y - 2); ctx.lineTo(x, y); ctx.closePath(); ctx.fill();
       ctx.fillStyle = CREAM_HI; ctx.beginPath(); ctx.moveTo(x - 14, y); ctx.quadraticCurveTo(x, y + 6, x + 14, y); ctx.quadraticCurveTo(x, y + 3, x - 14, y); ctx.closePath(); ctx.fill();
@@ -5508,6 +6533,106 @@
       ctx.fillStyle = '#3E9A63'; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x0 + 2, gy - 12, L - 4, 10, 5); else ctx.rect(x0 + 2, gy - 12, L - 4, 10); ctx.fill();
       ctx.fillStyle = glowRGBA(night ? CREAM_HI : NEON_CYAN, 0.5); ctx.beginPath(); ctx.ellipse(cx, gy - 9, L * 0.32, 4, 0, Math.PI, 0); ctx.fill();
       ctx.fillStyle = BRASS; ctx.fillRect(x0 + 2, gy - 5, L - 4, 1);
+    } else if (s === 'artdeco' || s === 'decopunk' || s === 'dieselpunk') {
+      // streamlined thirties sedan: long hood, teardrop tail, chrome speed line
+      ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(x0 + 6, gy - 3.5, 4, 0, Math.PI * 2); ctx.moveTo(x0 + L - 3, gy - 3.5); ctx.arc(x0 + L - 7, gy - 3.5, 4, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = mixHex(TEALS[0], '#161A10', 0.35);
+      ctx.beginPath();
+      ctx.moveTo(x0 + (d === 1 ? L : 0), gy - 4);
+      ctx.quadraticCurveTo(x0 + L * 0.5, gy - 19, x0 + (d === 1 ? L * 0.2 : L * 0.8), gy - 16);
+      ctx.quadraticCurveTo(x0 + (d === 1 ? 0 : L), gy - 12, x0 + (d === 1 ? 0 : L), gy - 4);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = BRASS; ctx.fillRect(x0 + 4, gy - 5.5, L - 8, 1.2);
+      var hx2 = d === 1 ? x0 + L - 1 : x0 + 1;
+      ctx.fillStyle = night ? glowRGBA(BRASS, 0.9) : CREAM_HI;
+      ctx.beginPath(); ctx.arc(hx2, gy - 8, 1.6, 0, Math.PI * 2); ctx.fill();
+    } else if (s === 'present') {
+      // a quiet electric crossover: soft box, light-bar face, no exhaust
+      ctx.fillStyle = TEAL_TRIM;
+      ctx.beginPath(); ctx.arc(x0 + 6, gy - 2.5, 2.6, 0, Math.PI * 2); ctx.arc(x0 + L - 6, gy - 2.5, 2.6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = mixHex(TEALS[1], '#EEF3F7', 0.18);
+      ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x0 + 2, gy - 14, L - 4, 11, 4); else ctx.rect(x0 + 2, gy - 14, L - 4, 11); ctx.fill();
+      ctx.fillStyle = 'rgba(10,16,22,0.55)';
+      ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x0 + L * 0.28, gy - 13, L * 0.5, 4.5, 2); else ctx.rect(x0 + L * 0.28, gy - 13, L * 0.5, 4.5); ctx.fill();
+      if (night) { ctx.shadowBlur = 4; ctx.shadowColor = CREAM_HI; }
+      ctx.fillStyle = night ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.5)';
+      ctx.fillRect(d === 1 ? x0 + L - 4 : x0 + 2, gy - 9.5, 2.5, 1.6);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = glowRGBA(NEON_CYAN, 0.8);
+      ctx.fillRect(d === 1 ? x0 : x0 + L - 2, gy - 9.5, 2, 1.4);
+    } else if (s === 'cassette') {
+      // a boxy hatchback, two crisp boxes and a red tail bar
+      ctx.fillStyle = TEAL_TRIM;
+      ctx.beginPath(); ctx.arc(x0 + 6, gy - 2.5, 2.8, 0, Math.PI * 2); ctx.arc(x0 + L - 6, gy - 2.5, 2.8, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = mixHex(TEALS[1], '#EFE6D4', 0.16);
+      ctx.fillRect(x0 + 2, gy - 10, L - 4, 7);      // lower box
+      ctx.fillRect(x0 + (d === 1 ? 4 : L * 0.42), gy - 15, L * 0.52, 6);   // cabin box
+      ctx.fillStyle = 'rgba(10, 8, 6, 0.5)';
+      ctx.fillRect(x0 + (d === 1 ? 6 : L * 0.46), gy - 14, L * 0.44, 4);
+      if (night) { ctx.shadowBlur = 4; ctx.shadowColor = '#FFD98A'; }
+      ctx.fillStyle = night ? '#FFE9B0' : CREAM_HI;
+      ctx.fillRect(d === 1 ? x0 + L - 4 : x0 + 2, gy - 9, 2.4, 2);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = glowRGBA('#FF4A4A', night ? 0.95 : 0.6);
+      ctx.fillRect(d === 1 ? x0 + 2 : x0 + L - 4.4, gy - 9, 2.4, 2);
+    } else if (s === 'orbital') {
+      // a six-wheel crew rover, cab forward, hazard tail
+      ctx.fillStyle = TEAL_TRIM;
+      ctx.beginPath();
+      ctx.arc(x0 + 5, gy - 2.5, 2.6, 0, Math.PI * 2);
+      ctx.arc(x0 + L / 2, gy - 2.5, 2.6, 0, Math.PI * 2);
+      ctx.arc(x0 + L - 5, gy - 2.5, 2.6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = mixHex(TEALS[1], '#F0F2EE', 0.3);
+      ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x0 + 1, gy - 13, L - 2, 10, 3); else ctx.rect(x0 + 1, gy - 13, L - 2, 10); ctx.fill();
+      ctx.fillStyle = 'rgba(6, 12, 20, 0.55)';      // wraparound visor cab
+      ctx.fillRect(d === 1 ? x0 + L * 0.55 : x0 + 3, gy - 12, L * 0.4, 4);
+      ctx.fillStyle = glowRGBA(ORANGE, 0.9);
+      ctx.fillRect(d === 1 ? x0 + 1 : x0 + L - 3.4, gy - 12, 2.4, 8);
+    } else if (s === 'clockpunk') {
+      // a horse-drawn trap on iron tyres
+      var hd = d === 1 ? 1 : -1;
+      var trot = reducedMotion.matches ? 0 : Math.sin(effT * 9 + x0) * 1.4;
+      ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 1.3;
+      ctx.beginPath(); ctx.arc(cx - hd * 6, gy - 4, 4.4, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = mixHex(TEALS[0], '#241408', 0.4);
+      ctx.fillRect(hd === 1 ? cx - 12 : cx, gy - 13, 12, 9);
+      ctx.strokeStyle = BRASS; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(cx - hd * 1, gy - 9); ctx.lineTo(cx + hd * 8, gy - 7); ctx.stroke();
+      var hx3 = cx + hd * 13;
+      ctx.fillStyle = '#3E2817';
+      ctx.beginPath(); ctx.ellipse(hx3, gy - 8, 6, 3.2, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillRect(hx3 + hd * 5 - 1, gy - 13, 2, 5);
+      ctx.beginPath(); ctx.ellipse(hx3 + hd * 6.5, gy - 13, 2.4, 1.4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#3E2817'; ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(hx3 - 4, gy - 6); ctx.lineTo(hx3 - 4 - trot, gy);
+      ctx.moveTo(hx3 + 4, gy - 6); ctx.lineTo(hx3 + 4 + trot, gy);
+      ctx.stroke();
+    } else if (s === 'biopunk') {
+      // a grown carapace pod, padding along on soft feet
+      ctx.fillStyle = mixHex(TEALS[1], '#B6E85A', 0.18);
+      ctx.beginPath(); ctx.ellipse(cx, gy - 8, L * 0.4, 7, 0, Math.PI, 0); ctx.fill();
+      if (night) { ctx.shadowBlur = 5; ctx.shadowColor = NEON_CYAN; }
+      ctx.fillStyle = glowRGBA(NEON_CYAN, 0.85);
+      ctx.beginPath(); ctx.arc(cx + d * L * 0.3, gy - 9, 1.6, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+      var pad = reducedMotion.matches ? 0 : Math.sin(effT * 10 + x0) * 1.2;
+      ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(cx - 6, gy - 4); ctx.lineTo(cx - 6 - pad, gy);
+      ctx.moveTo(cx + 6, gy - 4); ctx.lineTo(cx + 6 + pad, gy);
+      ctx.stroke();
+    } else if (s === 'nanopunk') {
+      // a seamless capsule gliding a hair above the road
+      var hov = reducedMotion.matches ? 0 : Math.sin(effT * 3 + x0) * 0.8;
+      ctx.fillStyle = glowRGBA(NEON_CYAN, 0.25);
+      ctx.fillRect(x0 + 4, gy - 1.5, L - 8, 1.5);
+      ctx.fillStyle = mixHex(TEALS[1], '#EEF3F7', 0.3);
+      ctx.beginPath(); ctx.ellipse(cx, gy - 9 + hov, L * 0.42, 5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = glowRGBA(NEON_CYAN, night ? 0.9 : 0.5);
+      ctx.fillRect(cx - L * 0.3, gy - 9.6 + hov, L * 0.6, 1.2);
     } else {
       ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(cx - 6, gy - 4, 4.5, 0, Math.PI * 2); ctx.moveTo(cx + 10.5, gy - 4); ctx.arc(cx + 6, gy - 4, 4.5, 0, Math.PI * 2); ctx.stroke();
       ctx.fillStyle = mixHex(TEALS[1], '#145A4E', 0.2); ctx.fillRect(cx - 8, gy - 12, 16, 8);
@@ -5545,6 +6670,68 @@
       ctx.fillStyle = night ? '#FFE196' : glowRGBA(CREAM_HI, 0.6); for (wx = x + 14; wx < x + TRAIN_LEN - 10; wx += 18) ctx.fillRect(wx, y + 9, 12, 8);
       ctx.fillStyle = BRASS; ctx.fillRect(x + 4, y + 21, TRAIN_LEN - 8, 1.6);
       ctx.fillStyle = '#2E7D4F'; ctx.beginPath(); ctx.arc(x + TRAIN_LEN * 0.5, y + 4, 5, Math.PI, 0); ctx.fill();
+    } else if (s === 'artdeco' || s === 'decopunk' || s === 'dieselpunk') {
+      // the chrome streamliner: bullet nose, shrouded skirts, one speed line
+      var nx2 = d === 1 ? x + TRAIN_LEN : x;
+      ctx.fillStyle = mixHex(CREAM_HI, TEAL_TRIM, 0.32);
+      ctx.beginPath();
+      ctx.moveTo(d === 1 ? x : x + TRAIN_LEN, y + 3);
+      ctx.lineTo(nx2 - d * 16, y + 3);
+      ctx.quadraticCurveTo(nx2, y + 4, nx2, y + 14);
+      ctx.quadraticCurveTo(nx2 - d * 2, y + 22, nx2 - d * 16, y + 22);
+      ctx.lineTo(d === 1 ? x : x + TRAIN_LEN, y + 22);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = BRASS;
+      ctx.fillRect(x + 6, y + 12, TRAIN_LEN - 12, 1.6);
+      ctx.fillStyle = night ? glowRGBA(BRASS, 0.9) : TEAL_TRIM;
+      for (wx = x + 14; wx < x + TRAIN_LEN - 18; wx += 15) {
+        ctx.beginPath(); ctx.arc(wx, y + 8.5, 2.4, 0, Math.PI * 2); ctx.fill();
+      }
+      if (night) { ctx.shadowBlur = 6; ctx.shadowColor = CREAM_HI; }
+      ctx.fillStyle = CREAM_HI;
+      ctx.beginPath(); ctx.arc(nx2 - d * 3, y + 9, 1.8, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+    } else if (s === 'present') {
+      // a quiet light-metro set: big glass, door lights, no smoke at all
+      ctx.fillStyle = mixHex(CREAM_HI, TEALS[0], 0.12);
+      ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x + 3, y + 3, TRAIN_LEN - 6, 19, 6); else ctx.rect(x + 3, y + 3, TRAIN_LEN - 6, 19); ctx.fill();
+      ctx.fillStyle = 'rgba(10,16,22,0.55)';
+      ctx.fillRect(x + 8, y + 7, TRAIN_LEN - 16, 7);
+      ctx.fillStyle = night ? '#FFE196' : 'rgba(255,255,255,0.6)';
+      for (wx = x + 10; wx < x + TRAIN_LEN - 10; wx += 13) ctx.fillRect(wx, y + 8, 9, 5);
+      ctx.fillStyle = glowRGBA(NEON_CYAN, 0.85);
+      for (wx = x + 26; wx < x + TRAIN_LEN - 20; wx += 40) ctx.fillRect(wx, y + 16, 2, 5);
+      ctx.fillStyle = TEAL_TRIM; ctx.fillRect(x + 3, y + 21, TRAIN_LEN - 6, 1.4);
+    } else if (s === 'cassette') {
+      // the commuter unit: box sections, orange stripe, honest fluorescents
+      ctx.fillStyle = mixHex(TEALS[1], '#EFE6D4', 0.28);
+      for (wx = x + 3; wx < x + TRAIN_LEN - 3; wx += 42) {
+        ctx.fillRect(wx, y + 4, Math.min(38, x + TRAIN_LEN - 3 - wx), 18);
+      }
+      ctx.fillStyle = ORANGE;
+      ctx.fillRect(x + 3, y + 15, TRAIN_LEN - 6, 3);
+      ctx.fillStyle = night ? '#EFF6E2' : 'rgba(10, 8, 6, 0.4)';
+      for (wx = x + 8; wx < x + TRAIN_LEN - 10; wx += 11) ctx.fillRect(wx, y + 7, 7, 5);
+      ctx.fillStyle = 'rgba(10, 8, 6, 0.5)';
+      ctx.fillRect(x + 3, y + 21, TRAIN_LEN - 6, 1.4);
+    } else if (s === 'orbital') {
+      // the maglev: one seamless blade riding its own glow
+      var nx3 = d === 1 ? x + TRAIN_LEN : x;
+      ctx.fillStyle = mixHex(CREAM_HI, TEALS[0], 0.08);
+      ctx.beginPath();
+      ctx.moveTo(d === 1 ? x : x + TRAIN_LEN, y + 5);
+      ctx.lineTo(nx3 - d * 20, y + 5);
+      ctx.quadraticCurveTo(nx3, y + 6, nx3, y + 19);
+      ctx.lineTo(d === 1 ? x : x + TRAIN_LEN, y + 19);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(6, 12, 20, 0.5)';
+      ctx.fillRect(x + 8, y + 8, TRAIN_LEN - 26, 4.5);
+      ctx.fillStyle = glowRGBA(ORANGE, 0.85);
+      ctx.fillRect(x + 6, y + 15.5, TRAIN_LEN - 12, 1.6);
+      if (night) { ctx.shadowBlur = 6; ctx.shadowColor = NEON_CYAN; }
+      ctx.fillStyle = glowRGBA(NEON_CYAN, night ? 0.8 : 0.45);   // the lift field
+      ctx.fillRect(x + 4, y + 20.5, TRAIN_LEN - 8, 1.6);
+      ctx.shadowBlur = 0;
     } else {
       ctx.fillStyle = mixHex(TEALS[1], '#145A4E', 0.2); ctx.fillRect(x + 8, y + 11, TRAIN_LEN - 16, 11);
       for (var seg = 0; seg < 3; seg++) { var sx = x + 20 + seg * (TRAIN_LEN - 40) / 2; ctx.fillStyle = ORANGE; ctx.beginPath(); ctx.moveTo(sx - 24, y + 11); ctx.quadraticCurveTo(sx, y + 1, sx + 24, y + 11); ctx.quadraticCurveTo(sx, y + 7, sx - 24, y + 11); ctx.closePath(); ctx.fill(); ctx.fillStyle = BRASS; ctx.fillRect(sx - 22, y + 10, 44, 1.2); }
@@ -5575,6 +6762,68 @@
       ctx.strokeStyle = CREAM_HI; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - 38, y); ctx.lineTo(x + 48, y); ctx.stroke();
       ctx.fillStyle = BRASS; ctx.beginPath(); ctx.ellipse(x, y + 24, 14, 5, 0, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = 'rgba(46,125,79,0.7)'; ctx.lineWidth = 1.2; for (var v = 0; v < 3; v++) { ctx.beginPath(); ctx.moveTo(x - 10 + v * 10, y + 22); ctx.quadraticCurveTo(x - 8 + v * 10, y + 34, x - 12 + v * 10, y + 40); ctx.stroke(); }
+    } else if (s === 'artdeco' || s === 'decopunk' || s === 'dieselpunk') {
+      // the great silver ship of state
+      ctx.fillStyle = mixHex(CREAM_HI, TEAL_TRIM, 0.22);
+      ctx.beginPath(); ctx.ellipse(x, y, 70, 15, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.14)'; ctx.lineWidth = 1;
+      for (var k3 = -2; k3 <= 2; k3++) { ctx.beginPath(); ctx.moveTo(x + k3 * 24, y - 12); ctx.lineTo(x + k3 * 24, y + 12); ctx.stroke(); }
+      ctx.fillStyle = mixHex(CREAM_HI, TEAL_TRIM, 0.4);
+      ctx.beginPath(); ctx.moveTo(x - d * 62, y - 4); ctx.lineTo(x - d * 78, y - 14); ctx.lineTo(x - d * 66, y); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x - d * 62, y + 4); ctx.lineTo(x - d * 78, y + 14); ctx.lineTo(x - d * 66, y); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = TEAL_TRIM;
+      ctx.fillRect(x - 14, y + 13, 28, 5);
+      ctx.fillStyle = night ? glowRGBA(BRASS, 0.9) : BRASS;
+      for (var k4 = -1; k4 <= 1; k4++) ctx.fillRect(x + k4 * 8 - 1, y + 14.5, 2, 2);
+      ctx.fillStyle = ORANGE; ctx.fillRect(x - 30, y - 15.5, 60, 2.4);
+    } else if (s === 'present' || s === 'cassette') {
+      // the ad blimp, LED board amidships
+      ctx.fillStyle = mixHex(CREAM_HI, TEALS[0], 0.1);
+      ctx.beginPath(); ctx.ellipse(x, y, 58, 16, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = mixHex(CREAM_HI, TEALS[0], 0.3);
+      ctx.beginPath(); ctx.moveTo(x - d * 52, y - 4); ctx.lineTo(x - d * 66, y - 12); ctx.lineTo(x - d * 56, y + 1); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#0C1218';
+      ctx.fillRect(x - 30, y - 6, 60, 12);
+      if (night) { ctx.shadowBlur = 6; ctx.shadowColor = NEON_CYAN; }
+      ctx.fillStyle = glowRGBA(NEON_CYAN, night ? 0.95 : 0.6);
+      ctx.font = '700 9px Jost, Futura, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('NAZARBAN', x, y + 0.5);
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = TEAL_TRIM; ctx.fillRect(x - 8, y + 14, 16, 4);
+    } else if (s === 'orbital') {
+      // the heavy lifter: twin hulls and a cargo frame between
+      ctx.fillStyle = mixHex(CREAM_HI, TEALS[0], 0.14);
+      ctx.beginPath();
+      ctx.ellipse(x, y - 9, 55, 10, 0, 0, Math.PI * 2);
+      ctx.ellipse(x, y + 9, 55, 10, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = glowRGBA(ORANGE, 0.8);
+      ctx.fillRect(x - 40, y - 10.5, 80, 2);
+      ctx.fillRect(x - 40, y + 7.5, 80, 2);
+      ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(x - 20, y - 4); ctx.lineTo(x - 20, y + 4);
+      ctx.moveTo(x + 20, y - 4); ctx.lineTo(x + 20, y + 4);
+      ctx.stroke();
+      ctx.fillStyle = mixHex(TEALS[1], '#F0F2EE', 0.3);   // the slung container
+      ctx.fillRect(x - 14, y - 4, 28, 8);
+      ctx.fillStyle = glowRGBA(NEON_CYAN, night ? 0.9 : 0.5);
+      ctx.fillRect(x - 14, y - 0.8, 28, 1.6);
+    } else if (s === 'clockpunk') {
+      // a montgolfier, drifting on whatever wind there is
+      ctx.fillStyle = mixHex(ORANGE, CREAM_HI, 0.25);
+      ctx.beginPath(); ctx.arc(x, y - 8, 17, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(36,20,8,0.3)'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, y - 25); ctx.quadraticCurveTo(x - 10, y - 8, x - 6, y + 8);
+      ctx.moveTo(x, y - 25); ctx.quadraticCurveTo(x + 10, y - 8, x + 6, y + 8);
+      ctx.moveTo(x, y - 25); ctx.lineTo(x, y + 8);
+      ctx.stroke();
+      ctx.strokeStyle = BRASS;
+      ctx.beginPath(); ctx.moveTo(x - 6, y + 7); ctx.lineTo(x - 4, y + 15); ctx.moveTo(x + 6, y + 7); ctx.lineTo(x + 4, y + 15); ctx.stroke();
+      ctx.fillStyle = '#3E2817'; ctx.fillRect(x - 5, y + 15, 10, 7);
     } else {
       ctx.fillStyle = mixHex(TEALS[1], '#145A4E', 0.2); ctx.beginPath(); ctx.moveTo(x - 40, y); ctx.quadraticCurveTo(x, y + 16, x + 44, y); ctx.quadraticCurveTo(x, y + 8, x - 40, y); ctx.closePath(); ctx.fill();
       ctx.fillStyle = ORANGE; ctx.beginPath(); ctx.moveTo(x - 6, y - 2); ctx.lineTo(x - 6, y - 34); ctx.quadraticCurveTo(x + 20, y - 24, x + 22, y - 4); ctx.lineTo(x + 18, y - 2); ctx.closePath(); ctx.fill();
@@ -5586,12 +6835,158 @@
 
   var curLit = 0;   // latest computed light level, for helpers without the param
 
+  /* ---------------- which furniture belongs to which age -------------- */
+  /* The Googie fixtures are 1958 hardware (decopunk, its 1939 cousin,
+     shares the World-of-Tomorrow wardrobe); every other age keeps only
+     what it would plausibly have. Anything not listed shows in all ages
+     (it era-skins itself — monorail, cars, airships, citizens). */
+  var ERA_FIXTURES = {
+    welcome:      { atompunk: 1, decopunk: 1 },
+    tower:        { atompunk: 1, artdeco: 1, dieselpunk: 1, decopunk: 1, cyberpunk: 1, present: 1, nanopunk: 1, cassette: 1, orbital: 1 },
+    jetpacks:     { atompunk: 1, decopunk: 1 },
+    kiosk:        { atompunk: 1, decopunk: 1 },
+    futureHouse:  { atompunk: 1, decopunk: 1 },
+    tube:         { atompunk: 1, steampunk: 1, decopunk: 1, nanopunk: 1 },
+    robot:        { atompunk: 1, dieselpunk: 1, decopunk: 1 },
+    taxi:         { atompunk: 1, decopunk: 1 },
+    sculpture:    { atompunk: 1, decopunk: 1 },
+    milk:         { atompunk: 1, artdeco: 1, dieselpunk: 1, decopunk: 1 },
+    sputnik:      { atompunk: 1, cyberpunk: 1, present: 1, solarpunk: 1, silkpunk: 1, biopunk: 1, nanopunk: 1, cassette: 1, orbital: 1 },
+    searchlights: { atompunk: 1, artdeco: 1, dieselpunk: 1, decopunk: 1, cyberpunk: 1 },
+    driveIn:      { atompunk: 1, dieselpunk: 1, decopunk: 1, cassette: 1 },
+    smoke:        { atompunk: 1, steampunk: 1, clockpunk: 1, artdeco: 1, dieselpunk: 1, decopunk: 1, cyberpunk: 1, biopunk: 1, silkpunk: 1, cassette: 1 }
+  };
+  function eraHas(f) { var m = ERA_FIXTURES[f]; return !m || m[STYLE] === 1; }
+
+  /* ---------------- era retune + newsreel leader (full-frame) ---------- */
+
+  // swapping ages rolls the picture: set static, one pass of the
+  // vertical hold, torn scanlines and an opening flash, all fading as
+  // the new age settles — a television being retuned, not a cut
+  function drawEraFX() {
+    if (eraFX.t <= 0 || reducedMotion.matches) return;
+    var k = eraFX.t / eraFX.dur, i;                // 1 → 0
+    ctx.fillStyle = 'rgba(8, 10, 10, ' + (0.28 * k).toFixed(3) + ')';
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    ctx.globalAlpha = 0.5 * k;                     // set static
+    ctx.fillStyle = CREAM_HI;
+    for (i = 0; i < 90; i++) {
+      var nx = (i * 149.7 + eraFX.t * 5231) % VIEW_W;
+      var ny = (i * 83.3 + eraFX.t * 3719) % VIEW_H;
+      ctx.fillRect(nx, ny, 2.2, 1.4);
+    }
+    ctx.globalAlpha = 1;
+    var roll = (1 - k) * (VIEW_H + 240) - 120;     // the vertical hold rolls once
+    ctx.fillStyle = 'rgba(6, 8, 8, ' + (0.5 * k).toFixed(3) + ')';
+    ctx.fillRect(0, roll, VIEW_W, 90);
+    ctx.fillStyle = glowRGBA(CREAM_HI, 0.5 * k);
+    ctx.fillRect(0, roll + 90, VIEW_W, 3);
+    ctx.fillStyle = 'rgba(255,255,255,' + (0.08 * k).toFixed(3) + ')';
+    for (i = 0; i < 5; i++) {                      // torn scanline slivers
+      var sy3 = (i * 197.7 + (1 - k) * 900) % VIEW_H;
+      ctx.fillRect(0, sy3, VIEW_W, 2);
+    }
+    if (k > 0.82) {                                // the strike flash
+      ctx.fillStyle = 'rgba(242, 233, 210, ' + (((k - 0.82) / 0.18) * 0.5).toFixed(3) + ')';
+      ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    }
+  }
+
+  // the newsreel's own title leader — recorded over the first moments
+  // of every reel, era-stamped, with a film-leader sweep behind it
+  function drawNewsreelCard() {
+    if (newsreelCard <= 0) return;
+    var fade = Math.min(1, newsreelCard / 0.3);
+    var era = ERAS[STYLE];
+    var pop = (window.MUNICITRON_CITY && window.MUNICITRON_CITY.population) || 0;
+    ctx.globalAlpha = fade;
+    ctx.fillStyle = '#0E100E';
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    var cx = VIEW_W / 2, cy = VIEW_H / 2;
+    var sweep = 1 - Math.max(0, Math.min(1, newsreelCard / 1.5));
+    ctx.strokeStyle = 'rgba(242,233,210,0.16)';    // the leader's reticle
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx, cy, 150, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = 'rgba(242,233,210,0.1)';
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 170); ctx.lineTo(cx, cy + 170);
+    ctx.moveTo(cx - 190, cy); ctx.lineTo(cx + 190, cy);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(242,233,210,0.06)';
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, 150, -Math.PI / 2, -Math.PI / 2 + sweep * Math.PI * 2);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = CREAM_HI;                    // the card itself
+    ctx.lineWidth = 3;
+    ctx.strokeRect(cx - 300, cy - 110, 600, 220);
+    ctx.lineWidth = 1;
+    ctx.strokeRect(cx - 292, cy - 102, 584, 204);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '6px';
+    ctx.font = '700 40px Jost, Futura, sans-serif';
+    ctx.fillStyle = CREAM_HI;
+    ctx.fillText('NAZARBAN NEWSREEL', cx, cy - 44);
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '3px';
+    ctx.font = '600 16px Jost, Futura, sans-serif';
+    ctx.fillStyle = BRASS;
+    ctx.fillText(era ? era.age + ' · ' + era.year : 'MUNICIPAL PICTURES', cx, cy + 4);
+    ctx.fillStyle = 'rgba(242,233,210,0.75)';
+    ctx.fillText('CITY OF ' + CITY_NAME + ' — POP. ' + Math.floor(pop).toLocaleString('en-US'), cx, cy + 40);
+    ctx.font = '600 12px Jost, Futura, sans-serif';
+    ctx.fillStyle = 'rgba(242,233,210,0.45)';
+    ctx.fillText('REEL Nº ' + seed.toString(16).toUpperCase() + ' · SHOWN IN ALL AGES', cx, cy + 78);
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    ctx.globalAlpha = 1;
+  }
+
+  /* ---------------- the back row, cached ------------------------------
+     The distant city doesn't need sixty paints a second. It repaints
+     into an offscreen sheet a few times a second — or the instant the
+     light, weather, season, era or skyline changes — and the main loop
+     just blits the sheet under the live layers. */
+
+  var bgSheet = null, bgSheetCtx = null, bgSheetKey = '';
+  var BG_SS = 2;                                   // supersample for retina
+
+  function drawBackRow(litLevel) {
+    var i, sig = 0;
+    for (i = 0; i < bgCity.length; i++) sig += bgCity[i].progress;
+    var key = STYLE + '|' + Math.round(litLevel * 28) + '|' +
+              Math.round(weatherLevel[2] * 8) + '|' + calendar.month + '|' +
+              bgCity.length + '|' + Math.round(sig * 16) + '|' +
+              Math.floor(effT * 8) + '|' + VIEW_H + '|' +
+              (outage.phase ? outage.phase + ':' + Math.round(outage.frontX / 30) : 'n');
+    if (!bgSheet || bgSheet.width !== VIEW_W * BG_SS || bgSheet.height !== VIEW_H * BG_SS) {
+      bgSheet = document.createElement('canvas');
+      bgSheet.width = VIEW_W * BG_SS;
+      bgSheet.height = VIEW_H * BG_SS;
+      bgSheetCtx = bgSheet.getContext('2d');
+      bgSheetKey = '';
+    }
+    if (key !== bgSheetKey) {
+      bgSheetKey = key;
+      var main = ctx;                              // every draw helper reads the
+      ctx = bgSheetCtx;                            // closure ctx — swap it in
+      ctx.setTransform(BG_SS, 0, 0, BG_SS, 0, 0);
+      ctx.clearRect(0, 0, VIEW_W, VIEW_H);
+      for (i = 0; i < bgCity.length; i++) drawBuilding(bgCity[i], litLevel);
+      ctx = main;
+    }
+    ctx.drawImage(bgSheet, 0, 0, VIEW_W, VIEW_H);
+  }
+
   // per-era citizen (replaces the swing-coat figure)
   function drawPersonEra(s, x, gy, stride, d, night) {
     var y = gy - Math.abs(stride) * 0.9, hipY = y - 6, coat, accent;
     if (s === 'cyberpunk') { coat = '#1A1633'; accent = NEON_CYAN; }
     else if (s === 'steampunk') { coat = mixHex(TEALS[0], '#3E2817', 0.4); accent = BRASS; }
     else if (s === 'solarpunk') { coat = '#3E9A63'; accent = CREAM_HI; }
+    else if (s === 'artdeco' || s === 'decopunk' || s === 'dieselpunk') { coat = mixHex(TEALS[0], '#241408', 0.3); accent = BRASS; }
+    else if (s === 'present') { coat = '#3A4650'; accent = NEON_CYAN; }
+    else if (s === 'cassette') { coat = '#6E4A5E'; accent = NEON_PINK; }
+    else if (s === 'orbital') { coat = '#C8500F'; accent = CREAM_HI; }
+    else if (s === 'clockpunk') { coat = mixHex(TEALS[0], '#241408', 0.45); accent = BRASS; }
     else { coat = mixHex(TEALS[1], '#145A4E', 0.2); accent = ORANGE; }
     ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 1.8; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(x, hipY); ctx.lineTo(x + stride * 2.6, y); ctx.moveTo(x, hipY); ctx.lineTo(x - stride * 2.6, y); ctx.stroke(); ctx.lineCap = 'butt';
@@ -5600,11 +6995,18 @@
     if (s === 'silkpunk') { ctx.fillStyle = accent; ctx.fillRect(x - 2.6, y - 8, 5.2, 1.6); }
     else if (s === 'cyberpunk') { if (night) { ctx.shadowBlur = 4; ctx.shadowColor = accent; } ctx.strokeStyle = accent; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - 1.8, y - 12); ctx.lineTo(x - 1.8, hipY); ctx.stroke(); ctx.shadowBlur = 0; }
     else if (s === 'steampunk') { ctx.strokeStyle = TEAL_TRIM; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x + 3, y - 6); ctx.lineTo(x + 3, y); ctx.stroke(); }   // cane
+    else if (s === 'present' && night) { ctx.shadowBlur = 3; ctx.shadowColor = accent; ctx.fillStyle = glowRGBA(accent, 0.9); ctx.fillRect(x + 2.6, y - 7, 1.8, 2.6); ctx.shadowBlur = 0; }   // the phone
+    else if (s === 'cassette') { ctx.strokeStyle = accent; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(x, headY + 0.4, 3, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke(); ctx.fillStyle = accent; ctx.fillRect(x - 3.6, headY + 0.2, 1.6, 2); ctx.fillRect(x + 2, headY + 0.2, 1.6, 2); }   // the walkman
+    else if (s === 'orbital') { ctx.strokeStyle = 'rgba(240,242,238,0.8)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(x, headY, 3.2, 0, Math.PI * 2); ctx.stroke(); }   // soft helmet ring
     var headY = y - 14.6;
     ctx.fillStyle = SKIN; ctx.beginPath(); ctx.arc(x, headY, 2.1, 0, Math.PI * 2); ctx.fill();
     if (s === 'steampunk') { ctx.fillStyle = '#241408'; ctx.fillRect(x - 3.2, headY - 1.4, 6.4, 1); ctx.fillRect(x - 2.2, headY - 5.4, 4.4, 4.2); }
     else if (s === 'cyberpunk') { if (night) { ctx.shadowBlur = 5; ctx.shadowColor = accent; } ctx.fillStyle = accent; ctx.fillRect(x - 2.2, headY - 0.6, 4.4, 1.4); ctx.shadowBlur = 0; }
     else if (s === 'solarpunk') { ctx.fillStyle = CREAM_HI; ctx.fillRect(x - 3.4, headY - 1.8, 6.8, 1); ctx.beginPath(); ctx.arc(x, headY - 2, 2.4, Math.PI, 0); ctx.fill(); }
+    else if (s === 'artdeco' || s === 'decopunk' || s === 'dieselpunk') { ctx.fillStyle = '#241408'; ctx.fillRect(x - 3.2, headY - 1.2, 6.4, 1); ctx.fillRect(x - 2, headY - 4, 4, 3); }   // fedora
+    else if (s === 'present') { /* bare heads this age */ }
+    else if (s === 'cassette') { /* the walkman is drawn with the coat */ }
+    else if (s === 'orbital') { /* the helmet ring is drawn with the coat */ }
     else { ctx.fillStyle = ORANGE; ctx.beginPath(); ctx.moveTo(x - 3.4, headY - 1.4); ctx.lineTo(x, headY - 5.6); ctx.lineTo(x + 3.4, headY - 1.4); ctx.closePath(); ctx.fill(); }
     return y;
   }
@@ -5621,6 +7023,10 @@
     if (STYLE === 'steampunk') { drawBuildingSteam(b, top, h, litLevel); return; }
     if (STYLE === 'solarpunk') { drawBuildingSolar(b, top, h, litLevel); return; }
     if (STYLE === 'silkpunk')  { drawBuildingSilk(b, top, h, litLevel); return; }
+    if (STYLE === 'artdeco' || STYLE === 'decopunk') { drawBuildingDeco(b, top, h, litLevel); return; }
+    if (STYLE === 'present')   { drawBuildingPresent(b, top, h, litLevel); return; }
+    if (STYLE === 'cassette')  { drawBuildingCassette(b, top, h, litLevel); return; }
+    if (STYLE === 'orbital')   { drawBuildingOrbital(b, top, h, litLevel); return; }
 
     ctx.fillStyle = b.color;
     ctx.fillRect(b.x, top, b.w, h);
@@ -5836,10 +7242,12 @@
       core: s === 'cyberpunk' ? NEON_PINK : s === 'silkpunk' ? NEON_PINK : ORANGE,
       edge: s === 'cyberpunk' ? NEON_CYAN : s === 'solarpunk' ? '#3E9A63' : BRASS,
       // electric ages glow by day; brass/gaslight ages only light after dark
-      alwaysGlow: (s === 'cyberpunk' || s === 'solarpunk' || s === 'silkpunk'),
+      alwaysGlow: (s === 'cyberpunk' || s === 'solarpunk' || s === 'silkpunk' || s === 'present' || s === 'orbital'),
       font: s === 'cyberpunk' ? '"Courier New", monospace'
         : (s === 'steampunk' || s === 'silkpunk') ? 'Georgia, serif'
         : s === 'solarpunk' ? '"Trebuchet MS", sans-serif'
+        : s === 'present' ? '"Helvetica Neue", Helvetica, Arial, sans-serif'
+        : s === 'cassette' ? '"Courier New", monospace'
         : 'Jost, Futura, sans-serif'
     };
   }
@@ -6108,6 +7516,15 @@
       }
     }
     starLevel = Math.max(starLevel, weatherLevel[3] * 0.75);
+
+    // totality: the eclipse pulls an uncanny dusk over the whole scene —
+    // sky drops toward slate, the window lights come on, a few stars show
+    var ecov = eclipseCover();
+    if (ecov > 0.01) {
+      skyRgb = mixRgb(skyRgb, hexToRgb('#2A3438'), ecov * 0.78);
+      litLevel = Math.max(litLevel, ecov * 0.75);
+      starLevel = Math.max(starLevel, (ecov - 0.6) * 1.2);
+    }
     var sky = rgbStr(skyRgb);
     var skyLum = (0.299 * skyRgb[0] + 0.587 * skyRgb[1] + 0.114 * skyRgb[2]) / 255;
 
@@ -6128,13 +7545,13 @@
     // line, plus pointer parallax — the sky drifts least, the street
     // most, so the flat poster reads as a stage with depth
     ctx.save();
-    var zoom = reducedMotion.matches ? 1 : 1 + 0.02 * (0.5 + 0.5 * Math.sin(effT * 0.07));
+    var zoom = reducedMotion.matches ? 1 : 1 + 0.02 * (0.5 + 0.5 * Math.sin(effT * 0.07)) + 0.016 * camPushSm;
     ctx.translate(VIEW_W / 2, GROUND_Y);
     ctx.scale(zoom, zoom);
     ctx.translate(-VIEW_W / 2, -GROUND_Y);
 
     ctx.save();                                   // ---- far sky ----
-    ctx.translate(parX * 0.25, 0);
+    ctx.translate(parX * 0.25, parY * 0.35);
 
     // dusk/dawn horizon glow — a warm low band under the cool upper sky,
     // fading orange → magenta → violet as it climbs (the Atom-City look);
@@ -6192,12 +7609,13 @@
     drawRainbow();
     drawSputnik(starLevel);
     drawShootingStar(starLevel);
+    drawComet(starLevel);
     drawClouds(cloudColor);
-    drawStyleSky(skyLum);
+    drawStyleSky(skyLum, starLevel);
     ctx.restore();
 
     ctx.save();                                   // ---- high traffic ----
-    ctx.translate(parX * 0.4, 0);
+    ctx.translate(parX * 0.4, parY);
     drawHill(litLevel);
     drawAirship(litLevel);
     drawAircars(litLevel);
@@ -6208,13 +7626,13 @@
     ctx.restore();
 
     ctx.save();                                   // ---- back row ----
-    ctx.translate(parX * 0.55, 0);
-    for (i = 0; i < bgCity.length; i++) drawBuilding(bgCity[i], litLevel);
+    ctx.translate(parX * 0.55, parY);
+    drawBackRow(litLevel);
     drawTower(litLevel);
     ctx.restore();
 
     ctx.save();                                   // ---- the street ----
-    ctx.translate(parX, 0);
+    ctx.translate(parX, parY);
     drawSearchlights(starLevel);
     for (i = 0; i < landmarks.length; i++) drawLandmark(landmarks[i], litLevel);
     drawPark(litLevel);
@@ -6231,6 +7649,7 @@
     drawStreetlamps(litLevel);
     drawFolks();
     drawRobot(litLevel);
+    drawFire(litLevel);
     for (i = 0; i < city.length; i++) drawCrane(city[i]);
     drawStringLights(litLevel);
     drawDust();
@@ -6253,7 +7672,7 @@
     var bandRgb = mixRgb(TRIM_RGB, CREAM_RGB, weatherLevel[2] * 0.55);
     bandRgb = mixRgb(bandRgb, DEEP_RGB, weatherLevel[1] * 0.4);
     ctx.fillStyle = rgbStr(bandRgb);
-    ctx.fillRect(-80, GROUND_Y, VIEW_W + 160, VIEW_H - GROUND_Y);
+    ctx.fillRect(-80, GROUND_Y, VIEW_W + 160, VIEW_H - GROUND_Y + 26);
 
     drawHarbor(skyRgb, starLevel);                // the bay claims its side
 
@@ -6262,6 +7681,7 @@
     var brassR = harbor && harbor.side === 1 ? harbor.shore : VIEW_W + 80;
     ctx.fillRect(brassL, GROUND_Y, brassR - brassL, 3);
     drawGroundEra(litLevel);
+    drawRiver(skyRgb, starLevel);                 // the canal claims its crossing
 
     // wet-street reflections: lamps and doorways smear into the asphalt
     var wet = weatherLevel[1];
@@ -6280,6 +7700,20 @@
           ctx.fillRect(city[i].x + city[i].w / 2 - 1.5, GROUND_Y + 5, 3, 16);
         }
       }
+      // raindrop rings widen and fade on the wet asphalt
+      if (!reducedMotion.matches) {
+        ctx.strokeStyle = CREAM_HI;
+        ctx.lineWidth = 1;
+        for (i = 0; i < 7; i++) {
+          var rp = (effT * (0.5 + (i % 3) * 0.13) + i * 0.371) % 1;
+          var rx2 = ((i * 227.3) % (VIEW_W - 80)) + 40;
+          if (rx2 < LAND_L + 14 || rx2 > LAND_R - 14) continue;
+          ctx.globalAlpha = wet * 0.4 * (1 - rp);
+          ctx.beginPath();
+          ctx.ellipse(rx2, GROUND_Y + 8 + (i % 4) * 5, 3 + rp * 13, (3 + rp * 13) * 0.32, 0, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
       ctx.globalAlpha = 1;
     }
 
@@ -6293,6 +7727,10 @@
     else if (STYLE === 'steampunk') { eF = '600 17px Georgia, serif'; eBF = '600 14px Georgia, serif'; eP = 'Ye Towne of '; eS = '✦ '; eLS = '1px'; }
     else if (STYLE === 'solarpunk') { eF = '600 15px "Trebuchet MS", sans-serif'; eBF = '600 13px "Trebuchet MS", sans-serif'; eP = 'Commons of '; eS = '❀ '; eLS = '2px'; }
     else if (STYLE === 'silkpunk') { eF = '600 17px Georgia, serif'; eBF = '600 14px Georgia, serif'; eP = 'Port of '; eS = '✿ '; eLS = '1px'; }
+    else if (STYLE === 'artdeco' || STYLE === 'decopunk') { eF = '700 15px Jost, Futura, sans-serif'; eBF = '600 13px Jost, Futura, sans-serif'; eP = 'THE CITY OF '; eS = '◆ '; eLS = '4px'; }
+    else if (STYLE === 'present') { eF = '600 14px "Helvetica Neue", Helvetica, Arial, sans-serif'; eBF = '600 12px "Helvetica Neue", Helvetica, Arial, sans-serif'; eP = 'City of '; eS = '● '; eLS = '1.5px'; }
+    else if (STYLE === 'cassette') { eF = '700 14px "Courier New", monospace'; eBF = '600 12px "Courier New", monospace'; eP = 'CITY OF '; eS = '■ '; eLS = '1px'; }
+    else if (STYLE === 'orbital') { eF = '600 14px "Helvetica Neue", Helvetica, Arial, sans-serif'; eBF = '600 12px "Helvetica Neue", Helvetica, Arial, sans-serif'; eP = 'PORT '; eS = '▲ '; eLS = '3px'; }
     if (eGlow) { ctx.shadowBlur = 6; ctx.shadowColor = eGlow; }
     ctx.font = eF;
     if ('letterSpacing' in ctx) ctx.letterSpacing = eLS;
@@ -6332,6 +7770,8 @@
     drawMail();                                   // the sister city's postcard
     drawTelecast();                               // the tube, if we're on the air
     drawTestPattern();                            // calibration card covers all
+    drawEraFX();                                  // the retune rides over everything
+    drawNewsreelCard();                           // the reel opens on its title
   }
 
   /* ---------------- loop ---------------- */
@@ -6356,14 +7796,17 @@
   var THEMES = {
     atompunk:   { label: 'ATOMPUNK',   teals: ['#0F4F4B','#166A61','#0A3C39'], trim: '#082B29', brass: '#FFC94A', orange: '#FF6B3D', cream: '#FBF3DE', cyan: '#3FE0D8', pink: '#FF5A96', ground: '#E8DCC0', skies: ['#0F1230','#F4995F','#F0CBA0','#F6DEC0','#F2C592','#6E3F66','#3A2E6E','#141636'] },
     cyberpunk:  { label: 'CYBERPUNK',  teals: ['#241A3A','#38265C','#1A1230'], trim: '#0E0820', brass: '#F5E663', orange: '#FF4D6D', cream: '#E9E6FF', cyan: '#28E7F0', pink: '#FF2E88', ground: '#141026', skies: ['#080510','#2A1240','#3B1D57','#4A2A6B','#341E52','#5A1E5A','#1B1030','#0A0618'] },
+    present:    { label: 'PRESENT DAY', teals: ['#26313B','#33424F','#1B2530'], trim: '#0E141A', brass: '#E8B44C', orange: '#FF7A45', cream: '#F2F0E9', cyan: '#4FD8FF', pink: '#9A8CFF', ground: '#262E36', skies: ['#0A0E16','#F0A05E','#DCE4EA','#EBF1F5','#D8E2EA','#7A5A78','#2E3A5E','#101624'] },
+    cassette:   { label: 'CASSETTE',    teals: ['#4A4440','#5C554E','#37322D'], trim: '#191512', brass: '#E8B84B', orange: '#E85D2C', cream: '#EFE6D4', cyan: '#42E896', pink: '#FF4FA0', ground: '#2E2A26', skies: ['#151021','#D98A4E','#C9B896','#D8CBAA','#C2AE8C','#8A5A5E','#3A3450','#181322'] },
+    orbital:    { label: 'ORBITAL',     teals: ['#1E3A54','#2A4C6E','#152A40'], trim: '#0A1624', brass: '#FFB05A', orange: '#FF6A2A', cream: '#F0F2EE', cyan: '#5AC8FF', pink: '#FF7A5A', ground: '#122032', skies: ['#060A14','#F08A4E','#A8CBE4','#C2DCEE','#96BEDC','#6A4A72','#1E2A54','#0A0E1C'] },
     steampunk:  { label: 'STEAMPUNK',  teals: ['#5A3A24','#6E4A2E','#3E2817'], trim: '#241408', brass: '#E0A94E', orange: '#C6602A', cream: '#EFE2C4', cyan: '#4FA38C', pink: '#B5713C', ground: '#8A6A44', skies: ['#1E160E','#C98A4E','#D8B27E','#E4CFA6','#D2A96E','#8A5A3C','#4A3524','#160E08'] },
-    artdeco:    { label: 'ART DECO',   teals: ['#0E4A3E','#14352E','#0A2A22'], trim: '#061A14', brass: '#E7C36B', orange: '#D2683C', cream: '#F3E9CE', cyan: '#3FB89A', pink: '#C46A86', ground: '#12332A', skies: ['#0C1420','#D9A46A','#E4C79A','#F0DDBC','#E0BC88','#7A4A55','#2A2E4A','#10141F'] },
+    artdeco:    { label: 'ART DECO',   teals: ['#252A32','#31383F','#191D24'], trim: '#0D1015', brass: '#EFC75E', orange: '#C8553D', cream: '#F3E9CE', cyan: '#5FBFAE', pink: '#C46A86', ground: '#15181E', skies: ['#0B0F16','#E5A45C','#EED2A0','#F6E5C2','#E6C084','#6E4258','#242A44','#0E1219'] },
     dieselpunk: { label: 'DIESELPUNK', teals: ['#3E4632','#4E5A3E','#2A3022'], trim: '#161A10', brass: '#C9A24B', orange: '#D2601F', cream: '#DAD4BE', cyan: '#5E8A76', pink: '#A85E3C', ground: '#5E5A44', skies: ['#161812','#9A7A54','#B4A588','#C4BCA0','#A89878','#5E4E3E','#33362E','#101208'] },
-    clockpunk:  { label: 'CLOCKPUNK',  teals: ['#2E4A5A','#3A5E6E','#20343E'], trim: '#12222A', brass: '#D8B45C', orange: '#B5763C', cream: '#F0E6CC', cyan: '#6BB0B8', pink: '#B58AA0', ground: '#2A4048', skies: ['#161E2C','#C79A6E','#D8C29A','#EADDBE','#CBB088','#7A5A66','#33405A','#141C28'] },
-    decopunk:   { label: 'DECOPUNK',   teals: ['#106A64','#16857C','#0C4A45'], trim: '#062E2A', brass: '#F2CE5E', orange: '#F07A3C', cream: '#F6ECD2', cyan: '#46E0D6', pink: '#F06A9A', ground: '#0E403A', skies: ['#101838','#F0A25E','#F4CE9C','#F8E6C4','#F0C888','#8A3F70','#3A3070','#151640'] },
+    clockpunk:  { label: 'CLOCKPUNK',  teals: ['#333A5E','#414A7A','#242A45'], trim: '#12162B', brass: '#D8B45C', orange: '#B5763C', cream: '#F0E6CC', cyan: '#7A9AD0', pink: '#B58AA0', ground: '#2A3050', skies: ['#0F1322','#C79A6E','#D8C29A','#EADDBE','#CBB088','#6E5A80','#2E3560','#0D1120'] },
+    decopunk:   { label: 'DECOPUNK',   teals: ['#2E6E8E','#3A85A8','#1F4C63'], trim: '#0F2836', brass: '#F2CE5E', orange: '#F07A3C', cream: '#F6ECD2', cyan: '#6FE0E8', pink: '#F06A9A', ground: '#173845', skies: ['#0D1826','#F0A25E','#DCE8EE','#EAF2F6','#D8E4EC','#7A5070','#2C3A66','#101A2C'] },
     solarpunk:  { label: 'SOLARPUNK',  teals: ['#2E7D4F','#3E9A63','#206A3E'], trim: '#123E28', brass: '#F2C94C', orange: '#F09A3C', cream: '#F7F3E0', cyan: '#5AC8E0', pink: '#E88AB0', ground: '#3E7A52', skies: ['#16323E','#F5B36A','#CDE8E0','#DFF2E8','#BFE0D6','#E8946A','#3A6A7A','#12303A'] },
     biopunk:    { label: 'BIOPUNK',    teals: ['#2A4A38','#38614A','#1E3428'], trim: '#0E2018', brass: '#B6E85A', orange: '#E06A4A', cream: '#E6EAD2', cyan: '#4FE0B0', pink: '#C86ACA', ground: '#243A2A', skies: ['#0E1812','#7A8A4E','#9EAE6E','#B0BE86','#8A9E5E','#4A3A5A','#22322A','#0C160F'] },
-    nanopunk:   { label: 'NANOPUNK',   teals: ['#3A4650','#4E5E6A','#28323A'], trim: '#161E24', brass: '#B8C6D0', orange: '#4AB0FF', cream: '#EEF3F7', cyan: '#3FE0F0', pink: '#7A8AFF', ground: '#2E3A44', skies: ['#0E141C','#8AA0B4','#BCD0DE','#D6E4EE','#AEC4D4','#5A6A8A','#2A3446','#0C1218'] },
+    nanopunk:   { label: 'NANOPUNK',   teals: ['#9AA4B2','#B2BCC8','#7E8896'], trim: '#3E4652', brass: '#C8D2DC', orange: '#8A7AFF', cream: '#FBFCFE', cyan: '#66E6FF', pink: '#B49AFF', ground: '#AEB6C2', skies: ['#1A2030','#C4B2D4','#E6ECF4','#F2F6FA','#DEE6F0','#8A82B4','#3E4670','#161C2E'] },
     silkpunk:   { label: 'SILKPUNK',   teals: ['#1E7A6A','#2A9684','#145A4E'], trim: '#0A342C', brass: '#E8C25A', orange: '#E24A32', cream: '#F4ECD6', cyan: '#4FD0C0', pink: '#E86A8A', ground: '#166054', skies: ['#101C20','#E0A46A','#EAD2A2','#F2E4C6','#DDBE8E','#9A4A4A','#2E4A4A','#0E181C'] }
   };
 
@@ -6406,6 +7849,30 @@
       brief: 'The city sprawled into a network no one could see whole.',
       install: 'A neural deck wired to every sensor, ledger and light.',
       result: 'The grid answered in real time. Nothing moved unseen.'
+    },
+    cassette: {
+      year: '1984', age: 'THE CASSETTE AGE', tag: 'CASSETTE AGE',
+      company: 'NAZARBAN MICROSYSTEMS',
+      machine: 'THE NAZARBAN HOME TERMINAL',
+      brief: 'City hall ran on carbon paper while the arcades ran on light.',
+      install: 'A beige terminal on every desk, singing to the exchange at dusk.',
+      result: 'The ledgers balanced overnight. The operators kept the high score.'
+    },
+    present: {
+      year: '2026', age: 'THE THINKING AGE', tag: 'THINKING AGE',
+      company: 'NAZARBAN AI',
+      machine: 'APPLIED AI — CONSULTATION & IMPLEMENTATION',
+      brief: 'Every desk drowned in data; every decision waited on it.',
+      install: 'A thinking machine, built to the city’s own work, beside its people.',
+      result: 'The city answers before it is asked. This age is real — and open for business.'
+    },
+    orbital: {
+      year: '2050', age: 'THE ORBITAL AGE', tag: 'ORBITAL AGE',
+      company: 'NAZARBAN ORBITAL',
+      machine: 'THE NAZARBAN UPLINK',
+      brief: 'Half the city’s business was suddenly overhead.',
+      install: 'An uplink braided into the elevator ribbon, minding both ends.',
+      result: 'Ground and orbit kept one ledger. Nothing was lost between floors.'
     },
     solarpunk: {
       year: '2077', age: 'THE GREEN AGE', tag: 'GREEN AGE',
@@ -6477,6 +7944,79 @@
 
   var STYLE = 'atompunk';
 
+  /* the wire speaks the age: a small pool of era-voiced lines mixed in
+     with the perennials (Wembly campaigns in every century) */
+  var ERA_WIRE = {
+    steampunk: [
+      'BOILER INSPECTION PASSED — PRESSURE DECLARED HANDSOME',
+      'GAS LAMPS TRIMMED — LAMPLIGHTER COMMENDED',
+      'DIFFERENCE ENGINE CASTS THE CENSUS — CLERKS TAKE THE AIR',
+      'AIRSHIP MOORING FEES UNCHANGED SINCE TUESDAY'
+    ],
+    clockpunk: [
+      'TOWN ORRERY WOUND — ALL SPHERES ACCOUNTED FOR',
+      'MARKET BELL RECAST — NOON NOW OCCURS AT NOON'
+    ],
+    artdeco: [
+      'NEW SPIRE TOPS OUT — GILDING COMMENCES AT DAWN',
+      'TABULATOR CLOSES THE LEDGERS BY TEN — CLERKS AT THE PICTURES',
+      'CHROME POLISH SHORTAGE DECLARED OVER',
+      'ELEVATOR RACE TO THE 40TH — HOUSE RULES APPLY'
+    ],
+    dieselpunk: [
+      'FREIGHT YARD ON ONE CLOCK AT LAST — NOTHING WAITS ON THE DOCK',
+      'CALCULATOR-ENGINE RUNS THE NIGHT SHIFT — QUIETLY'
+    ],
+    decopunk: [
+      'THE FAIR OPENS SUNDAY — TOMORROW ON SCHEDULE',
+      'WORLD-ENGINE FORECASTS: MORE OF EVERYTHING'
+    ],
+    cyberpunk: [
+      'GRID LOAD NOMINAL — NEURODECK DREAMING IN FORTY CHANNELS',
+      'RAIN FORECAST: CONTINUOUS — UMBRELLA FUTURES UP',
+      'BILLBOARD PERMIT DENIED: INSUFFICIENTLY BRIGHT',
+      'DIAL-UP EXCHANGE AT CAPACITY — TRY AFTER MIDNIGHT'
+    ],
+    present: [
+      'NAZARBAN MODEL DEPLOYED AT THE PERMIT OFFICE — QUEUE CLEARED BY NOON',
+      'THE THINKING MACHINE FLAGS A WATER LEAK BEFORE IT LEAKS',
+      'BIKE-LANE COUNTER PASSES ONE MILLION — CAKE AT THE DEPOT',
+      'CITY COUNCIL STREAMS AT SEVEN — AGENDA: EVERYTHING',
+      'PARCEL DRONE RETURNS A LOST HAT — OWNER DELIGHTED'
+    ],
+    cassette: [
+      'ARCADE HIGH SCORE STANDS — INITIALS A.O.K.',
+      'HOME TERMINALS IN ONE HOUSE IN FIVE — MODEMS SING AT DUSK',
+      'CASSETTE RETURNED UNREWOUND — FINE ASSESSED, LESSON TAKEN',
+      'SMOG ADVISORY LIFTED BY THE EVENING BREEZE',
+      'CABLE CHANNEL 34 SIGNS ON — MOSTLY WEATHER'
+    ],
+    orbital: [
+      'CARGO POD CLEARED FOR PAD THREE — WIND WITHIN LIMITS',
+      'ELEVATOR CLIMBER PASSES THE KÁRMÁN LINE — WAVE',
+      'UPLINK NOMINAL — THE CITY SPEAKS TO ORBIT',
+      'STATION OVERHEAD AT 21:04 — PORCH LIGHTS OFF, PLEASE',
+      'RE-ENTRY SCHEDULED — EXPECT ONE POLITE BOOM'
+    ],
+    solarpunk: [
+      'ROOFTOP HARVEST WEIGHED — SURPLUS TO THE COMMONS',
+      'THE GROVE REPORTS: CITY GAVE BACK MORE THAN IT TOOK',
+      'QUIET HOURS EXTENDED — THE BEES ASKED NICELY'
+    ],
+    biopunk: [
+      'MAIN STREET RESEEDED ITSELF OVERNIGHT — CREWS STOOD DOWN',
+      'CULTURED MIND REPORTS THE CITY IN GOOD HEALTH'
+    ],
+    nanopunk: [
+      'INVISIBLE WORKS INSPECTED — NOTHING TO SEE, ALL WELL',
+      'LATTICE RECOUNTS THE CENSUS TO THE LAST SOUL'
+    ],
+    silkpunk: [
+      'THE LOOM WEAVES THE MORNING MARKETS — FORTUNE FOLLOWS',
+      'LANTERN FESTIVAL MOVED UP — THE THREAD SAYS RAIN'
+    ]
+  };
+
   function glowRGBA(hex, a) { var c = hexToRgb(hex); return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
 
   function applyTheme(id) {
@@ -6498,7 +8038,7 @@
     ACC_GLOW = [GLOW_CYAN, GLOW_PINK, GLOW_ORANGE];
     ACC_BAND = [glowRGBA(NEON_CYAN, 0.55), glowRGBA(NEON_PINK, 0.55), glowRGBA(ORANGE, 0.55)];
     SIGN_COLORS = [NEON_CYAN, NEON_PINK, ORANGE, BRASS];
-    FW_COLORS = id === 'cyberpunk' ? [NEON_CYAN, NEON_PINK, CREAM_HI] : id === 'solarpunk' ? [BRASS, '#3E9A63', CREAM_HI] : id === 'silkpunk' ? [ORANGE, BRASS, NEON_PINK] : [BRASS, ORANGE, CREAM_HI];
+    FW_COLORS = id === 'present' ? [NEON_CYAN, BRASS, CREAM_HI] : id === 'cyberpunk' ? [NEON_CYAN, NEON_PINK, CREAM_HI] : id === 'solarpunk' ? [BRASS, '#3E9A63', CREAM_HI] : id === 'silkpunk' ? [ORANGE, BRASS, NEON_PINK] : [BRASS, ORANGE, CREAM_HI];
     HILL_FILL = hill ? rgbStr(mixRgb(hexToRgb(TEALS[1]), CREAM_RGB, 0.42)) : null;
     HILL_TRACK = hill ? rgbStr(mixRgb(TRIM_RGB, CREAM_RGB, 0.3)) : null;
     for (i = 0; i < TIMES.length; i++) {
@@ -6514,6 +8054,7 @@
       else if ((k = oldBg.indexOf(b.color)) >= 0) b.color = BG_TEALS[k];
       if (b.next && (k = oldTeals.indexOf(b.next.color)) >= 0) b.next.color = TEALS[k];
     }
+    if (themeBooted) eraFX.t = eraFX.dur;         // roll the retune over the swap
   }
 
   var STYLE_KEY = 'municitron-style';
@@ -6522,6 +8063,7 @@
   if (!styleId) { try { styleId = localStorage.getItem(STYLE_KEY); } catch (e) {} }
   if (!styleId || !THEMES[styleId]) styleId = 'atompunk';
   applyTheme(styleId);
+  themeBooted = true;
   (function () {
     var sel = document.getElementById('style-select');
     if (!sel) return;
@@ -6549,6 +8091,7 @@
     almanac: ALMANAC,
     harbor: harbor,
     hill: hill,
+    river: river,
     ledger: memory,
     population: 0,
     city: city,
@@ -6580,4 +8123,29 @@
     }
   }
   console.info('MUNICITRON M-58 · ' + CITY_NAME + ' · seed ' + seed + ' — reproduce with ?seed=' + seed);
+
+  // paint the very first frame synchronously so the city exists before
+  // the first rAF tick — no blank canvas on a throttled or background
+  // load (embeds, previews, print captures)
+  fitBackingStore();
+  update(1 / 60);
+  drawScene();
+
+  // service hook: step the simulation by hand (dt seconds × n frames).
+  // Used by the factory for calibration captures; harmless in the field.
+  window.MUNICITRON_STEP = function (dt, n) {
+    for (var i = 0; i < (n || 1); i++) { update(dt || 1 / 60); }
+    drawScene();
+  };
+
+  // service hook: the civil-defense drill. Rushes a rare event to the
+  // front of its queue (the event still honors its own conditions —
+  // eclipses need a clear noon). For technicians and the curious.
+  window.MUNICITRON_DRILL = function (what) {
+    if (what === 'fire') fire.timer = 0;
+    else if (what === 'outage') outage.timer = 0;
+    else if (what === 'eclipse') eclipse.timer = 0;
+    else if (what === 'comet') comet.timer = 0;
+    else return 'DRILLS: fire · outage · eclipse · comet';
+  };
 })();

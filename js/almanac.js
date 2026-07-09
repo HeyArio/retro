@@ -55,16 +55,20 @@
       }
     }
 
-    fitLine('NAZARBAN INSTRUMENT WORKS · MUNICIPAL RECORDS DIVISION', '600', 11, 4, W - 90);
+    // the letterhead speaks the age being simulated (js/city.js ERAS)
+    var era = (M.eras && M.style) ? M.eras[M.style] : null;
+    var letterhead = (era ? era.company : 'NAZARBAN INSTRUMENT WORKS') + ' · MUNICIPAL RECORDS DIVISION';
+    fitLine(letterhead, '600', 11, 4, W - 90);
     c.fillStyle = ENGRAVE;
-    c.fillText('NAZARBAN INSTRUMENT WORKS · MUNICIPAL RECORDS DIVISION', cx, 58 * S);
+    c.fillText(letterhead, cx, 58 * S);
 
     setFont(c, '700', 30, 'Jost, Futura, sans-serif', 5);
     c.fillStyle = TEAL;
     c.fillText('MUNICIPAL ALMANAC', cx, 100 * S);
-    setFont(c, '600', 13, 'Jost, Futura, sans-serif', 4);
+    var subline = 'FORM CA-2 · ' + (era ? era.tag + ' EDITION · ' : '') + 'ISSUED ANNUALLY OR ON DEMAND';
+    fitLine(subline, '600', 13, 4, W - 90);
     c.fillStyle = ORANGE;
-    c.fillText('FORM CA-2 · ISSUED ANNUALLY OR ON DEMAND', cx, 126 * S);
+    c.fillText(subline, cx, 126 * S);
 
     // the subject municipality
     var size = 34;
@@ -83,7 +87,7 @@
       ['SETTLED', 'A.D. ' + A.founded],
       ['INCORPORATED', M.population >= 10000 ? 'YES — SEE FORM CI-9' : 'PENDING (POP. 10,000)'],
       ['POPULATION AT PRESS', Math.floor(M.population).toLocaleString('en-US')],
-      ['SITUATION', M.harbor ? 'HARBOR TOWN — MIND THE FERRY' : 'INLAND — STOUT PRAIRIE STOCK'],
+      ['SITUATION', A.situation || (M.harbor ? 'HARBOR TOWN — MIND THE FERRY' : 'INLAND — STOUT PRAIRIE STOCK')],
       ['CHIEF EXPORTS', A.exports],
       ['MUNICIPAL BIRD', A.bird],
       ['DISH OF RECORD', A.dish],

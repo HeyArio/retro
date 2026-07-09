@@ -66,9 +66,12 @@
     c.textAlign = 'center';
     c.textBaseline = 'alphabetic';
 
+    // the letterhead speaks the age being simulated (js/city.js ERAS)
+    var Mc2 = window.MUNICITRON_CITY || {};
+    var eraC2 = (Mc2.eras && Mc2.style) ? Mc2.eras[Mc2.style] : null;
     setFont(c, '600', 12, 'Jost, Futura, sans-serif', 5);
     c.fillStyle = ENGRAVE;
-    c.fillText('NAZARBAN INSTRUMENT WORKS · MUNICIPAL SIMULATION UNIT', cx, 78 * S);
+    c.fillText((eraC2 ? eraC2.company : 'NAZARBAN INSTRUMENT WORKS') + ' · MUNICIPAL SIMULATION UNIT', cx, 78 * S);
 
     // the headline, teal over a flat orange offset (house style),
     // shrunk as a whole line until it clears the rules

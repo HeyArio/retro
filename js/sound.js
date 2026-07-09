@@ -23,6 +23,45 @@
   var bed = null;          // ambient bus (hum + motor + clatter); duckable
   var lastTick = 0;
   var noiseBuf = null;
+  var humO1 = null, humO2 = null, humG = null, motorO = null;
+
+  /* the machine's voice changes with the age being simulated: piston
+     thud and low steam for the brass ages, a dynamo and typebars for
+     the chrome ones, data chatter for the wired age, near-silence and
+     key taps for the present, soft work for the green ages */
+  var PROFILES = {
+    atom:    { hum1: 50,  hum2: 100.4, humG: 0.04,  motor: 82,  clackF: 1500, clackJ: 700, wave: 'sine',     oct: 1, bedG: 1 },
+    steam:   { hum1: 34,  hum2: 68.3,  humG: 0.05,  motor: 46,  clackF: 750,  clackJ: 350, wave: 'sine',     oct: 2, bedG: 1.1 },
+    diesel:  { hum1: 60,  hum2: 120.5, humG: 0.045, motor: 110, clackF: 1150, clackJ: 500, wave: 'triangle', oct: 1, bedG: 1 },
+    cyber:   { hum1: 58,  hum2: 116.7, humG: 0.05,  motor: 164, clackF: 2500, clackJ: 900, wave: 'square',   oct: 1, bedG: 0.9 },
+    cassette:{ hum1: 60,  hum2: 119.7, humG: 0.045, motor: 124, clackF: 2100, clackJ: 700, wave: 'square',   oct: 2, bedG: 0.85 },
+    orbital: { hum1: 40,  hum2: 80.4,  humG: 0.035, motor: 74,  clackF: 2800, clackJ: 600, wave: 'sine',     oct: 2, bedG: 0.65 },
+    present: { hum1: 118, hum2: 236.6, humG: 0.02,  motor: 90,  clackF: 3300, clackJ: 800, wave: 'triangle', oct: 2, bedG: 0.5 },
+    green:   { hum1: 44,  hum2: 88.6,  humG: 0.03,  motor: 62,  clackF: 1900, clackJ: 600, wave: 'sine',     oct: 2, bedG: 0.7 }
+  };
+
+  function profFor(style) {
+    if (style === 'steampunk' || style === 'clockpunk') return PROFILES.steam;
+    if (style === 'cyberpunk' || style === 'nanopunk') return PROFILES.cyber;
+    if (style === 'cassette') return PROFILES.cassette;
+    if (style === 'orbital') return PROFILES.orbital;
+    if (style === 'present') return PROFILES.present;
+    if (style === 'solarpunk' || style === 'biopunk' || style === 'silkpunk') return PROFILES.green;
+    if (style === 'artdeco' || style === 'decopunk' || style === 'dieselpunk') return PROFILES.diesel;
+    return PROFILES.atom;
+  }
+
+  var prof = PROFILES.atom;
+
+  function applyEraProfile(style) {
+    prof = profFor(style);
+    if (!ac) return;
+    humO1.frequency.value = prof.hum1;
+    humO2.frequency.value = prof.hum2;
+    humG.gain.value = prof.humG;
+    motorO.frequency.value = prof.motor;
+    bed.gain.value = prof.bedG;
+  }
 
   // the VOLUME knob's three detents: LOW / STANDARD / FULL
   var LEVELS = [0.05, 0.12, 0.24];
@@ -32,6 +71,8 @@
     if (ac) return;
     var AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
+    var M0 = window.MUNICITRON_CITY;
+    prof = profFor(M0 && M0.style);
     ac = new AC();
     master = ac.createGain();
     master.gain.value = LEVELS[level];
@@ -40,30 +81,32 @@
     // the ambient bed rides its own bus so a whistle or chime can duck
     // the machine's clatter and sing out clearly over it
     bed = ac.createGain();
-    bed.gain.value = 1;
+    bed.gain.value = prof.bedG;
     bed.connect(master);
 
     // transformer hum: two detuned low oscillators through a gentle lowpass
     var hum = ac.createGain();
-    hum.gain.value = 0.04;
+    hum.gain.value = prof.humG;
     var lp = ac.createBiquadFilter();
     lp.type = 'lowpass';
     lp.frequency.value = 200;
     var o1 = ac.createOscillator();
     o1.type = 'triangle';
-    o1.frequency.value = 50;
+    o1.frequency.value = prof.hum1;
     var o2 = ac.createOscillator();
     o2.type = 'sine';
-    o2.frequency.value = 100.4;
+    o2.frequency.value = prof.hum2;
     o1.connect(hum); o2.connect(hum);
     hum.connect(lp); lp.connect(bed);
     o1.start(); o2.start();
+    humO1 = o1; humO2 = o2; humG = hum;
 
     // motor whir: a filtered sawtooth under a slow tremolo — a cooling
     // fan or a tape reel turning somewhere inside the cabinet
     var motor = ac.createOscillator();
     motor.type = 'sawtooth';
-    motor.frequency.value = 82;
+    motor.frequency.value = prof.motor;
+    motorO = motor;
     var mlp = ac.createBiquadFilter();
     mlp.type = 'lowpass';
     mlp.frequency.value = 300;
@@ -100,7 +143,7 @@
     src.buffer = noise();
     var bp = ac.createBiquadFilter();
     bp.type = 'bandpass';
-    bp.frequency.value = freq || (1500 + Math.random() * 700);
+    bp.frequency.value = freq || (prof.clackF + Math.random() * prof.clackJ);
     bp.Q.value = 1.1;
     var g = ac.createGain();
     g.gain.setValueAtTime(gain || 0.1, t);
@@ -129,7 +172,7 @@
         var at = k * CLK + (Math.random() - 0.5) * 0.04;
         step++;
         if (step % 8 === 0) {                      // relay bank throws over
-          clack(at, 0.16, 900); clack(at + 0.07, 0.09, 1300);
+          clack(at, 0.16, prof.clackF * 0.6); clack(at + 0.07, 0.09, prof.clackF * 0.87);
         } else if (step % 4 === 2) {               // an offbeat flutter
           clack(at, 0.11);
           if (Math.random() < 0.5) clack(at + 0.21, 0.05);
@@ -229,11 +272,11 @@
     var t = 0;
     var len = 3 + Math.floor(Math.random() * 4);
     for (var i = 0; i < len; i++) {
-      var note = NOTES[Math.floor(Math.random() * NOTES.length)];
+      var note = NOTES[Math.floor(Math.random() * NOTES.length)] * prof.oct;
       if (Math.random() < 0.3) note *= 2;         // an octave lift
-      blip(note, 0.55, 0.05, 'sine', t);
+      blip(note, 0.55, 0.05, prof.wave, t);
       if (i === len - 1 && Math.random() < 0.6) { // close on a fifth
-        blip(note * 1.5, 0.7, 0.035, 'sine', t + 0.05);
+        blip(note * 1.5, 0.7, 0.035, prof.wave, t + 0.05);
       }
       t += 0.3 + Math.random() * 0.32;
     }
@@ -269,6 +312,66 @@
   document.addEventListener('municitron:wirephoto', function () { chime(); });
   document.addEventListener('municitron:whistle', function () { steamWhistle(); });
   document.addEventListener('municitron:season', function () { clunk(); });
+
+  // the brigade bell: three quick brass strikes
+  document.addEventListener('municitron:fire', function () {
+    if (!enabled || !ac) return;
+    for (var i = 0; i < 3; i++) {
+      blip(1180, 0.22, 0.08, 'square', i * 0.28);
+      blip(1770, 0.14, 0.05, 'sine', i * 0.28 + 0.02);
+    }
+  });
+
+  // the grid drops: the hum sags, a breaker clunk, then silence-ish
+  document.addEventListener('municitron:outage', function () {
+    if (!enabled || !ac) return;
+    clunk();
+    var t = ac.currentTime;
+    bed.gain.setValueAtTime(bed.gain.value, t);
+    bed.gain.exponentialRampToValueAtTime(0.05, t + 0.5);
+    bed.gain.setValueAtTime(0.05, t + 4.5);
+    bed.gain.exponentialRampToValueAtTime(Math.max(0.1, prof.bedG), t + 7);
+    blip(72, 1.2, 0.07, 'sine', 0.1);
+  });
+
+  // totality: the world holds its breath — the bed ducks under a low tone
+  document.addEventListener('municitron:eclipse', function () {
+    if (!enabled || !ac) return;
+    var t = ac.currentTime;
+    bed.gain.setValueAtTime(bed.gain.value, t);
+    bed.gain.exponentialRampToValueAtTime(0.18, t + 3);
+    bed.gain.setValueAtTime(0.18, t + 10);
+    bed.gain.exponentialRampToValueAtTime(Math.max(0.1, prof.bedG), t + 15);
+    blip(98, 5, 0.05, 'sine', 1);
+    blip(147, 5, 0.03, 'sine', 1.5);
+  });
+
+  // dialing a new age retunes the set: a band-swept burst of static,
+  // then two settling tones — and the machine speaks that age from
+  // then on (hum, motor, clatter and broadcast all take the profile)
+  function retune() {
+    if (!enabled || !ac) return;
+    var t = ac.currentTime;
+    var src = ac.createBufferSource();
+    src.buffer = noise();
+    src.loop = true;
+    var bp = ac.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.Q.value = 0.7;
+    bp.frequency.setValueAtTime(400, t);
+    bp.frequency.exponentialRampToValueAtTime(3200, t + 0.5);
+    var g = ac.createGain();
+    g.gain.setValueAtTime(0.12, t);
+    g.gain.exponentialRampToValueAtTime(0.0005, t + 0.7);
+    src.connect(bp); bp.connect(g); g.connect(master);
+    src.start(t); src.stop(t + 0.75);
+    blip(520, 0.2, 0.1, 'sine', 0.5);
+    blip(780, 0.3, 0.08, 'sine', 0.62);
+  }
+  document.addEventListener('municitron:era', function (e) {
+    applyEraProfile(e.detail && e.detail.style);
+    retune();
+  });
 
   // the VOLUME knob on the auxiliary rail (detail: 0 / 1 / 2); the
   // clunk confirms the change at the new level

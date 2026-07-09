@@ -498,9 +498,10 @@
     { name: 'ALMANAC', channel: 'almanac' },
     { name: 'DAY LOG', channel: 'daylog' },
     { name: 'WIRE PHOTO', channel: 'wirephoto' },
-    { name: 'RECORD', channel: 'record' }
+    { name: 'RECORD', channel: 'record' },
+    { name: 'ALBUM', channel: 'album' }
   ];
-  var FORM_ANGLES = [-58, -20, 20, 58];
+  var FORM_ANGLES = [-58, -29, 0, 29, 58];
   var formSel = 0;
   var formsRotor = $('forms-rotor');
   var formsReadout = $('forms-readout');

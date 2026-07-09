@@ -71,7 +71,8 @@
 
     setFont(c, '600', 9, 'Jost, Futura, sans-serif', 3);
     c.fillStyle = ENGRAVE;
-    c.fillText('NAZARBAN INSTRUMENT WORKS · WIRE DESK', cx, 34 * S);
+    var era = (M.eras && M.style) ? M.eras[M.style] : null;
+    c.fillText((era ? era.company : 'NAZARBAN INSTRUMENT WORKS') + ' · WIRE DESK', cx, 34 * S);
 
     setFont(c, '700', 21, 'Jost, Futura, sans-serif', 4);
     c.fillStyle = TEAL;

@@ -152,6 +152,25 @@
     c.fillText(finePrint, FACE_L * S, (CARD_H - 51) * S);
     if ('letterSpacing' in c) c.letterSpacing = '0px';
 
+    // every transmitted card is also pasted into the commissioner's
+    // album (localStorage, newest first, a dozen kept — js/album.js
+    // turns the pages); private-mode failures just skip the paste
+    try {
+      var th = document.createElement('canvas');
+      th.width = 430; th.height = 285;
+      th.getContext('2d').drawImage(pc, 0, 0, 430, 285);
+      var album = JSON.parse(localStorage.getItem('municitron-album') || '[]');
+      album.unshift({
+        img: th.toDataURL('image/jpeg', 0.62),
+        name: name, pop: pop, seed: seed,
+        era: eraC ? (eraC.year + ' · ' + eraC.tag) : '1958 · ATOMIC AGE',
+        edition: edition || null,
+        when: Date.now()
+      });
+      if (album.length > 12) album.length = 12;
+      localStorage.setItem('municitron-album', JSON.stringify(album));
+    } catch (err) { /* the mail still goes out */ }
+
     pc.toBlob(function (blob) {
       var a = document.createElement('a');
       a.href = URL.createObjectURL(blob);

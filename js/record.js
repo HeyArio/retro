@@ -84,9 +84,12 @@
       }
     }
 
-    fitLine('NAZARBAN INSTRUMENT WORKS · OFFICE OF PERSONNEL', '600', 11, 4, W - 90);
+    // the letterhead speaks the age being simulated (js/city.js ERAS)
+    var era = (M.eras && M.style) ? M.eras[M.style] : null;
+    var letterhead = (era ? era.company : 'NAZARBAN INSTRUMENT WORKS') + ' · OFFICE OF PERSONNEL';
+    fitLine(letterhead, '600', 11, 4, W - 90);
     c.fillStyle = ENGRAVE;
-    c.fillText('NAZARBAN INSTRUMENT WORKS · OFFICE OF PERSONNEL', cx, 58 * S);
+    c.fillText(letterhead, cx, 58 * S);
 
     fitLine('COMMISSIONER’S RECORD', '700', 30, 5, W - 90);
     c.fillStyle = TEAL;

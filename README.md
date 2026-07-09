@@ -11,8 +11,11 @@ and the WORKS TODAY line in the maintenance hatch all point home.
 ## Nazarban through the ages
 
 The **ERA** dial (top-left of the sim) is the spine of the whole toy: the
-M-58 renders the same kind of city across ages — 1858 steam, 1958 atomic,
-1999 wired, 2077 green, 2140 woven — and each age carries who Nazarban was
+M-58 renders the same kind of city across ages — 1858 steam, 1928 gilt,
+1958 atomic, **1984 cassette**, 1999 wired, **2026 thinking (the present
+day — the age Nazarban AI actually lives in)**, **2050 orbital**, 2077
+green, 2140 woven — and each age
+carries who Nazarban was
 then and how its thinking machine helped the city (brief → install →
 result). Every one resolves to the same live wire: Nazarban AI today, an
 AI consultation & implementation firm. Open the maintenance **HATCH** for
@@ -29,8 +32,37 @@ along in every transmitted postcard. The House stays behind glass (no
 click); its story is told by the hatch dossier. See `drawNazarbanCrest`
 and the designation block in `js/city.js`. The story lives in `ERAS`
 (`js/city.js`), keyed to the render themes; deep-link any age with
-`?style=cyberpunk`. Six further ages (art deco, dieselpunk, clockpunk,
-decopunk, biopunk, nanopunk) ship in `ERAS`/`THEMES` for `?style=` use.
+`?style=cyberpunk`. Five further ages (dieselpunk, clockpunk, decopunk,
+biopunk, nanopunk) ship in `ERAS`/`THEMES` for `?style=` use — each with
+its own signature traffic (a prop plane, an ornithopter and montgolfier,
+a courier moth, a nano swarm, a horse-drawn trap). Turning the dial
+retunes the set — static, one pass of the vertical hold, a flash — and
+the valve audio changes voice with the age (piston thud for steam, data
+chatter for the wired age, near-silence and key taps for the present).
+The street furniture keeps to its own age — the pneumatic tube, saucer
+taxi, jetpack commuters, mechanical man, milk round, drive-in and the
+rest of the Googie wardrobe belong to 1958 (and its 1939 cousin), while
+satellites only cross skies that have launched any — and each age owns
+its night sky: a satellite train for the present, drawn constellations
+for clockwork, the milky way over solarpunk, paper lanterns rising over
+the woven age. 1984 lies under a warm smog bank with a traffic
+helicopter and an evening airliner; 2050 anchors a space elevator at the
+edge of town, climber inching up the ribbon, with a station crossing the
+night overhead.
+
+Larger skies keep their own calendar: August and December bring meteor
+showers, every town has a named comet on a long civic orbit (COMET
+⟨CITYNAME⟩, once a generation), the moon keeps phases with the months —
+and once in a great while the moon crosses the sun, the streets go
+uncanny-dark, the window lights come on, and the whole town stops to
+watch. The town also handles its own small emergencies: a rooftop fire
+brings the brigade out (bell, ladder truck, hose arc — rain does half
+the work), and a grid fault drops every window at once before power
+returns block by block — the Nazarban House, naturally, never blinks.
+About a sixth of flat seeds are **river towns**: a canal crosses Main
+Street under a stone bridge, a barge bobs at its mooring, lamps glint on
+the water after dark — and in the iced months the river freezes and the
+skaters come out.
 
 ## Files
 
@@ -40,7 +72,10 @@ decopunk, biopunk, nanopunk) ship in `ERAS`/`THEMES` for `?style=` use.
   time of day, calendar, ambient life, bulletin wire
 - `js/municitron.js` — console logic (knobs, lever, gauge, transmit, coin,
   machine personality)
-- `js/postcard.js` — composes and downloads the postcard PNG
+- `js/postcard.js` — composes and downloads the postcard PNG (and pastes
+  a copy into the album)
+- `js/album.js` — the postcard album: every transmitted card, newest
+  first, a dozen kept (FORMS dial · ALBUM)
 - `js/certificate.js` — composes and downloads the certificate of incorporation
 - `js/almanac.js` — composes and downloads the municipal almanac (Form CA-2)
 - `js/record.js` — composes and downloads the commissioner's record (Form CR-5)
@@ -87,11 +122,14 @@ civic runs from the **AUXILIARY SERVICES** rail under the console,
 and the rail is real 1958 hardware, not labelled keys:
 
 - **FORMS desk** — a bakelite selector dial (ALMANAC · DAY LOG · WIRE
-  PHOTO · RECORD) feeding a brass **PRINT** button. Almanac is Form
+  PHOTO · RECORD · ALBUM) feeding a brass **PRINT** button. Almanac is Form
   CA-2; Day Log is Form DL-7, a ticker-tape PNG of everything the
   municipal wire carried; Wire Photo re-shoots the canvas as a duotone
   press photograph with scanlines, crop marks and a typeset caption;
-  Record is the commissioner's Form CR-5.
+  Record is the commissioner's Form CR-5; Album opens the postcard
+  collection — every card this console has transmitted, era-stamped,
+  click one to revisit the city that mailed it. Every printed form
+  takes the current era's letterhead.
 - **Ceremony pushbuttons** — round momentary buttons for **CONCERT**,
   **PARADE**, **SALUTE**, **WHISTLE** (the fire station marks noon:
   folks stop mid-stride, a flock objects, every boiler lets off
@@ -136,12 +174,19 @@ and the rail is real 1958 hardware, not labelled keys:
 ## Atmosphere
 
 The scene is staged in parallax layers under a living camera: a slow
-breathing zoom anchored at the ground line, pointer parallax (the sky
-drifts least, the street the most) and an idle wander when the mouse is
-away. Poster clouds cross every sky and darken into storm cells, chimney
-smoke leans with the wind, lightning cracks over full rain (with thunder
-on the valve audio), wet streets reflect the lamps and doorways, and
-snow settles on every rooftop and the monorail beam.
+breathing zoom anchored at the ground line, pointer parallax in both
+axes (the sky drifts least, the street the most), an idle wander when
+the mouse is away, and a gentle push-in whenever a ceremony gives the
+town something to watch. Poster clouds cross every sky and darken into
+storm cells, chimney
+smoke leans with the wind, a slow gust leans the rain and drifts the
+snow, lightning cracks over full rain (with thunder on the valve
+audio), wet streets reflect the lamps and doorways — raindrop rings
+widening on the asphalt — and snow settles on every rooftop and the
+monorail beam. The distant back row repaints into a cached sheet a few
+times a second, so the busiest eras still idle smoothly. The NEWSREEL
+camera opens every reel on an era-stamped title card with a
+film-leader sweep.
 
 ## Terrain
 

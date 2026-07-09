@@ -25,7 +25,13 @@ Fictional manufacturer: Nazarban Instrument Works, est. 1958.
 - TIME OF DAY: shifts sky palette + window lights
 - GROWTH lever: DORMANT (paused) / STEADY / BOOM (build rate)
 - CENSUS REGISTER: odometer animates as population grows
+- ERA dial (in the sim viewport): 1858 / 1928 / 1958 / 1984 / 1999 /
+  2026 / 2050 / 2077 / 2140 — each with bespoke buildings, vehicles, citizens,
+  ground, sky motifs, wire lines and a valve-audio profile; five more
+  eras reachable by ?style=. Era swaps roll a TV-retune effect.
 - TRANSMIT POSTCARD: composes current canvas into the postcard
   frame (offscreen canvas) and downloads a PNG:
   "GREETINGS FROM <cityname> — POP. <n> — TRANSMITTED VIA MUNICITRON"
+  — and pastes a thumbnail into the album (localStorage, 12 kept;
+  FORMS dial · ALBUM opens it)
 - COIN SLOT: opens Ko-fi link (placeholder URL for now)

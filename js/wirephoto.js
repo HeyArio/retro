@@ -89,7 +89,8 @@
     c.textAlign = 'right';
     setFont(c, '600', 10, 2.5);
     c.fillStyle = 'rgba(74, 53, 16, 0.6)';
-    c.fillText('NAZARBAN PHOTO SERVICE · POP. ' +
+    var era = (M.eras && M.style) ? M.eras[M.style] : null;
+    c.fillText('NAZARBAN PHOTO SERVICE' + (era ? ' · ' + era.tag : '') + ' · POP. ' +
                Math.floor(M.population || 0).toLocaleString('en-US'), W - PAD, by);
     c.textAlign = 'left';
     if ('letterSpacing' in c) c.letterSpacing = '0px';
