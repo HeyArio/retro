@@ -29,15 +29,17 @@
      thud and low steam for the brass ages, a dynamo and typebars for
      the chrome ones, data chatter for the wired age, near-silence and
      key taps for the present, soft work for the green ages */
+  /* whis: the age's whistle register — the deep steam cry of 1858 rises
+     era by era toward the thin electric siren of the far futures */
   var PROFILES = {
-    atom:    { hum1: 50,  hum2: 100.4, humG: 0.04,  motor: 82,  clackF: 1500, clackJ: 700, wave: 'sine',     oct: 1, bedG: 1 },
-    steam:   { hum1: 34,  hum2: 68.3,  humG: 0.05,  motor: 46,  clackF: 750,  clackJ: 350, wave: 'sine',     oct: 2, bedG: 1.1 },
-    diesel:  { hum1: 60,  hum2: 120.5, humG: 0.045, motor: 110, clackF: 1150, clackJ: 500, wave: 'triangle', oct: 1, bedG: 1 },
-    cyber:   { hum1: 58,  hum2: 116.7, humG: 0.05,  motor: 164, clackF: 2500, clackJ: 900, wave: 'square',   oct: 1, bedG: 0.9 },
-    cassette:{ hum1: 60,  hum2: 119.7, humG: 0.045, motor: 124, clackF: 2100, clackJ: 700, wave: 'square',   oct: 2, bedG: 0.85 },
-    orbital: { hum1: 40,  hum2: 80.4,  humG: 0.035, motor: 74,  clackF: 2800, clackJ: 600, wave: 'sine',     oct: 2, bedG: 0.65 },
-    present: { hum1: 118, hum2: 236.6, humG: 0.02,  motor: 90,  clackF: 3300, clackJ: 800, wave: 'triangle', oct: 2, bedG: 0.5 },
-    green:   { hum1: 44,  hum2: 88.6,  humG: 0.03,  motor: 62,  clackF: 1900, clackJ: 600, wave: 'sine',     oct: 2, bedG: 0.7 }
+    atom:    { hum1: 50,  hum2: 100.4, humG: 0.04,  motor: 82,  clackF: 1500, clackJ: 700, wave: 'sine',     oct: 1, bedG: 1,    whis: 1 },
+    steam:   { hum1: 34,  hum2: 68.3,  humG: 0.05,  motor: 46,  clackF: 750,  clackJ: 350, wave: 'sine',     oct: 2, bedG: 1.1,  whis: 0.72 },
+    diesel:  { hum1: 60,  hum2: 120.5, humG: 0.045, motor: 110, clackF: 1150, clackJ: 500, wave: 'triangle', oct: 1, bedG: 1,    whis: 0.85 },
+    cyber:   { hum1: 58,  hum2: 116.7, humG: 0.05,  motor: 164, clackF: 2500, clackJ: 900, wave: 'square',   oct: 1, bedG: 0.9,  whis: 1.28 },
+    cassette:{ hum1: 60,  hum2: 119.7, humG: 0.045, motor: 124, clackF: 2100, clackJ: 700, wave: 'square',   oct: 2, bedG: 0.85, whis: 1.12 },
+    orbital: { hum1: 40,  hum2: 80.4,  humG: 0.035, motor: 74,  clackF: 2800, clackJ: 600, wave: 'sine',     oct: 2, bedG: 0.65, whis: 1.42 },
+    present: { hum1: 118, hum2: 236.6, humG: 0.02,  motor: 90,  clackF: 3300, clackJ: 800, wave: 'triangle', oct: 2, bedG: 0.5,  whis: 1.05 },
+    green:   { hum1: 44,  hum2: 88.6,  humG: 0.03,  motor: 62,  clackF: 1900, clackJ: 600, wave: 'sine',     oct: 2, bedG: 0.7,  whis: 0.94 }
   };
 
   function profFor(style) {
@@ -249,8 +251,9 @@
       bed.gain.setValueAtTime(0.28, t + 1.15);
       bed.gain.linearRampToValueAtTime(1, t + 1.7);
     }
-    // the town's own cry: seed-tuned root and interval (see VOICE)
-    var root = 523 * VOICE.pitch;
+    // the town's own cry in the age's register: seed-tuned root and
+    // interval (see VOICE), placed by the era's whistle profile
+    var root = 523 * VOICE.pitch * (prof.whis || 1);
     [root, root * VOICE.reed].forEach(function (f, i) {
       var o = ac.createOscillator();
       var g = ac.createGain();

@@ -1197,6 +1197,16 @@
   var fw = { shells: [], sparks: [], show: 0, launchTimer: 0 };
   var FW_COLORS = [BRASS, ORANGE, CREAM_HI];
 
+  // each age favors its own shells: crisp rings over the orbital and
+  // molecular skies, drooping willows for the green, woven and steam
+  // ages, hard chrysanthemums for the wired night
+  var FW_BIAS = { orbital: 1, nanopunk: 1, solarpunk: 2, biopunk: 2,
+                  silkpunk: 2, steampunk: 2, cyberpunk: 0, cassette: 0 };
+  function shellType() {
+    var fav = FW_BIAS[STYLE];
+    return (fav != null && rng6() < 0.55) ? fav : Math.floor(rng6() * 3);
+  }
+
   function startShow(sec) {
     if (reducedMotion.matches) return;
     if (fw.show <= 0) document.dispatchEvent(new CustomEvent('municitron:fireworks'));
@@ -1215,7 +1225,7 @@
           y: GROUND_Y,
           vy: -(300 + rng6() * 130),
           burstY: (100 + rng6() * 180) * SKY_K,
-          type: Math.floor(rng6() * 3),           // chrysanthemum / ring / willow
+          type: shellType(),                      // chrysanthemum / ring / willow
           color: FW_COLORS[Math.floor(rng6() * 3)]
         });
       }
@@ -1423,6 +1433,46 @@
       startShow(4);
     }
   }
+
+  /* the morning edition: one headline per real day — the same story all
+     day, a fresh one tomorrow. The paper is the reason to look in again. */
+  var DAILY_EDITION = [
+    'BAKERY TESTS A THIRTEENTH DOUGHNUT — THE DOZEN HOLDS FIRM',
+    'CROSSWORD RUNS WITH ONE CLUE MISSING — TOWN SOLVES IT ANYWAY',
+    'STATION CLOCK RUNS FOUR MINUTES KIND — NOBODY CORRECTS IT',
+    'LIBRARY ADDS A SECOND WHISPERING ROOM — DEMAND CITED',
+    'MISSING SOCK EPIDEMIC TRACED TO ONE DRYER — OWNER APOLOGIZES',
+    'PIGEONS RELOCATE TO THE BANK LEDGE — ANALYSTS SEE CONFIDENCE',
+    'SOUP OF THE DAY DECLARED SOUP OF THE WEEK BY ACCLAIM',
+    'PARK BENCH REPAINTED THE SAME COLOR — TRADITION PRESERVED',
+    'WEATHER VANE AND WEATHER BUREAU AGREE — BOTH SUSPICIOUS',
+    'BARBER REPORTS ALL RUMORS TRIMMED AND SET BY NOON',
+    'CINEMA MARQUEE LETTER “E” RETURNS — MYSTERY UNSOLVED',
+    'FIRE BRIGADE WINS TUG-OF-WAR WITH POLICE — REMATCH DEMANDED',
+    'BUTCHER, BAKER AND CANDLESTICK MAKER FORM A BOWLING TEAM',
+    'TOWN HALL STAPLER RECOVERED — AMNESTY HONORED IN FULL',
+    'DUCK POND CENSUS COMPLETE — ALL DUCKS PRESENT OR PLAUSIBLE',
+    'LOST KITE RETURNED BY THE WIND — POSTAGE DUE',
+    'EARLY BIRD AND NIGHT OWL SPLIT THE WORM — COMPROMISE HAILED',
+    'MAYOR WEMBLY PROCLAIMS TODAY "A DAY" — CROWDS CONCUR'
+  ];
+  var dailyLine = (function () {
+    var d = new Date();                            // the real day, on purpose:
+    var k = (d.getFullYear() * 512 +               // same edition all day,
+             (d.getMonth() + 1) * 40 + d.getDate()) >>> 0;   // new one tomorrow
+    var r = mulberry32(k ^ seed);
+    return 'TODAY’S EDITION — ' + DAILY_EDITION[Math.floor(r() * DAILY_EDITION.length)];
+  })();
+
+  /* buried treasure: once in a while the wire drops a hint toward the
+     console's typed codes and rituals — a trail, never a menu */
+  var HINT_LINES = [
+    'SERVICE NOTE: THE CONSOLE ANSWERS TO ITS MAKER’S NAME, TYPED IN FULL',
+    'KNAZ ENGINEER, OVERHEARD: “JUST TYPE TELECAST — THE SET DOES THE REST”',
+    'CLERK’S MEMO: TYPE LEDGER AND THE RECORDS DESK ANSWERS AT ONCE',
+    'OLD TIMERS’ RITUAL: DIAL RAIN, SNOW, RAIN, AURORA — THEN WATCH THE SKY'
+  ];
+  var hintIdx = Math.floor(rng5() * HINT_LINES.length);
 
   var wireDeck = [];
   var wireTimer = 18 + rng5() * 20;
@@ -2371,15 +2421,25 @@
       }
     }
 
-    // the town wire files a story when the board is quiet
+    // the town wire files a story when the board is quiet: the day's
+    // edition first (once), then now and then a buried hint, otherwise
+    // the era pool and the perennial deck
     wireTimer -= dt;
     if (wireTimer <= 0) {
       wireTimer = 24 + rng5() * 36;
       if (!bulletin.queue.length) {
-        var eraPool = ERA_WIRE[STYLE];               // the wire speaks the age
-        postBulletin(eraPool && rng5() < 0.4
-          ? eraPool[Math.floor(rng5() * eraPool.length)]
-          : nextWireLine());
+        if (dailyLine) {
+          postBulletin(dailyLine);
+          dailyLine = null;
+        } else if (rng5() < 0.1) {
+          postBulletin(HINT_LINES[hintIdx]);
+          hintIdx = (hintIdx + 1) % HINT_LINES.length;
+        } else {
+          var eraPool = ERA_WIRE[STYLE];             // the wire speaks the age
+          postBulletin(eraPool && rng5() < 0.4
+            ? eraPool[Math.floor(rng5() * eraPool.length)]
+            : nextWireLine());
+        }
       }
     }
 
@@ -2468,7 +2528,7 @@
      carries what the plate, bandstand and sky clicks used to do). */
 
   document.addEventListener('municitron:concert', function () {
-    flashNotice('CONCERT IN THE PARK — THE BANDSTAND STRIKES UP');
+    flashNotice(ceremonyLine('concert', 'CONCERT IN THE PARK — THE BANDSTAND STRIKES UP'));
     if (reducedMotion.matches) return;
     var glyphs = ['♪', '♫', '♩'];
     for (var n = 0; n < 5 && notes.length < 18; n++) {
@@ -2487,7 +2547,7 @@
   // the SALUTE key: a short commissioned fireworks show, plus a ripple
   // of window lights — the town comes out to watch
   document.addEventListener('municitron:salute', function () {
-    flashNotice('FIREWORKS SALUTE — THE TOWN TURNS OUT TO WATCH');
+    flashNotice(ceremonyLine('salute', 'FIREWORKS SALUTE — THE TOWN TURNS OUT TO WATCH'));
     startShow(5);
     for (var i = 0; i < city.length; i++) {
       var wins = city[i].windows;
@@ -2504,7 +2564,7 @@
 
   // the PARADE key: the band doesn't wait for July
   document.addEventListener('municitron:parade', function () {
-    startParade('PARADE ORDERED — THE BAND FORMS UP ON MAIN STREET');
+    startParade(ceremonyLine('parade', 'PARADE ORDERED — THE BAND FORMS UP ON MAIN STREET'));
     tally('parades');
   });
 
@@ -2536,7 +2596,7 @@
   // commissioner says it's noon — folks stop mid-stride, a rooftop
   // flock objects, and every boiler in town lets off steam
   document.addEventListener('municitron:whistle', function () {
-    flashNotice('NOON WHISTLE — LUNCH PAILS OPEN ACROSS TOWN');
+    flashNotice(ceremonyLine('whistle', 'NOON WHISTLE — LUNCH PAILS OPEN ACROSS TOWN'));
     if (reducedMotion.matches) return;
     whistleT = 3;
     var roost = city[Math.floor(rng6() * city.length)];
@@ -8039,6 +8099,101 @@
     ]
   };
 
+  /* the ceremonies belong to the age too: the same four keys on the
+     rail, but each era announces them in its own voice — a calliope in
+     1858 is a holo-rig in 1999 is a grown choir in 2090 */
+  var ERA_CEREMONY = {
+    steampunk: {
+      concert: 'STEAM CALLIOPE IN THE PARK — PRESSURE UP, KEYS HOT',
+      parade:  'PARADE ORDERED — THE PENNY-FARTHING BRIGADE WOBBLES FORTH',
+      salute:  'ROCKETS BY APPOINTMENT — THE PYROTECHNISTS OBLIGE',
+      whistle: 'THE NOON WHISTLE — EVERY BOILER IN TOWN ANSWERS'
+    },
+    clockpunk: {
+      concert: 'THE CARILLON PLAYS — EVERY BELL WOUND BY HAND',
+      parade:  'PROCESSION ORDERED — GUILD BANNERS TO THE FORE',
+      salute:  'FIRE-ARROWS OVER THE TOWER — THE ASTRONOMER OBJECTS',
+      whistle: 'THE NOON BELL — THE ORRERY AGREES, FOR ONCE'
+    },
+    artdeco: {
+      concert: 'JAZZ AT THE PAVILION — THE HORN SECTION GLEAMS',
+      parade:  'TICKER-TAPE ORDERED — CLERKS EMPTY THE WASTEBASKETS',
+      salute:  'FIREWORKS OVER THE SPIRE — THE GILDING OUTSHONE, BRIEFLY',
+      whistle: 'NOON WHISTLE — TRADING PAUSES ON THE EXCHANGE FLOOR'
+    },
+    dieselpunk: {
+      concert: 'THE WORKS BAND PLAYS — SHIFT HORNS KEEP TIME',
+      parade:  'MOTORCADE ORDERED — FRESH DIESEL, POLISHED CHROME',
+      salute:  'SEARCHLIGHTS AND STARSHELLS — A SALUTE IN GOOD ORDER',
+      whistle: 'THE NOON WHISTLE — ALL THREE SHIFTS AGREE AT LAST'
+    },
+    decopunk: {
+      concert: 'THE FAIRGROUND ORCHESTRA — TOMORROW, IN FOUR-FOUR TIME',
+      parade:  'STREAMLINE PARADE — THE FUTURE ROLLS DOWN MAIN STREET',
+      salute:  'FIREWORKS OVER THE FAIR — THE WORLD-ENGINE APPROVES',
+      whistle: 'NOON MARKED — THE FAIR’S THOUSAND CLOCKS CONCUR'
+    },
+    atompunk: {
+      concert: 'CONCERT IN THE PARK — THE BANDSTAND STRIKES UP',
+      parade:  'PARADE ORDERED — THE BAND FORMS UP ON MAIN STREET',
+      salute:  'FIREWORKS SALUTE — THE TOWN TURNS OUT TO WATCH',
+      whistle: 'NOON WHISTLE — LUNCH PAILS OPEN ACROSS TOWN'
+    },
+    cassette: {
+      concert: 'SYNTH CONCERT IN THE PARK — BRING A BLANK TAPE',
+      parade:  'PARADE ORDERED — THE BOOMBOX FLOAT LEADS THE WAY',
+      salute:  'FIREWORKS AT ELEVEN — THE ARCADE STEPS OUT TO WATCH',
+      whistle: 'THE NOON HORN — TAPE DECKS PAUSE ALL OVER TOWN'
+    },
+    cyberpunk: {
+      concert: 'HOLO-CONCERT IN THE PLAZA — THE GRID SINGS ALONG',
+      parade:  'NEON PROCESSION ORDERED — REFLECTIONS DOUBLE THE CROWD',
+      salute:  'PYRO OVER THE SPRAWL — BILLBOARDS DIM IN RESPECT',
+      whistle: 'THE NOON SIREN — FORTY CHANNELS HOLD THEIR BREATH'
+    },
+    present: {
+      concert: 'CONCERT IN THE PARK — THE SETLIST LEAKED THIS MORNING',
+      parade:  'PARADE ORDERED — STREAMED LIVE FROM SIX ANGLES',
+      salute:  'FIREWORKS TONIGHT — PHONES UP, THEN EYES UP',
+      whistle: 'THE NOON CHIME — EVERY POCKET BUZZES AT ONCE'
+    },
+    orbital: {
+      concert: 'CONCERT AT THE ELEVATOR PLAZA — AUDIBLE NEARLY TO ORBIT',
+      parade:  'PARADE ORDERED — THE CLIMBER CREW MARCHES IN FULL KIT',
+      salute:  'FIREWORKS CLEARED TO ALTITUDE — ORBIT HAS THE BEST SEATS',
+      whistle: 'NOON ON THE GROUND — ORBIT SETS ITS CLOCKS ANYWAY'
+    },
+    solarpunk: {
+      concert: 'CONCERT IN THE ORCHARD — THE BEES HUM THE LOW PART',
+      parade:  'GARDEN PARADE ORDERED — EVERY FLOAT IN FULL BLOOM',
+      salute:  'SEED-SHELL FIREWORKS — TOMORROW THEY COME UP FLOWERS',
+      whistle: 'THE NOON WHISTLE — SOLAR STORES READ THREE-QUARTERS FULL'
+    },
+    biopunk: {
+      concert: 'THE CULTURED CHOIR SINGS — THE CITY ITSELF KEEPS PITCH',
+      parade:  'PARADE ORDERED — THE STREET GROWS A FRESH RED CARPET',
+      salute:  'BIOLUMINESCENT SALUTE — THE SKY BLOOMS, THEN HEALS',
+      whistle: 'THE NOON PULSE — THE WHOLE CITY TAKES ONE BREATH'
+    },
+    nanopunk: {
+      concert: 'CONCERT AT MICRON HALL — A BILLION TINY INSTRUMENTS',
+      parade:  'PARADE ORDERED — THE STREET REPAVES ITSELF AHEAD OF THE BAND',
+      salute:  'LATTICE SALUTE — THE FIREWORKS ASSEMBLE THEMSELVES MIDAIR',
+      whistle: 'NOON, TO THE NANOSECOND — THE LATTICE INSISTS'
+    },
+    silkpunk: {
+      concert: 'THE LOOM CONDUCTS — SILK STRINGS ACROSS THE QUARTER',
+      parade:  'LANTERN PROCESSION ORDERED — THE THREAD LEADS THE WAY',
+      salute:  'KITE-BORNE FIREWORKS — THE WEAVE HOLDS EVERY SPARK',
+      whistle: 'THE NOON GONG — A THOUSAND TRADES PAUSE ON ONE THREAD'
+    }
+  };
+
+  function ceremonyLine(kind, fallback) {
+    var pool = ERA_CEREMONY[STYLE];
+    return (pool && pool[kind]) || fallback;
+  }
+
   function glowRGBA(hex, a) { var c = hexToRgb(hex); return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
 
   function applyTheme(id) {
@@ -8147,6 +8302,33 @@
     if (away >= 1) {
       postBulletin('WELCOME BACK, COMMISSIONER — ' + away +
                    (away === 1 ? ' DAY' : ' DAYS') + ' SINCE LAST INSPECTION');
+      // the crews kept working: a returning commissioner finds up to
+      // three new roofs raised while the console sat dark — the city
+      // moves without you, which is the best reason to look in on it
+      if (restoredCity) {
+        var raised = 0;
+        var crewCap = Math.min(3, away);
+        // the open lots go first; a fully-planned town densifies
+        // instead, the same way the restore path does
+        while (raised < crewCap && (buildQueue.length || denseQueue.length)) {
+          if (buildQueue.length) {
+            buildQueue.shift().progress = 1;
+            queueUsed++;
+          } else {
+            var grownLot = denseQueue.shift();
+            applyNext(grownLot);
+            grownLot.progress = 1;
+            denseUsed++;
+          }
+          raised++;
+        }
+        if (raised) {
+          saveCity();
+          postBulletin('WHILE YOU WERE OUT — THE CREWS RAISED ' +
+                       (raised === 1 ? 'A NEW BUILDING' : raised + ' NEW BUILDINGS') +
+                       ' ON THEIR OWN');
+        }
+      }
     }
   }
   console.info('MUNICITRON M-58 · ' + CITY_NAME + ' · seed ' + seed + ' — reproduce with ?seed=' + seed);
