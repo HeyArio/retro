@@ -480,6 +480,12 @@
     document.dispatchEvent(new CustomEvent('municitron:' + channel));
   }
 
+  // a line on the city's wire (js/city.js renders it on the glass) —
+  // the console's way of speaking to the commissioner
+  function caption(text) {
+    document.dispatchEvent(new CustomEvent('municitron:caption', { detail: text }));
+  }
+
   // click everywhere, keyboard too on the non-button dials
   function press(id, fn) {
     var el = $(id);
@@ -549,15 +555,27 @@
   press('sw-attract', function () {
     attractOn = flip($('sw-attract'));
     if (attractOn) lastAttractStep = 0;          // first stroll within a second
+    caption(attractOn
+      ? 'ATTRACT ON — THE MACHINE STROLLS THROUGH THE DAY BY ITSELF'
+      : 'ATTRACT OFF — THE CONSOLE IS YOURS, COMMISSIONER');
   });
 
   // TRAVEL desk: point the selector at a destination, then DEPART —
   // leaving town is a two-press affair (armed in orange, asks SURE?)
   var travelSel = 0;                              // 0 NEW TOWN · 1 SISTER CITY
   var travelReadout = $('travel-readout');
+
+  // the destination, spoken plainly — the sister city by name
+  function travelDest() {
+    if (travelSel !== 1) return 'A NEW TOWN';
+    var M = window.MUNICITRON_CITY;
+    return 'SISTER CITY ' + ((M && M.almanac && M.almanac.sister) || '');
+  }
+
   press('travel-sel', function () {
     travelSel = flip($('travel-sel')) ? 1 : 0;
     if (travelReadout) travelReadout.textContent = travelSel ? 'SISTER CITY' : 'NEW TOWN';
+    caption('DESTINATION SET: ' + travelDest() + ' — PRESS DEPART TO TRAVEL');
   });
 
   (function () {
@@ -566,31 +584,79 @@
     if (!btn || !label) return;
     var armed = false;
     var timer = null;
+
+    function disarm() {
+      armed = false;
+      btn.classList.remove('armed');
+      label.textContent = 'DEPART';
+    }
+
     btn.addEventListener('click', function () {
       if (!armed) {
         armed = true;
         btn.classList.add('armed');
         label.textContent = 'SURE?';
-        timer = setTimeout(function () {
-          armed = false;
-          btn.classList.remove('armed');
-          label.textContent = 'DEPART';
-        }, 3000);
+        caption('DEPART FOR ' + travelDest() +
+                '? PRESS AGAIN — THIS CITY IS SAVED AND WILL BE HERE');
+        timer = setTimeout(disarm, 3000);
         return;
       }
       clearTimeout(timer);
       var seed;
       if (travelSel === 1) {
         var M = window.MUNICITRON_CITY;
-        if (!M || !M.almanac || typeof M.almanac.sisterSeed !== 'number') return;
+        if (!M || !M.almanac || typeof M.almanac.sisterSeed !== 'number') {
+          disarm();
+          caption('THE ALMANAC HAS NO ADDRESS FOR THE SISTER CITY — TRY A NEW TOWN');
+          return;
+        }
         seed = M.almanac.sisterSeed;
         label.textContent = 'TUNING…';
       } else {
         seed = (Math.random() * 0x100000000) >>> 0;
         label.textContent = 'SURVEYING…';
       }
-      window.location.href = '?seed=' + seed +
-        '&t=' + state.time + '&w=' + state.weather + '&g=' + state.growth;
+      // the city saves itself and the set rolls (js/city.js, js/sound.js
+      // both listen); only then does the machine change the channel —
+      // travel reads as a retune, not a page falling over
+      document.dispatchEvent(new CustomEvent('municitron:depart', {
+        detail: { destination: travelDest() }
+      }));
+      var go = function () {
+        window.location.href = '?seed=' + seed +
+          '&t=' + state.time + '&w=' + state.weather + '&g=' + state.growth;
+      };
+      if (reduced.matches) go(); else setTimeout(go, 750);
+    });
+  })();
+
+  // every station on the rail explains itself on the wire the moment
+  // the pointer (or keyboard focus) settles on it — the engraved labels
+  // say what the key is, this says what it does. Browser tooltips take
+  // a second and never show on touch; the wire answers at once.
+  (function () {
+    var HINTS = {
+      'forms-dial':    'FORMS DIAL — SELECT A DOCUMENT, THEN PRESS PRINT',
+      'forms-print':   'PRINT — ISSUES THE SELECTED FORM AS A DOWNLOAD',
+      'push-concert':  'CONCERT — THE BAND STRIKES UP IN THE PARK',
+      'push-parade':   'PARADE — A PROCESSION MARCHES ACROSS TOWN',
+      'push-salute':   'SALUTE — A FIREWORKS SHOW OVER THE SKYLINE',
+      'push-whistle':  'WHISTLE — THE NOON WHISTLE STOPS THE WHOLE TOWN',
+      'push-newsreel': 'NEWSREEL — FILMS SIX SECONDS OF THE CITY',
+      'sw-speaker':    'SPEAKER — SWITCHES THE VALVE AUDIO ON OR OFF',
+      'sw-telecast':   'TELECAST — SWITCHES KNAZ-TV ON OR OFF',
+      'sw-attract':    'ATTRACT — THE MACHINE WORKS ITS OWN DIALS WHILE YOU WATCH',
+      'travel-sel':    'DESTINATION — CHOOSE A NEW TOWN OR THE SISTER CITY, THEN DEPART',
+      'travel-depart': 'DEPART — TRAVEL TO THE SET DESTINATION (THIS CITY STAYS SAVED)',
+      'aux-volume':    'VOLUME — LOW, STANDARD OR FULL',
+      'aux-season':    'CIVIC CALENDAR — CLICK TO TURN THE MONTH EARLY',
+      'aux-hatch':     'HATCH — THE MACHINE’S OWN DIAGNOSTICS AND HISTORY'
+    };
+    Object.keys(HINTS).forEach(function (id) {
+      var el = $(id);
+      if (!el) return;
+      el.addEventListener('mouseenter', function () { caption(HINTS[id]); });
+      el.addEventListener('focus', function () { caption(HINTS[id]); });
     });
   })();
 

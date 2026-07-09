@@ -1150,7 +1150,11 @@
   var MONTH_LEN = 16;
   var MONTHS = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
                 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
-  var calendar = { month: 3, year: 1958, t: 0 };   // every city opens in April 1958
+  // the year belongs to the age being simulated: applyTheme rebases it to
+  // the era's own year (1858, 1984, 2140…), keeping any years the city
+  // has lived through as an offset on top
+  var ERA_BASE = 1958;
+  var calendar = { month: 3, year: 1958, t: 0 };   // every city opens in April of its era
   var foundersTimer = -1;                          // countdown to the July show
 
   // one turn of the civic calendar, with all the customs the new month
@@ -2406,7 +2410,7 @@
         d: denseUsed,
         ap: Math.round(ambientPop),
         cm: calendar.month,
-        cy: calendar.year
+        cyo: calendar.year - ERA_BASE
       }));
     } catch (err) { /* storage may be unavailable; the toy shrugs */ }
   }
@@ -2426,7 +2430,14 @@
       }
       denseUsed = d;
       ambientPop = s.ap || 0;
-      if (s.cm != null) { calendar.month = s.cm; calendar.year = s.cy || 1958; }
+      if (s.cm != null) {
+        calendar.month = s.cm;
+        // years persist as an offset from the era's base year, so the
+        // date stays true however the ERA dial moved between visits
+        // (legacy saves stored the absolute year of the atomic age)
+        var off = (s.cyo != null) ? s.cyo : (s.cy || 1958) - 1958;
+        calendar.year = ERA_BASE + Math.max(0, Math.min(500, off));
+      }
       // commission anything the restored census already earned — quietly
       var t = builtMass() * DENSITY + ambientPop;
       for (i = 0; i < landmarks.length; i++) {
@@ -2508,6 +2519,17 @@
   document.addEventListener('municitron:season', function () {
     calendar.t = 0;
     advanceMonth();
+  });
+
+  // the TRAVEL desk departs: the city banks its growth first, the wire
+  // announces the destination, and the set rolls like an era retune so
+  // the reload reads as the machine tuning a new town, not a broken page
+  document.addEventListener('municitron:depart', function (e) {
+    saveCity();
+    var dest = e.detail && e.detail.destination;
+    flashNotice(dest ? 'DEPARTING FOR ' + dest + ' — RETUNING THE SET'
+                     : 'DEPARTING — RETUNING THE SET');
+    if (!reducedMotion.matches) eraFX.t = eraFX.dur;
   });
 
   // the WHISTLE key: the fire station marks noon whenever the
@@ -8023,6 +8045,11 @@
     var th = THEMES[id]; if (!th) return;
     STYLE = id;
     if (window.MUNICITRON_CITY) window.MUNICITRON_CITY.style = id;
+    // the civic calendar reads the age's own year — years already lived
+    // in this city carry over as an offset
+    var eraYear = ERAS[id] ? parseInt(ERAS[id].year, 10) : 1958;
+    calendar.year = eraYear + Math.max(0, calendar.year - ERA_BASE);
+    ERA_BASE = eraYear;
     var oldTeals = TEALS.slice(), oldBg = BG_TEALS.slice(), i, k, b;
     TEALS = th.teals.slice();
     TEAL_TRIM = th.trim; BRASS = th.brass; ORANGE = th.orange;

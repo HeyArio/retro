@@ -53,6 +53,28 @@
 
   var prof = PROFILES.atom;
 
+  /* every city speaks in its own voice: the seed tunes the noon
+     whistle's register and interval, the coin and landmark bells, the
+     ferry horn and the broadcast service's lilt — deterministic, so the
+     same town always sounds like itself and no two towns quite match */
+  var VOICE = (function () {
+    var M = window.MUNICITRON_CITY;
+    var a = ((M && typeof M.seed === 'number') ? M.seed : 0) ^ 0x5F356495;
+    function r() {                                 // mulberry32, own stream
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    }
+    return {
+      pitch: 0.85 + r() * 0.3,                     // the whistle's register
+      reed: [1.2, 1.25, 1.335, 1.5][Math.floor(r() * 4)],  // its two-reed interval
+      bell: 0.88 + r() * 0.28,                     // bells and chimes
+      horn: 0.82 + r() * 0.4,                      // the ferry's horn
+      lilt: 0.94 + r() * 0.12                      // broadcast transposition
+    };
+  })();
+
   function applyEraProfile(style) {
     prof = profFor(style);
     if (!ac) return;
@@ -198,12 +220,12 @@
   }
 
   function clunk()  { blip(140, 0.06, 0.5, 'square'); blip(90, 0.09, 0.35, 'triangle'); }
-  function bell()   { blip(1320, 0.5, 0.3, 'sine'); blip(1980, 0.35, 0.15, 'sine', 0.02); }
+  function bell()   { blip(1320 * VOICE.bell, 0.5, 0.3, 'sine'); blip(1980 * VOICE.bell, 0.35, 0.15, 'sine', 0.02); }
   function thump()  { blip(70, 0.3, 0.6, 'triangle'); blip(55, 0.4, 0.4, 'triangle', 0.12); }
   function wobble() { blip(980, 0.18, 0.2, 'sine'); blip(760, 0.18, 0.2, 'sine', 0.14); blip(540, 0.26, 0.2, 'sine', 0.28); }
   function tone()   { blip(1000, 0.6, 0.18, 'sine'); }
   function rumble() { blip(46, 0.9, 0.5, 'triangle'); blip(38, 1.3, 0.35, 'triangle', 0.18); }
-  function horn()   { blip(164, 0.7, 0.35, 'triangle'); blip(123, 0.9, 0.3, 'triangle', 0.1); }
+  function horn()   { blip(164 * VOICE.horn, 0.7, 0.35, 'triangle'); blip(123 * VOICE.horn, 0.9, 0.3, 'triangle', 0.1); }
   function clink()  { blip(1800, 0.05, 0.14, 'sine'); blip(2400, 0.06, 0.1, 'sine', 0.08); }
   function tick()   {
     var now = Date.now();
@@ -211,7 +233,7 @@
     lastTick = now;
     blip(1900, 0.015, 0.12, 'square');
   }
-  function chime()  { blip(660, 0.22, 0.4, 'sine'); blip(880, 0.34, 0.35, 'sine', 0.16); }
+  function chime()  { blip(660 * VOICE.bell, 0.22, 0.4, 'sine'); blip(880 * VOICE.bell, 0.34, 0.35, 'sine', 0.16); }
   function beep()   { blip(800, 0.09, 0.3, 'sine'); blip(800, 0.09, 0.3, 'sine', 0.35); }
 
   // the fire station's steam whistle: two reeds a third apart, a hard
@@ -227,7 +249,9 @@
       bed.gain.setValueAtTime(0.28, t + 1.15);
       bed.gain.linearRampToValueAtTime(1, t + 1.7);
     }
-    [523, 659].forEach(function (f, i) {
+    // the town's own cry: seed-tuned root and interval (see VOICE)
+    var root = 523 * VOICE.pitch;
+    [root, root * VOICE.reed].forEach(function (f, i) {
       var o = ac.createOscillator();
       var g = ac.createGain();
       o.type = 'triangle';
@@ -272,7 +296,7 @@
     var t = 0;
     var len = 3 + Math.floor(Math.random() * 4);
     for (var i = 0; i < len; i++) {
-      var note = NOTES[Math.floor(Math.random() * NOTES.length)] * prof.oct;
+      var note = NOTES[Math.floor(Math.random() * NOTES.length)] * prof.oct * VOICE.lilt;
       if (Math.random() < 0.3) note *= 2;         // an octave lift
       blip(note, 0.55, 0.05, prof.wave, t);
       if (i === len - 1 && Math.random() < 0.6) { // close on a fifth
@@ -372,6 +396,9 @@
     applyEraProfile(e.detail && e.detail.style);
     retune();
   });
+
+  // departing for another town retunes the set the same way
+  document.addEventListener('municitron:depart', function () { retune(); });
 
   // the VOLUME knob on the auxiliary rail (detail: 0 / 1 / 2); the
   // clunk confirms the change at the new level
