@@ -33,9 +33,17 @@
 
   function updateShareUrl() {
     if (!window.history || !window.history.replaceState) return;
-    var seed = window.MUNICITRON_CITY && window.MUNICITRON_CITY.seed;
-    if (typeof seed !== 'number') return;
     try {
+      // a real town's name IS its address (js/hometown.js) — time and
+      // weather stay off the link because the survey wire keeps them live
+      var HT = window.MUNICITRON_HOMETOWN;
+      if (HT && HT.key) {
+        window.history.replaceState(null, '',
+          '?town=' + encodeURIComponent(HT.key) + '&g=' + state.growth);
+        return;
+      }
+      var seed = window.MUNICITRON_CITY && window.MUNICITRON_CITY.seed;
+      if (typeof seed !== 'number') return;
       window.history.replaceState(null, '',
         '?seed=' + seed + '&t=' + state.time + '&w=' + state.weather + '&g=' + state.growth);
     } catch (err) { /* file:// and sandboxed contexts may refuse; harmless */ }
@@ -163,6 +171,18 @@
 
   weatherKnob.addEventListener('click', function () { setWeather(state.weather + 1); });
   timeDial.addEventListener('click', function () { setTime(state.time + 1); });
+
+  // the foreign survey wire (js/hometown.js) may work the dials itself —
+  // same detents, same announcements; the machine doesn't care whose
+  // hand turns the knob
+  document.addEventListener('municitron:set-weather', function (e) {
+    var i = Number(e.detail);
+    if (i >= 0 && i < 4) setWeather(i);
+  });
+  document.addEventListener('municitron:set-time', function (e) {
+    var i = Number(e.detail);
+    if (i >= 0 && i < 8) setTime(i);
+  });
   document.querySelectorAll('.lever-label').forEach(function (label) {
     label.addEventListener('click', function () { setGrowth(Number(label.dataset.growth)); });
   });
@@ -646,7 +666,7 @@
       'sw-speaker':    'SPEAKER — SWITCHES THE VALVE AUDIO ON OR OFF',
       'sw-telecast':   'TELECAST — SWITCHES KNAZ-TV ON OR OFF',
       'sw-attract':    'ATTRACT — THE MACHINE WORKS ITS OWN DIALS WHILE YOU WATCH',
-      'travel-sel':    'DESTINATION — CHOOSE A NEW TOWN OR THE SISTER CITY, THEN DEPART',
+      'travel-sel':    'DESTINATION — NEW TOWN OR SISTER CITY, THEN DEPART · TYPE VISIT FOR A REAL TOWN',
       'travel-depart': 'DEPART — TRAVEL TO THE SET DESTINATION (THIS CITY STAYS SAVED)',
       'aux-volume':    'VOLUME — LOW, STANDARD OR FULL',
       'aux-season':    'CIVIC CALENDAR — CLICK TO TURN THE MONTH EARLY',

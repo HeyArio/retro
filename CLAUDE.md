@@ -35,3 +35,10 @@ Fictional manufacturer: Nazarban Instrument Works, est. 1958.
   — and pastes a thumbnail into the album (localStorage, 12 kept;
   FORMS dial · ALBUM opens it)
 - COIN SLOT: opens Ko-fi link (placeholder URL for now)
+- FOREIGN SERVICE: ?town=NAME (or typing VISIT) commissions a real
+  town via Open-Meteo's free geocoding/forecast APIs (js/hometown.js;
+  no key, no backend — still static). Name-hash seed so every visitor
+  shares the city; elevation picks harbor/hill/flat; the real census
+  calibrates the register; local time + live weather drive the dials
+  until the commissioner overrides. Must degrade to the local sim
+  whenever the network or data is missing.

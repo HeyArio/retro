@@ -92,6 +92,37 @@ Open `index.html` in any browser, or serve the folder:
 Every visitor gets a seeded city; `?seed=N` reproduces one exactly, and
 the address bar always holds a shareable link to the current scene.
 
+## The foreign service — commission a REAL town
+
+`?town=marrakesh` (or type **VISIT** on the console and spell a name —
+`springfield, illinois` disambiguates with a comma) patches the M-58
+into the international survey wire: Open-Meteo's free geocoding and
+forecast services, called straight from the browser — no API key, no
+backend, still a static deploy, and everything degrades to the local
+simulation if the wire is down.
+
+What the survey decides (`js/hometown.js`):
+
+- the town's **name is its seed** (FNV-1a hash), so every visitor to
+  `?town=marrakesh` stands in the same city — and the share URL is just
+  the town's name
+- **elevation places it**: sea-level towns face the harbor, mountain
+  towns climb the hillside, the rest keep the prairie (and may still
+  luck into a river)
+- the **real census figure calibrates the register**: density scales so
+  the odometer climbs toward the town's actual population and settles
+  there; landmark milestones keep their fraction of the journey (the
+  register carries six drums — a metropolis past 999,999 waits outside)
+- the town's **local sky drives the console**: time of day on arrival,
+  live weather every 15 minutes, and a clear dark night above 60°
+  latitude earns the aurora. Touch a dial yourself and that circuit
+  goes manual — the commissioner outranks the survey bureau, and the
+  wire says so politely.
+
+First landing on a shared town link surveys, files the record
+(localStorage) and retunes the set once — the same theatre as the
+travel desk. The census record re-surveys itself weekly.
+
 ## Deploy
 
 Static files only — any host works (GitHub Pages, Netlify, Cloudflare
@@ -249,7 +280,9 @@ census odometer) downloads the COMMISSIONER'S RECORD (Form CR-5):
 commission date, inspections logged, cities governed, requests
 honored, keys to the city, and your civic firsts with their dates.
 
-For technicians: typing `NAZARBAN` summons the factory test pattern,
+For technicians: typing `VISIT` opens the foreign service desk (a real
+town, by name, printed keystroke by keystroke on the wire), typing
+`NAZARBAN` summons the factory test pattern,
 typing `TELECAST` switches the whole scene to a KNAZ-TV evening
 broadcast (scanlines, rolling bar, station bug), and a certain knob
 ritual (RAIN, SNOW, RAIN, AURORA) summons something else.

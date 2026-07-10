@@ -182,11 +182,16 @@
     };
   }
 
-  // ?seed=0 is a real seed; anything non-numeric falls back to random
+  // ?seed=0 is a real seed; anything non-numeric falls back to random.
+  // ?town=NAME outranks both: the foreign service (js/hometown.js, loaded
+  // first) hashes the real town's name into the seed, so every visitor
+  // to the same town stands in the same city.
+  var HOMETOWN = window.MUNICITRON_HOMETOWN || null;
   var params = new URLSearchParams(window.location.search);
   var seedRaw = params.get('seed');
   var seedNum = (seedRaw === null || seedRaw === '') ? NaN : Number(seedRaw);
-  var seed = isFinite(seedNum) ? (seedNum >>> 0) : (Math.random() * 0x100000000) >>> 0;
+  var seed = HOMETOWN ? HOMETOWN.seed
+    : isFinite(seedNum) ? (seedNum >>> 0) : (Math.random() * 0x100000000) >>> 0;
   var rng = mulberry32(seed);
 
   /* ---------------- city plan (pure, from rng only) -------------------- */
@@ -231,9 +236,11 @@
 
     // ---- harbor towns: about a third of seeds face the water ----
     // one end of the street becomes a bay: quay, pier, lighthouse, and
-    // a ferry — everything civic parcels itself onto the land side
+    // a ferry — everything civic parcels itself onto the land side.
+    // A surveyed real town overrules the dice: the wire's elevation
+    // reading decides whether this town faces the water or the hill.
     var harbor = null;
-    if (rng() < 0.35) {
+    if (HOMETOWN && HOMETOWN.terrain ? HOMETOWN.terrain === 'harbor' : rng() < 0.35) {
       harbor = { side: rng() < 0.5 ? 1 : -1 };    // 1 = water on the right
       harbor.shore = harbor.side === 1 ? 1140 + rng() * 140 : 320 + rng() * 140;
       harbor.lightX = harbor.side === 1 ? VIEW_W - 70 - rng() * 40 : 70 + rng() * 40;
@@ -246,7 +253,7 @@
     // a big lifted-teal hill climbs out of one end of the scene behind
     // the back row, dotted with cottages and served by a funicular
     var hill = null;
-    if (!harbor && rng() < 0.4) {
+    if (!harbor && (HOMETOWN && HOMETOWN.terrain ? HOMETOWN.terrain === 'hill' : rng() < 0.4)) {
       hill = {
         side: rng() < 0.5 ? -1 : 1,
         h: 170 + rng() * 90,
@@ -625,6 +632,35 @@
     buildQueue.shift().progress = 1;
   }
 
+  /* ---------------- foreign service: the real census ------------------- */
+  /* A surveyed town's actual population calibrates the register: density
+     scales so a full build-out lands the odometer on the real figure,
+     the milestone landmarks keep their same fraction of the journey,
+     and the census notices space themselves to roughly a dozen. The
+     plan itself is untouched — same seed, same skyline. */
+
+  var HOME_POP = HOMETOWN && HOMETOWN.population > 0
+    ? Math.min(POP_MAX, Math.round(HOMETOWN.population)) : 0;
+  var DENSITY_K = 1;
+  var CENSUS_STEP = 10000;
+  if (HOME_POP) {
+    var plannedMass = 0;
+    for (var pm = 0; pm < city.length; pm++) {
+      var pf = city[pm].next || city[pm];
+      plannedMass += city[pm].w * (pf.baseH || pf.h);
+    }
+    for (pm = 0; pm < bgCity.length; pm++) {
+      var pg = bgCity[pm].next || bgCity[pm];
+      plannedMass += bgCity[pm].w * (pg.baseH || pg.h) * BG_WEIGHT;
+    }
+    if (plannedMass > 0) DENSITY_K = (HOME_POP * 0.97) / (plannedMass * DENSITY);
+    for (pm = 0; pm < landmarks.length; pm++) {
+      landmarks[pm].threshold = Math.max(400,
+        Math.min(landmarks[pm].threshold * DENSITY_K, HOME_POP * 0.92));
+    }
+    CENSUS_STEP = Math.max(100, Math.pow(10, Math.ceil(Math.log10(Math.max(12, HOME_POP) / 12))));
+  }
+
   /* ---------------- vertical fit: the skyline scales, never crops ------ */
   /* The plan is drawn in the original 600-tall space (ground at 552,
      tallest spire ~470). A short viewport used to decapitate the towers;
@@ -726,7 +762,11 @@
     return name;
   }
 
-  var CITY_NAME = generateName(rng3);
+  // a surveyed real town wears its real name (the register plate is
+  // sized for two dozen characters; longer names keep their start)
+  var CITY_NAME = HOMETOWN && HOMETOWN.name
+    ? String(HOMETOWN.name).toUpperCase().slice(0, 24)
+    : generateName(rng3);
 
   // every municipality needs a motto in confident schoolhouse Latin;
   // drawn from the naming stream AFTER the name so names are unchanged
@@ -1489,7 +1529,7 @@
   }
   var weatherBooted = false;
   var densifyNoticed = false;
-  var nextCensusNotice = 10000;
+  var nextCensusNotice = CENSUS_STEP;
 
   /* ---------------- simulation state ---------------- */
 
@@ -1563,6 +1603,12 @@
     bulletin.current = String(e.detail || '');
     bulletin.started = bulletin.clock;
     bulletin.until = bulletin.clock + 4.5;
+  });
+
+  // outside services (the foreign survey wire, js/hometown.js) may file
+  // a story of their own; it queues like any other municipal traffic
+  document.addEventListener('municitron:bulletin', function (e) {
+    if (e.detail) postBulletin(String(e.detail).slice(0, 96));
   });
 
   // the commissioner's record desk (see js/record.js)
@@ -1687,7 +1733,8 @@
           if (b.progress === 1) b.rising = false;
         }
       }
-      ambientPop += AMBIENT_RATE[growthIndex] * dt;
+      ambientPop += AMBIENT_RATE[growthIndex] * DENSITY_K * dt;
+      if (HOME_POP && ambientPop > HOME_POP) ambientPop = HOME_POP;
     }
 
     easeLevels(timeLevel, timeTo, dt, TIME_FADE);
@@ -2336,7 +2383,9 @@
       }
     }
 
-    var target = Math.min(POP_MAX, builtMass() * DENSITY + ambientPop);
+    var target = Math.min(POP_MAX, builtMass() * DENSITY * DENSITY_K + ambientPop);
+    // a surveyed town's register settles on the real census figure
+    if (HOME_POP && target > HOME_POP) target = HOME_POP;
 
     // the census commissions landmarks; the console's XMIT lamp salutes
     for (i = 0; i < landmarks.length; i++) {
@@ -2366,7 +2415,7 @@
       document.dispatchEvent(new CustomEvent('municitron:population', { detail: whole }));
       if (whole >= nextCensusNotice) {
         postBulletin('CENSUS MILESTONE — POP. ' + nextCensusNotice.toLocaleString('en-US'));
-        nextCensusNotice += 10000;
+        while (nextCensusNotice <= whole) nextCensusNotice += CENSUS_STEP;
         startShow(4);
       }
     }
@@ -2499,7 +2548,7 @@
         calendar.year = ERA_BASE + Math.max(0, Math.min(500, off));
       }
       // commission anything the restored census already earned — quietly
-      var t = builtMass() * DENSITY + ambientPop;
+      var t = builtMass() * DENSITY * DENSITY_K + ambientPop;
       for (i = 0; i < landmarks.length; i++) {
         if (t >= landmarks[i].threshold) {
           landmarks[i].commissioned = true;
@@ -8294,9 +8343,20 @@
     reducedMotion: reducedMotion,
     style: STYLE,
     eras: ERAS,
-    today: NAZARBAN_TODAY
+    today: NAZARBAN_TODAY,
+    hometown: HOMETOWN
   };
   postBulletin('MUNICIPAL SIMULATION IN PROGRESS — MODEL M-58');
+  if (HOMETOWN && HOMETOWN.name) {
+    postBulletin('FOREIGN SURVEY WIRE PATCHED — NOW SIMULATING THE REAL ' +
+                 CITY_NAME + (HOMETOWN.country
+                   ? ', ' + String(HOMETOWN.country).toUpperCase() : ''));
+    if (HOMETOWN.population > POP_MAX) {
+      postBulletin('THE REGISTER CARRIES SIX DRUMS — THE REST OF TOWN WAITED OUTSIDE');
+    }
+  } else if (HOMETOWN) {
+    postBulletin('CONSULTING THE INTERNATIONAL SURVEY WIRE — ONE MOMENT');
+  }
   if (memory && memory.prevVisit) {
     var away = Math.floor((memory.lastVisit - memory.prevVisit) / 86400000);
     if (away >= 1) {
@@ -8331,7 +8391,8 @@
       }
     }
   }
-  console.info('MUNICITRON M-58 · ' + CITY_NAME + ' · seed ' + seed + ' — reproduce with ?seed=' + seed);
+  console.info('MUNICITRON M-58 · ' + CITY_NAME + ' · seed ' + seed + ' — reproduce with ' +
+    (HOMETOWN ? '?town=' + encodeURIComponent(HOMETOWN.key) : '?seed=' + seed));
 
   // paint the very first frame synchronously so the city exists before
   // the first rAF tick — no blank canvas on a throttled or background
